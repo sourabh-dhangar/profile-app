@@ -3,16 +3,25 @@ const path = require('path');
 const fs = require('fs');
 const config = require('../config/env');
 
+const os = require('os');
+
 // Ensure base upload directories exist
-const uploadBaseDir = path.resolve(config.uploadDir);
+const isVercel = Boolean(process.env.VERCEL);
+const uploadBaseDir = isVercel
+  ? path.join(os.tmpdir(), 'uploads')
+  : path.resolve(config.uploadDir);
 const photosDir = path.join(uploadBaseDir, 'photos');
 const reelsDir = path.join(uploadBaseDir, 'reels');
 
-[uploadBaseDir, photosDir, reelsDir].forEach((dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
+try {
+  [uploadBaseDir, photosDir, reelsDir].forEach((dir) => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+} catch (err) {
+  console.warn('⚠️ Warning: Could not initialize local upload directory:', err.message);
+}
 
 // Photo storage engine
 const photoStorage = multer.diskStorage({

@@ -4,11 +4,15 @@ const config = require('./env');
 let mongoMemoryServer = null;
 
 const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) {
+    return mongoose.connection;
+  }
+
   try {
     const conn = await mongoose.connect(config.mongoUri, {
-      serverSelectionTimeoutMS: 2000,
+      serverSelectionTimeoutMS: 5000,
     });
-    console.log(`✅ Connected to local MongoDB at: ${config.mongoUri}`);
+    console.log(`✅ Connected to MongoDB at: ${config.mongoUri.replace(/:([^:@]+)@/, ':****@')}`);
     return conn;
   } catch (error) {
     console.warn(`⚠️ Local MongoDB not reachable at ${config.mongoUri} (${error.message}).`);
