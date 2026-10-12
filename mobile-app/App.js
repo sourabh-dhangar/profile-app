@@ -17,9 +17,114 @@ import {
   requestOtp,
   verifyOtp,
   trackProfileView,
+import {
+  fetchPublicProfile,
+  fetchReels,
+  searchByPhone,
+  requestOtp,
+  verifyOtp,
+  trackProfileView,
 } from './src/services/api';
 
-export default function App() {
+const DEFAULT_PROFILE_DATA = {
+  profile: {
+    name: 'Rahul Sharma',
+    username: 'rahul_dev',
+    profileType: 'Creator',
+    bio: 'Full Stack Engineer & Content Creator building next-generation mobile experiences.',
+    city: 'Bengaluru, India',
+    photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+    theme: 'default',
+    completionPercentage: 100,
+  },
+  sections: [
+    {
+      _id: 'sec-1',
+      title: 'Technical Skills & Stacks',
+      type: 'skills',
+      content: { items: ['React Native', 'Expo', 'Node.js', 'System Architecture', 'Tailwind'] },
+    },
+    {
+      _id: 'sec-2',
+      title: 'Work Experience',
+      type: 'experience',
+      content: { text: 'Staff Mobile Engineer @ Tech Innovators (2022-Present). Architected cross-platform video feed apps.' },
+    },
+    {
+      _id: 'sec-3',
+      title: 'Education',
+      type: 'education',
+      content: { text: 'B.Tech in Computer Science & Engineering • Honors' },
+    },
+  ],
+  reels: [
+    {
+      _id: 'demo-reel-1',
+      caption: 'Building smooth 60fps vertical swipe video reels in React Native!',
+      likesCount: 142,
+      viewsCount: 1240,
+      thumbnailUrl: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
+    },
+  ],
+};
+
+const DEFAULT_REELS = [
+  {
+    _id: 'reel-demo-1',
+    caption: 'Speedrunning mobile UI/UX engineering with dark glassmorphism & fluid animations 🚀',
+    likesCount: 384,
+    viewsCount: 2890,
+    thumbnailUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800',
+    profileId: {
+      name: 'Rahul Sharma',
+      username: 'rahul_dev',
+      photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+    },
+  },
+  {
+    _id: 'reel-demo-2',
+    caption: 'Design systems breakdown: Color tokens, typography hierarchy, and micro-interactions.',
+    likesCount: 195,
+    viewsCount: 1420,
+    thumbnailUrl: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800',
+    profileId: {
+      name: 'Priya Patel',
+      username: 'priya_design',
+      photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
+    },
+  },
+];
+
+class ErrorBoundary extends React.Component {
+  state = { hasError: false, error: null };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.log('App ErrorBoundary caught:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#030712', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(244,63,94,0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#f43f5e' }} />
+          </View>
+          <Text style={{ fontSize: 20, fontWeight: '900', color: '#ffffff', marginBottom: 8, textAlign: 'center' }}>MyProfile App</Text>
+          <Text style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center', marginBottom: 24, lineHeight: 18 }}>
+            {this.state.error?.message || 'Recovering session...'}
+          </Text>
+          <View style={{ backgroundColor: '#10b981', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 }}>
+            <Text style={{ color: '#030712', fontWeight: '900', fontSize: 14 }}>Tap to Refresh</Text>
+          </View>
+        </SafeAreaView>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function MainApp() {
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'reels' | 'discover' | 'login'
 
   // Toast Notification State
@@ -34,12 +139,13 @@ export default function App() {
 
   // Profile State
   const [profileUsername, setProfileUsername] = useState('rahul_dev');
-  const [profileData, setProfileData] = useState(null);
+  const [profileData, setProfileData] = useState(DEFAULT_PROFILE_DATA);
   const [loadingProfile, setLoadingProfile] = useState(false);
 
   // Reels State
-  const [reels, setReels] = useState([]);
+  const [reels, setReels] = useState(DEFAULT_REELS);
   const [loadingReels, setLoadingReels] = useState(false);
+
 
   // Discover State
   const [searchPhone, setSearchPhone] = useState('9876543210');
@@ -411,6 +517,14 @@ export default function App() {
   );
 }
 
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <MainApp />
+    </ErrorBoundary>
+  );
+}
+
 const styles = StyleSheet.create({
   safeContainer: {
     flex: 1,
@@ -420,3 +534,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
