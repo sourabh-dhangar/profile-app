@@ -19,6 +19,9 @@ frontend/dist/
 build/
 .expo/
 mobile-app/.expo/
+.vite/
+frontend/.vite/
+
 
 # Media Uploads & Databases
 backend/uploads/*
