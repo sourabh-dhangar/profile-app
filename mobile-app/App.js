@@ -17,14 +17,8 @@ import {
   requestOtp,
   verifyOtp,
   trackProfileView,
-import {
-  fetchPublicProfile,
-  fetchReels,
-  searchByPhone,
-  requestOtp,
-  verifyOtp,
-  trackProfileView,
 } from './src/services/api';
+
 
 const DEFAULT_PROFILE_DATA = {
   profile: {
