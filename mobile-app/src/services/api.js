@@ -1,5 +1,6 @@
-// Configurable API URL: Use localhost or your machine LAN IP for physical device testing
-export const API_BASE_URL = 'http://localhost:5000/api/v1';
+// Configurable API URL: Supports EXPO_PUBLIC_API_URL or defaults to live Vercel production API
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL || 'https://backend-eight-black-60.vercel.app/api/v1';
 
 export const fetchPublicProfile = async (username) => {
   const res = await fetch(`${API_BASE_URL}/profiles/${username}`);
