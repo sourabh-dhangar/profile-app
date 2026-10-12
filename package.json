@@ -1,0 +1,13 @@
+{
+  "name": "myprofile-platform",
+  "version": "1.0.0",
+  "description": "Full-stack personal digital identity and short-video profile platform",
+  "scripts": {
+    "test": "node tests-e2e/run-all.js",
+    "verify:docker": "node scripts/docker-verify.js",
+    "backend": "node backend/src/server.js",
+    "frontend": "npm --prefix frontend run dev",
+    "mobile": "npm --prefix mobile-app start"
+  },
+  "private": true
+}

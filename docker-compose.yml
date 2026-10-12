@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # ===================================================
+  # 1. MongoDB Database
+  # ===================================================
+  mongo:
+    image: mongo:7.0-jammy
+    container_name: myprofile-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: myprofile
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - internal-net
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand(\"ping\").ok' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ===================================================
+  # 2. Express Backend API
+  # ===================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: myprofile-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGODB_URI: mongodb://mongo:27017/myprofile
+      JWT_SECRET: ${JWT_SECRET:-myprofile_production_secret_key_change_me_987654321}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - internal-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ===================================================
+  # 3. React Vite Frontend SPA
+  # ===================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: myprofile-frontend
+    restart: unless-stopped
+    networks:
+      - internal-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ===================================================
+  # 4. Gateway Nginx Reverse Proxy
+  # ===================================================
+  gateway:
+    image: nginx:alpine
+    container_name: myprofile-gateway
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - uploads_data:/var/www/uploads:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_conf:/etc/letsencrypt:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    networks:
+      - internal-net
+      - public-net
+
+  # ===================================================
+  # 5. Automated Daily Database Backup Service
+  # ===================================================
+  backup:
+    build:
+      context: ./docker/backup
+      dockerfile: Dockerfile
+    container_name: myprofile-backup
+    restart: unless-stopped
+    environment:
+      MONGO_HOST: mongo
+      MONGO_PORT: 27017
+      MONGO_DB: myprofile
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      RETENTION_DAYS: ${RETENTION_DAYS:-7}
+    volumes:
+      - backup_data:/backups
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - internal-net
+
+# =====================================================
+# Volumes & Networks
+# =====================================================
+volumes:
+  mongo_data:
+    name: myprofile_mongo_data
+  uploads_data:
+    name: myprofile_uploads_data
+  backup_data:
+    name: myprofile_backup_data
+  certbot_www:
+    name: myprofile_certbot_www
+  certbot_conf:
+    name: myprofile_certbot_conf
+
+networks:
+  internal-net:
+    name: myprofile_internal_net
+    internal: true
+  public-net:
+    name: myprofile_public_net

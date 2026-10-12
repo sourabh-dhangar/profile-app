@@ -1,0 +1,10 @@
+{
+  "name": "myprofile-tests-e2e",
+  "version": "1.0.0",
+  "description": "Comprehensive E2E and Integration Test Suite for MyProfile Platform",
+  "main": "run-all.js",
+  "scripts": {
+    "test": "node run-all.js"
+  },
+  "dependencies": {}
+}

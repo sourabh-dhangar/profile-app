@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+*/node_modules/
+*/*/node_modules/
+
+# Environment variables
+.env
+backend/.env
+.env.docker
+.env.local
+.env.*.local
+*.env
+!.env.example
+!.env.docker.example
+
+# Build & Bundler outputs
+dist/
+frontend/dist/
+build/
+.expo/
+mobile-app/.expo/
+
+# Media Uploads & Databases
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/data/
+
+# Logs & Debugging
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
