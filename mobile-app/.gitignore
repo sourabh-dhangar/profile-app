@@ -1,5 +1,9 @@
 .expo/
 .expo-shared/
 node_modules/
+android/
+ios/
 .env.local
 .env.*.local
+*.log
+eas-log.*
