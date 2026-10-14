@@ -45,4 +45,21 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-module.exports = { authenticate };
+const optionalAuth = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = verifyToken(token);
+      const user = await User.findById(decoded.userId);
+      if (user && user.accountStatus === 'active') {
+        req.user = user;
+      }
+    }
+    next();
+  } catch (error) {
+    next();
+  }
+};
+
+module.exports = { authenticate, optionalAuth };

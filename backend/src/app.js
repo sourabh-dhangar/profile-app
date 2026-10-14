@@ -57,6 +57,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/profiles/me/sections', sectionRoutes);
+app.use('/api/v1/sections', sectionRoutes);
 app.use('/api/v1/profiles', profileRoutes);
 app.use('/api/v1/reels', reelRoutes);
 app.use('/api/v1/discovery', discoveryRoutes);

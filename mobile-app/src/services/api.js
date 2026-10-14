@@ -1,14 +1,38 @@
-// Configurable API URL: Supports EXPO_PUBLIC_API_URL or defaults to live Vercel production API
+// Configurable API URL: Supports EXPO_PUBLIC_API_URL or defaults to localhost/live Vercel API
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'https://backend-eight-black-60.vercel.app/api/v1';
+  process.env.EXPO_PUBLIC_API_URL ||
+  (typeof window !== 'undefined' && window.location?.hostname === 'localhost'
+    ? 'http://localhost:5000/api/v1'
+    : 'https://backend-eight-black-60.vercel.app/api/v1');
 
 export const fetchPublicProfile = async (username) => {
   const res = await fetch(`${API_BASE_URL}/profiles/${username}`);
   return res.json();
 };
 
-export const fetchReels = async () => {
-  const res = await fetch(`${API_BASE_URL}/reels/feed`);
+export const fetchMyProfile = async (token) => {
+  const res = await fetch(`${API_BASE_URL}/profiles/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const updateMyProfile = async (token, profileData) => {
+  const res = await fetch(`${API_BASE_URL}/profiles/me`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(profileData),
+  });
+  return res.json();
+};
+
+export const fetchReels = async (page = 1, limit = 20) => {
+  const res = await fetch(`${API_BASE_URL}/reels/feed?page=${page}&limit=${limit}`);
   return res.json();
 };
 
@@ -41,6 +65,40 @@ export const verifyOtp = async (mobile, otp, countryCode = '+91') => {
 
 export const getVCardUrl = (username) => `${API_BASE_URL}/profiles/${username}/vcard`;
 
+export const createSection = async (token, sectionData) => {
+  const res = await fetch(`${API_BASE_URL}/sections`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(sectionData),
+  });
+  return res.json();
+};
+
+export const updateSection = async (token, sectionId, sectionData) => {
+  const res = await fetch(`${API_BASE_URL}/sections/${sectionId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(sectionData),
+  });
+  return res.json();
+};
+
+export const deleteSection = async (token, sectionId) => {
+  const res = await fetch(`${API_BASE_URL}/sections/${sectionId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
 export const trackProfileView = async (username) => {
   try {
     const res = await fetch(`${API_BASE_URL}/profiles/${username}/view`, { method: 'POST' });
@@ -62,3 +120,156 @@ export const trackLinkClick = async (username, label, url) => {
     return { success: false };
   }
 };
+
+
+export const createReel = async (token, reelData) => {
+  const res = await fetch(`${API_BASE_URL}/reels`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(reelData),
+  });
+  return res.json();
+};
+
+export const likeReelApi = async (reelId, token = null) => {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const res = await fetch(`${API_BASE_URL}/reels/${reelId}/like`, {
+    method: 'POST',
+    headers,
+  });
+  return res.json();
+};
+
+export const recordReelView = async (reelId) => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/reels/${reelId}/view`, {
+      method: 'POST',
+    });
+    return res.json();
+  } catch (e) {
+    return { success: false };
+  }
+};
+
+export const deleteReelApi = async (token, reelId) => {
+  const res = await fetch(`${API_BASE_URL}/reels/${reelId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const fetchProfileAnalytics = async (token) => {
+  const res = await fetch(`${API_BASE_URL}/profiles/me/analytics`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const sendInquiry = async (username, inquiryData) => {
+  const res = await fetch(`${API_BASE_URL}/profiles/${username}/inquiries`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(inquiryData),
+  });
+  return res.json();
+};
+
+export const fetchMyInquiries = async (token, status = '') => {
+  const query = status ? `?status=${status}` : '';
+  const res = await fetch(`${API_BASE_URL}/profiles/me/inquiries${query}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const updateInquiryStatus = async (token, inquiryId, status) => {
+  const res = await fetch(`${API_BASE_URL}/profiles/me/inquiries/${inquiryId}/status`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ status }),
+  });
+  return res.json();
+};
+
+// ==========================================
+// Super Admin Platform APIs
+// ==========================================
+export const fetchAdminUsers = async (token, params = {}) => {
+  const searchParams = new URLSearchParams();
+  Object.keys(params).forEach((key) => {
+    if (params[key] !== undefined && params[key] !== '') {
+      searchParams.append(key, params[key]);
+    }
+  });
+  const qs = searchParams.toString();
+  const url = `${API_BASE_URL}/admin/users${qs ? `?${qs}` : ''}`;
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const fetchAdminAnalytics = async (token) => {
+  const res = await fetch(`${API_BASE_URL}/admin/analytics`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const updateAdminUserStatus = async (token, userId, updates) => {
+  const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/status`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(updates),
+  });
+  return res.json();
+};
+
+export const fetchAdminReports = async (token) => {
+  const res = await fetch(`${API_BASE_URL}/admin/reports`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const resolveAdminReport = async (token, reportId, data) => {
+  const res = await fetch(`${API_BASE_URL}/admin/reports/${reportId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
+
+
+

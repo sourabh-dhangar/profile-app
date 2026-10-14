@@ -2,18 +2,28 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { COLORS } from '../theme';
 
-const TABS = [
+const BASE_TABS = [
   { id: 'profile', label: 'Profile', icon: '👤', glyph: '●' },
   { id: 'reels', label: 'Reels', icon: '🎬', glyph: '●' },
   { id: 'discover', label: 'Discover', icon: '🔍', glyph: '●' },
   { id: 'login', label: 'Sign In', icon: '🔐', glyph: '●' },
 ];
 
-export default function TabBar({ activeTab, onTabPress, unreadReels = 0 }) {
+export default function TabBar({ activeTab, onTabPress, unreadReels = 0, isAdmin = false }) {
+  const tabs = [
+    { id: 'profile', label: 'Profile', icon: '👤', glyph: '●' },
+    { id: 'reels', label: 'Reels', icon: '🎬', glyph: '●' },
+    { id: 'discover', label: 'Discover', icon: '🔍', glyph: '●' },
+    ...(isAdmin || activeTab === 'admin'
+      ? [{ id: 'admin', label: 'Admin', icon: '👑', glyph: '●' }]
+      : []),
+    { id: 'login', label: 'Sign In', icon: '🔐', glyph: '●' },
+  ];
+
   return (
     <View style={styles.dockWrapper}>
       <View style={styles.dockContainer}>
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <TouchableOpacity

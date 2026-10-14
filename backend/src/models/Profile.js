@@ -31,7 +31,7 @@ const ProfileSchema = new mongoose.Schema({
   },
   profileType: {
     type: String,
-    enum: ['Personal', 'Student', 'Sportsperson', 'Teacher', 'Professional', 'Freelancer', 'ServiceProvider', 'SmallBusiness'],
+    enum: ['Personal', 'Creator', 'Student', 'Sportsperson', 'Teacher', 'Professional', 'Freelancer', 'ServiceProvider', 'SmallBusiness', 'Engineer', 'Designer'],
     default: 'Personal',
   },
   bio: {

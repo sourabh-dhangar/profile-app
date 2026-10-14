@@ -21,13 +21,15 @@ const getMyProfile = async (req, res, next) => {
     }
 
     const sections = await Section.find({ profileId: profile._id }).sort({ order: 1 });
-    const reelsCount = await Reel.countDocuments({ profileId: profile._id, status: 'active' });
+    const reels = await Reel.find({ profileId: profile._id, status: 'active' }).sort({ createdAt: -1 });
+    const reelsCount = reels.length;
 
     res.status(200).json({
       success: true,
       data: {
         profile,
         sections,
+        reels,
         stats: {
           reelsCount,
         },
@@ -81,6 +83,7 @@ const updateMyProfile = async (req, res, next) => {
     if (profileType !== undefined) profile.profileType = profileType;
     if (socialLinks !== undefined) profile.socialLinks = socialLinks;
     if (theme !== undefined) profile.theme = theme;
+    if (req.body.photoUrl !== undefined) profile.photoUrl = req.body.photoUrl;
     if (contactDetails !== undefined) {
       profile.contactDetails = {
         ...profile.contactDetails.toObject(),

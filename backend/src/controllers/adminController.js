@@ -139,14 +139,25 @@ const getUsers = async (req, res, next) => {
       .select('-otp')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit, 10));
+      .limit(parseInt(limit, 10))
+      .lean();
+
+    const userIds = users.map((u) => u._id);
+    const profiles = await Profile.find({ userId: { $in: userIds } }).lean();
+    const profileMap = new Map();
+    profiles.forEach((p) => profileMap.set(p.userId.toString(), p));
+
+    const enrichedUsers = users.map((u) => ({
+      ...u,
+      profile: profileMap.get(u._id.toString()) || null,
+    }));
 
     const total = await User.countDocuments(query);
 
     res.status(200).json({
       success: true,
       data: {
-        users,
+        users: enrichedUsers,
         pagination: {
           page: parseInt(page, 10),
           limit: parseInt(limit, 10),

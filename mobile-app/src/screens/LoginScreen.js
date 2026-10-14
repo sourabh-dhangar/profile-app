@@ -19,16 +19,20 @@ export default function LoginScreen({
   setOtpStep,
   authMsg,
   authToken,
+  currentUser,
   onSendOtp,
   onVerifyOtp,
   onLogout,
   onNavigateToProfile,
+  onNavigateToAdmin,
   loading,
 }) {
   const isStep1 = otpStep === 1;
-  const sampleMobile = '9876543210';
+  const sampleDemoMobile = '9876543210';
+  const sampleNewUserMobile = '9123456789';
 
   if (authToken) {
+    const isAdmin = currentUser?.user?.role === 'admin';
     return (
       <View style={styles.container}>
         <View style={styles.signedInCard}>
@@ -43,15 +47,34 @@ export default function LoginScreen({
 
           <View style={styles.sessionDetailsBox}>
             <View style={styles.sessionRow}>
-              <Text style={styles.sessionLabel}>MOBILE</Text>
+              <Text style={styles.sessionLabel}>MOBILE NUMBER</Text>
               <Text style={styles.sessionValue}>{mobileInput || '+91 9876543210'}</Text>
             </View>
             <View style={styles.sessionDivider} />
             <View style={styles.sessionRow}>
-              <Text style={styles.sessionLabel}>STATUS</Text>
-              <Text style={styles.sessionStatusText}>● ONLINE & VERIFIED</Text>
+              <Text style={styles.sessionLabel}>DATA ISOLATION</Text>
+              <Text style={styles.sessionStatusText}>● PRIVATE DATABASE PROFILE</Text>
             </View>
+            {isAdmin && (
+              <>
+                <View style={styles.sessionDivider} />
+                <View style={styles.sessionRow}>
+                  <Text style={styles.sessionLabel}>PERMISSIONS</Text>
+                  <Text style={[styles.sessionStatusText, { color: '#facc15' }]}>👑 SUPER ADMIN</Text>
+                </View>
+              </>
+            )}
           </View>
+
+          {isAdmin && (
+            <TouchableOpacity
+              style={[styles.primaryActionBtn, styles.adminDashboardBtn]}
+              onPress={onNavigateToAdmin}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.adminDashboardBtnText}>👑 Open Super Admin Dashboard →</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.primaryActionBtn}
@@ -59,6 +82,14 @@ export default function LoginScreen({
             activeOpacity={0.8}
           >
             <Text style={styles.primaryActionText}>View My Profile Screen →</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.primaryActionBtn, styles.switchUserBtn]}
+            onPress={onLogout}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.switchUserText}>+ Register / Switch to Another User</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -130,14 +161,54 @@ export default function LoginScreen({
               />
             </View>
 
-            <TouchableOpacity
-              style={styles.sampleChip}
-              onPress={() => setMobileInput(sampleMobile)}
-            >
-              <Text style={styles.sampleChipText}>
-                ⚡ Tap to autofill demo number: {sampleMobile}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.quickFillContainer}>
+              <Text style={styles.quickFillHeader}>QUICK TEST IDENTITIES (100% ISOLATED):</Text>
+              
+              <TouchableOpacity
+                style={styles.sampleChipAdmin}
+                onPress={() => setMobileInput('9999999999')}
+              >
+                <Text style={styles.sampleChipAdminText}>
+                  👑 Super Admin (Full Governance): 9999999999
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sampleChipKavya}
+                onPress={() => setMobileInput('9811223344')}
+              >
+                <Text style={styles.sampleChipKavyaText}>
+                  ✨ Kavya Verma (New UX Designer & Reels): 9811223344
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sampleChipNewUser}
+                onPress={() => setMobileInput('9123456789')}
+              >
+                <Text style={styles.sampleChipNewUserText}>
+                  🌱 Blank Unregistered Creator: 9123456789
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sampleChip}
+                onPress={() => setMobileInput('9876543210')}
+              >
+                <Text style={styles.sampleChipText}>
+                  👤 Rahul Sharma (Full Stack Engineer): 9876543210
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sampleChip}
+                onPress={() => setMobileInput('9811122233')}
+              >
+                <Text style={styles.sampleChipText}>
+                  🎨 Priya Patel (UI/UX Designer): 9811122233
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={[
@@ -360,6 +431,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  quickFillHeader: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#94a3b8',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
   sampleChip: {
     backgroundColor: 'rgba(16, 185, 129, 0.08)',
     paddingHorizontal: 12,
@@ -558,6 +637,77 @@ const styles = StyleSheet.create({
     color: '#020617',
     fontWeight: '900',
     fontSize: 14,
+  },
+  adminDashboardBtn: {
+    backgroundColor: '#facc15',
+    shadowColor: '#facc15',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
+    marginBottom: 10,
+  },
+  adminDashboardBtnText: {
+    color: '#020617',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+  switchUserBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    marginBottom: 8,
+  },
+  switchUserText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  quickFillContainer: {
+    gap: 8,
+    marginBottom: 14,
+  },
+  sampleChipAdmin: {
+    backgroundColor: 'rgba(234, 179, 8, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(234, 179, 8, 0.4)',
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  sampleChipAdminText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#facc15',
+    textAlign: 'center',
+  },
+  sampleChipKavya: {
+    backgroundColor: 'rgba(168, 85, 247, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.4)',
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  sampleChipKavyaText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#c084fc',
+    textAlign: 'center',
+  },
+  sampleChipNewUser: {
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  sampleChipNewUserText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38bdf8',
+    textAlign: 'center',
   },
   logoutBtn: {
     paddingVertical: 10,

@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { COLORS } from '../theme';
 
-export default function Header({ activeTab, onLogoPress }) {
+export default function Header({ activeTab, onLogoPress, currentUser, onSignIn }) {
   return (
     <View style={styles.container}>
       <TouchableOpacity 
@@ -20,14 +20,29 @@ export default function Header({ activeTab, onLogoPress }) {
       </TouchableOpacity>
 
       <View style={styles.rightCluster}>
+        {currentUser ? (
+          <View style={[styles.verifiedBadge, currentUser.user?.role === 'admin' && styles.adminVerifiedBadge]}>
+            <Text style={styles.verifiedIcon}>{currentUser.user?.role === 'admin' ? '👑' : '👤'}</Text>
+            <Text style={[styles.verifiedText, currentUser.user?.role === 'admin' && styles.adminVerifiedText]}>
+              {currentUser.user?.role === 'admin'
+                ? 'Admin'
+                : (currentUser.profile?.username ? (currentUser.profile.username.length > 10 ? currentUser.profile.username.substring(0, 9) + '..' : currentUser.profile.username) : 'me')}
+            </Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.newIdBtn}
+            onPress={onSignIn}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.newIdBtnIcon}>✨</Text>
+            <Text style={styles.newIdBtnText}>New ID</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.liveIndicator}>
           <View style={styles.liveDot} />
           <Text style={styles.liveText}>SYNCED</Text>
-        </View>
-
-        <View style={styles.verifiedBadge}>
-          <Text style={styles.verifiedIcon}>✓</Text>
-          <Text style={styles.verifiedText}>PRO</Text>
         </View>
       </View>
     </View>
@@ -123,6 +138,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(16, 185, 129, 0.35)',
     gap: 4,
   },
+  adminVerifiedBadge: {
+    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+    borderColor: 'rgba(234, 179, 8, 0.4)',
+  },
   verifiedIcon: {
     fontSize: 10,
     color: '#34d399',
@@ -133,5 +152,27 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#34d399',
     letterSpacing: 0.5,
+  },
+  adminVerifiedText: {
+    color: '#facc15',
+  },
+  newIdBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#10b981',
+    gap: 4,
+  },
+  newIdBtnIcon: {
+    fontSize: 11,
+  },
+  newIdBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#34d399',
   },
 });
