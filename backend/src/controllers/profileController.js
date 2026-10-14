@@ -2,6 +2,7 @@ const Profile = require('../models/Profile');
 const Section = require('../models/Section');
 const Reel = require('../models/Reel');
 const Inquiry = require('../models/Inquiry');
+const Follow = require('../models/Follow');
 const config = require('../config/env');
 const { generateQRCodeDataURL } = require('../utils/qr');
 const { generateVCard } = require('../utils/vcard');
@@ -267,6 +268,9 @@ const getPublicProfile = async (req, res, next) => {
           socialLinks: profile.socialLinks,
           qrCodeUrl: profile.qrCodeUrl,
           contactDetails: sanitizedContact,
+          followersCount: profile.followersCount || 0,
+          followingCount: profile.followingCount || 0,
+          completionPercentage: profile.completionPercentage || 0,
           updatedAt: profile.updatedAt,
         },
         sections,
@@ -589,6 +593,149 @@ const updateInquiryStatus = async (req, res, next) => {
   }
 };
 
+/**
+ * Follow / Unfollow Creator
+ * POST /api/v1/profiles/:username/follow
+ */
+const toggleFollow = async (req, res, next) => {
+  try {
+    const { username } = req.params;
+
+    const targetProfile = await Profile.findOne({ username: username.toLowerCase() });
+    if (!targetProfile) {
+      return res.status(404).json({ success: false, message: 'Target profile not found' });
+    }
+
+    // Prevent self-follow
+    if (targetProfile.userId.toString() === req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: 'You cannot follow yourself' });
+    }
+
+    let userProfile = await Profile.findOne({ userId: req.user._id });
+    if (!userProfile) {
+      userProfile = await Profile.create({
+        userId: req.user._id,
+        name: req.user.mobile,
+        username: `user_${req.user.mobile.slice(-4)}`,
+      });
+    }
+
+    const existingFollow = await Follow.findOne({
+      followerId: req.user._id,
+      followingId: targetProfile.userId,
+    });
+
+    if (existingFollow) {
+      // Unfollow
+      await Follow.deleteOne({ _id: existingFollow._id });
+
+      targetProfile.followersCount = Math.max(0, (targetProfile.followersCount || 1) - 1);
+      await targetProfile.save();
+
+      userProfile.followingCount = Math.max(0, (userProfile.followingCount || 1) - 1);
+      await userProfile.save();
+
+      return res.status(200).json({
+        success: true,
+        message: `Unfollowed @${targetProfile.username}`,
+        data: {
+          isFollowing: false,
+          followersCount: targetProfile.followersCount,
+        },
+      });
+    } else {
+      // Follow
+      await Follow.create({
+        followerId: req.user._id,
+        followerProfileId: userProfile._id,
+        followingId: targetProfile.userId,
+        followingProfileId: targetProfile._id,
+      });
+
+      targetProfile.followersCount = (targetProfile.followersCount || 0) + 1;
+      await targetProfile.save();
+
+      userProfile.followingCount = (userProfile.followingCount || 0) + 1;
+      await userProfile.save();
+
+      return res.status(200).json({
+        success: true,
+        message: `Now following @${targetProfile.username}`,
+        data: {
+          isFollowing: true,
+          followersCount: targetProfile.followersCount,
+        },
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Follow Status for a creator
+ * GET /api/v1/profiles/:username/follow-status
+ */
+const getFollowStatus = async (req, res, next) => {
+  try {
+    const { username } = req.params;
+    const targetProfile = await Profile.findOne({ username: username.toLowerCase() });
+    if (!targetProfile) {
+      return res.status(404).json({ success: false, message: 'Profile not found' });
+    }
+
+    let isFollowing = false;
+    if (req.user) {
+      const exists = await Follow.exists({
+        followerId: req.user._id,
+        followingId: targetProfile.userId,
+      });
+      isFollowing = !!exists;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        isFollowing,
+        followersCount: targetProfile.followersCount || 0,
+        followingCount: targetProfile.followingCount || 0,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Followers of a creator
+ * GET /api/v1/profiles/:username/followers
+ */
+const getFollowers = async (req, res, next) => {
+  try {
+    const { username } = req.params;
+    const targetProfile = await Profile.findOne({ username: username.toLowerCase() });
+    if (!targetProfile) {
+      return res.status(404).json({ success: false, message: 'Profile not found' });
+    }
+
+    const follows = await Follow.find({ followingProfileId: targetProfile._id })
+      .populate('followerProfileId', 'name username photoUrl profileType city')
+      .limit(50);
+
+    const followers = follows.map((f) => f.followerProfileId).filter(Boolean);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        followers,
+        total: followers.length,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyProfile,
   updateMyProfile,
@@ -604,4 +751,7 @@ module.exports = {
   createInquiry,
   getMyInquiries,
   updateInquiryStatus,
+  toggleFollow,
+  getFollowStatus,
+  getFollowers,
 };

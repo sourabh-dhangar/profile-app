@@ -15,8 +15,11 @@ const {
   createInquiry,
   getMyInquiries,
   updateInquiryStatus,
+  toggleFollow,
+  getFollowStatus,
+  getFollowers,
 } = require('../controllers/profileController');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuth } = require('../middleware/auth');
 const { uploadPhoto: photoUploader } = require('../middleware/upload');
 
 // Specific routes first
@@ -37,6 +40,11 @@ router.get('/:username/vcard', getVCard);
 router.post('/:username/view', trackProfileView);
 router.post('/:username/click', trackLinkClick);
 router.post('/:username/inquiries', createInquiry);
+
+// Follow / Social routes
+router.post('/:username/follow', authenticate, toggleFollow);
+router.get('/:username/follow-status', optionalAuth, getFollowStatus);
+router.get('/:username/followers', getFollowers);
 
 // Catch-all profile resolution
 router.get('/:username', getPublicProfile);

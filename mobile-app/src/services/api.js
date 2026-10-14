@@ -271,5 +271,64 @@ export const resolveAdminReport = async (token, reportId, data) => {
   return res.json();
 };
 
+export const fetchReelComments = async (reelId) => {
+  const res = await fetch(`${API_BASE_URL}/reels/${reelId}/comments`);
+  return res.json();
+};
+
+export const addReelComment = async (token, reelId, text) => {
+  const res = await fetch(`${API_BASE_URL}/reels/${reelId}/comments`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ text }),
+  });
+  return res.json();
+};
+
+export const deleteReelComment = async (token, reelId, commentId) => {
+  const res = await fetch(`${API_BASE_URL}/reels/${reelId}/comments/${commentId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const fetchFollowingReels = async (token, page = 1, limit = 20) => {
+  const res = await fetch(`${API_BASE_URL}/reels/feed/following?page=${page}&limit=${limit}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const toggleFollowCreator = async (token, username) => {
+  const res = await fetch(`${API_BASE_URL}/profiles/${username}/follow`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const checkFollowStatus = async (token, username) => {
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE_URL}/profiles/${username}/follow-status`, { headers });
+  return res.json();
+};
+
+export const fetchFollowers = async (username) => {
+  const res = await fetch(`${API_BASE_URL}/profiles/${username}/followers`);
+  return res.json();
+};
+
 
 

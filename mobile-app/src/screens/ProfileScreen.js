@@ -170,11 +170,35 @@ export default function ProfileScreen({
   onUpdateInquiryStatus,
   onLogout,
   onBackToMyProfile,
+  isFollowing = false,
+  onToggleFollow,
 }) {
   const [selectedTheme, setSelectedTheme] = useState('default');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+
+  // Follow State
+  const [localIsFollowing, setLocalIsFollowing] = useState(isFollowing);
+  const [localFollowersDelta, setLocalFollowersDelta] = useState(0);
+
+  React.useEffect(() => {
+    setLocalIsFollowing(isFollowing);
+  }, [isFollowing]);
+
+  const handleFollowPress = async () => {
+    if (!currentUser) {
+      onShowToast('Please create or sign into your ID to follow creators', 'info');
+      if (onNavigateToAuth) onNavigateToAuth();
+      return;
+    }
+    const nextFollowing = !localIsFollowing;
+    setLocalIsFollowing(nextFollowing);
+    setLocalFollowersDelta((prev) => (nextFollowing ? prev + 1 : Math.max(prev - 1, -1)));
+    if (onToggleFollow) {
+      await onToggleFollow(profileData?.profile?.username);
+    }
+  };
 
   // Reel Upload & Player State
   const [isCreateReelModalVisible, setIsCreateReelModalVisible] = useState(false);
@@ -752,42 +776,75 @@ export default function ProfileScreen({
         <View style={styles.metricsStrip}>
           <View style={styles.metricItem}>
             <Text style={[styles.metricValue, { color: theme.text }]}>
-              {profile.completionPercentage || 100}%
+              {Math.max(0, (profile.followersCount || 0) + localFollowersDelta)}
             </Text>
-            <Text style={styles.metricLabel}>VERIFIED</Text>
+            <Text style={styles.metricLabel}>FOLLOWERS</Text>
           </View>
 
           <View style={styles.metricDivider} />
 
           <View style={styles.metricItem}>
-            <Text style={styles.metricValue}>{reels.length || 3}</Text>
+            <Text style={styles.metricValue}>
+              {profile.followingCount !== undefined ? profile.followingCount : 0}
+            </Text>
+            <Text style={styles.metricLabel}>FOLLOWING</Text>
+          </View>
+
+          <View style={styles.metricDivider} />
+
+          <View style={styles.metricItem}>
+            <Text style={styles.metricValue}>{reels.length || 0}</Text>
             <Text style={styles.metricLabel}>REELS</Text>
           </View>
 
           <View style={styles.metricDivider} />
 
           <View style={styles.metricItem}>
-            <Text style={styles.metricValue}>1.4K</Text>
+            <Text style={styles.metricValue}>
+              {analyticsData?.totalProfileViews ? `${analyticsData.totalProfileViews}` : '1.4K'}
+            </Text>
             <Text style={styles.metricLabel}>VIEWS</Text>
           </View>
         </View>
 
-        {/* Visitor Inquiry Proposal CTA Button */}
+        {/* Visitor Actions: Follow/Unfollow & Hire Me Inquiry */}
         {!isOwner && (
-          <TouchableOpacity
-            style={[styles.hireMeButton, { backgroundColor: theme.primary }]}
-            onPress={openSendInquiryModal}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.hireMeButtonEmoji}>💼</Text>
-            <View style={styles.hireMeButtonTextCol}>
-              <Text style={styles.hireMeButtonTitle}>Hire Me / Send Inquiry</Text>
-              <Text style={styles.hireMeButtonSub}>
-                Direct message, job proposal, or contract inquiry
+          <View style={styles.visitorActionsRow}>
+            <TouchableOpacity
+              style={[
+                styles.profileFollowBtn,
+                localIsFollowing
+                  ? styles.profileFollowingBtn
+                  : { backgroundColor: theme.primary },
+              ]}
+              onPress={handleFollowPress}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.profileFollowBtnText,
+                  localIsFollowing && styles.profileFollowingBtnText,
+                ]}
+              >
+                {localIsFollowing ? '✓ Following' : '+ Follow'}
               </Text>
-            </View>
-            <Text style={styles.hireMeButtonArrow}>→</Text>
-          </TouchableOpacity>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.hireMeButton, { flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.06)' }]}
+              onPress={openSendInquiryModal}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.hireMeButtonEmoji}>💼</Text>
+              <View style={styles.hireMeButtonTextCol}>
+                <Text style={styles.hireMeButtonTitle}>Hire Me</Text>
+                <Text style={styles.hireMeButtonSub} numberOfLines={1}>
+                  Direct message / project inquiry
+                </Text>
+              </View>
+              <Text style={styles.hireMeButtonArrow}>→</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Action Button Strip */}
@@ -2943,6 +3000,73 @@ const styles = StyleSheet.create({
     width: 1,
     height: 24,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  /* Visitor Action Strip & Follow Button */
+  visitorActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+    marginBottom: 14,
+  },
+  profileFollowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  profileFollowingBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  profileFollowBtnText: {
+    color: '#020617',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  profileFollowingBtnText: {
+    color: '#f1f5f9',
+  },
+  hireMeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 8,
+  },
+  hireMeButtonEmoji: {
+    fontSize: 16,
+  },
+  hireMeButtonTextCol: {
+    flex: 1,
+  },
+  hireMeButtonTitle: {
+    color: '#f8fafc',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  hireMeButtonSub: {
+    color: '#94a3b8',
+    fontSize: 10,
+    marginTop: 1,
+  },
+  hireMeButtonArrow: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '900',
   },
   actionStrip: {
     flexDirection: 'row',

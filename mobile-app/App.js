@@ -36,6 +36,9 @@ import {
   updateAdminUserStatus,
   fetchAdminReports,
   resolveAdminReport,
+  fetchFollowingReels,
+  toggleFollowCreator,
+  checkFollowStatus,
 } from './src/services/api';
 
 
@@ -155,9 +158,11 @@ function MainApp() {
   const [profileData, setProfileData] = useState(DEFAULT_PROFILE_DATA);
   const [loadingProfile, setLoadingProfile] = useState(false);
 
-  // Reels State
+  // Reels & Social State
   const [reels, setReels] = useState(DEFAULT_REELS);
   const [loadingReels, setLoadingReels] = useState(false);
+  const [reelsFeedTab, setReelsFeedTab] = useState('forYou'); // 'forYou' | 'following'
+  const [isFollowingCurrentProfile, setIsFollowingCurrentProfile] = useState(false);
 
 
   // Discover State
@@ -264,6 +269,7 @@ function MainApp() {
 
   const loadMyProfile = async (token, fallbackUsername) => {
     setLoadingProfile(true);
+    setIsFollowingCurrentProfile(false);
     try {
       const res = await fetchMyProfile(token);
       if (res.success && res.data) {
@@ -297,6 +303,16 @@ function MainApp() {
       if (res.success) {
         setProfileData(res.data);
         trackProfileView(username);
+        const token = authToken || currentUser?.token;
+        if (token && currentUser?.profile?.username && currentUser.profile.username !== username) {
+          checkFollowStatus(token, username).then((fRes) => {
+            if (fRes?.success) {
+              setIsFollowingCurrentProfile(Boolean(fRes.data?.isFollowing));
+            }
+          }).catch(() => {});
+        } else {
+          setIsFollowingCurrentProfile(false);
+        }
       } else {
         // Fallback demo data if backend is offline
         setProfileData({
@@ -379,20 +395,85 @@ function MainApp() {
     }
   };
 
-  const loadReels = async () => {
+  const loadReels = async (feedTab = reelsFeedTab) => {
     setLoadingReels(true);
     try {
-      const res = await fetchReels();
-      if (res.success && res.data?.reels?.length > 0) {
-        setReels(res.data.reels);
+      if (feedTab === 'following') {
+        const token = authToken || currentUser?.token;
+        if (!token) {
+          setReels([]);
+          return;
+        }
+        const res = await fetchFollowingReels(token);
+        if (res.success && res.data?.reels) {
+          setReels(res.data.reels);
+        } else {
+          setReels([]);
+        }
       } else {
-        // Fallback high-aesthetic demo reels
+        const res = await fetchReels();
+        if (res.success && res.data?.reels?.length > 0) {
+          setReels(res.data.reels);
+        } else {
+          // Fallback high-aesthetic demo reels
+          setReels([
+            {
+              _id: 'reel-demo-1',
+              caption: 'Speedrunning mobile UI/UX engineering with dark glassmorphism & fluid animations 🚀',
+              likesCount: 384,
+              viewsCount: 2890,
+              thumbnailUrl:
+                'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800',
+              profileId: {
+                name: 'Rahul Sharma',
+                username: 'rahul_dev',
+                photoUrl:
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+              },
+            },
+            {
+              _id: 'reel-demo-2',
+              caption: 'Design systems breakdown: Color tokens, typography hierarchy, and micro-interactions.',
+              likesCount: 195,
+              viewsCount: 1420,
+              thumbnailUrl:
+                'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800',
+              profileId: {
+                name: 'Priya Patel',
+                username: 'priya_design',
+                photoUrl:
+                  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
+              },
+            },
+            {
+              _id: 'reel-demo-3',
+              caption: 'Next-gen privacy: Zero-knowledge phone discovery with salted HMAC-SHA256 indexing 🛡️',
+              likesCount: 512,
+              viewsCount: 4200,
+              thumbnailUrl:
+                'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800',
+              profileId: {
+                name: 'Alex Vance',
+                username: 'alex_cyber',
+                photoUrl:
+                  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400',
+              },
+            },
+          ]);
+        }
+      }
+    } catch (e) {
+      console.log('Reels error:', e.message);
+      if (feedTab === 'following') {
+        setReels([]);
+      } else {
+        // Fallback
         setReels([
           {
             _id: 'reel-demo-1',
-            caption: 'Speedrunning mobile UI/UX engineering with dark glassmorphism & fluid animations 🚀',
-            likesCount: 384,
-            viewsCount: 2890,
+            caption: 'Speedrunning mobile UI/UX engineering with dark glassmorphism 🚀',
+            likesCount: 245,
+            viewsCount: 1820,
             thumbnailUrl:
               'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800',
             profileId: {
@@ -402,57 +483,53 @@ function MainApp() {
                 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
             },
           },
-          {
-            _id: 'reel-demo-2',
-            caption: 'Design systems breakdown: Color tokens, typography hierarchy, and micro-interactions.',
-            likesCount: 195,
-            viewsCount: 1420,
-            thumbnailUrl:
-              'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800',
-            profileId: {
-              name: 'Priya Patel',
-              username: 'priya_design',
-              photoUrl:
-                'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
-            },
-          },
-          {
-            _id: 'reel-demo-3',
-            caption: 'Next-gen privacy: Zero-knowledge phone discovery with salted HMAC-SHA256 indexing 🛡️',
-            likesCount: 512,
-            viewsCount: 4200,
-            thumbnailUrl:
-              'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800',
-            profileId: {
-              name: 'Alex Vance',
-              username: 'alex_cyber',
-              photoUrl:
-                'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400',
-            },
-          },
         ]);
       }
-    } catch (e) {
-      console.log('Reels error:', e.message);
-      // Fallback
-      setReels([
-        {
-          _id: 'reel-demo-1',
-          caption: 'Speedrunning mobile UI/UX engineering with dark glassmorphism 🚀',
-          likesCount: 245,
-          viewsCount: 1820,
-          thumbnailUrl:
-            'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800',
-          profileId: {
-            name: 'Rahul Sharma',
-            username: 'rahul_dev',
-            photoUrl:
-              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
-          },
-        },
-      ]);
     } finally {
       setLoadingReels(false);
+    }
+  };
+
+  const handleSwitchReelsFeedTab = (tab) => {
+    setReelsFeedTab(tab);
+    loadReels(tab);
+  };
+
+  const handleToggleFollow = async (targetUsername) => {
+    const token = authToken || currentUser?.token;
+    if (!token) {
+      showToast('Please sign in to follow creators', 'error');
+      return false;
+    }
+    try {
+      const res = await toggleFollowCreator(token, targetUsername);
+      if (res.success && res.data) {
+        const isNowFollowing = res.data.isFollowing;
+        setIsFollowingCurrentProfile(isNowFollowing);
+        setProfileData((prev) => {
+          if (prev?.profile?.username === targetUsername) {
+            return {
+              ...prev,
+              profile: {
+                ...prev.profile,
+                followersCount: res.data.followersCount,
+              },
+            };
+          }
+          return prev;
+        });
+        showToast(
+          isNowFollowing ? `Now following @${targetUsername}! 🎉` : `Unfollowed @${targetUsername}`,
+          'success'
+        );
+        return true;
+      } else {
+        showToast(res.message || 'Could not update follow status', 'error');
+        return false;
+      }
+    } catch (err) {
+      showToast('Could not complete follow request', 'error');
+      return false;
     }
   };
 
@@ -1026,6 +1103,8 @@ function MainApp() {
                   loadProfile('rahul_dev');
                 }
               }}
+              isFollowing={isFollowingCurrentProfile}
+              onToggleFollow={handleToggleFollow}
             />
           )}
 
@@ -1035,6 +1114,11 @@ function MainApp() {
               loading={loadingReels}
               onShowToast={showToast}
               onViewCreatorProfile={handleSelectCreator}
+              activeFeedTab={reelsFeedTab}
+              onSwitchFeedTab={handleSwitchReelsFeedTab}
+              currentUser={currentUser}
+              authToken={authToken || currentUser?.token}
+              onNavigateToAuth={() => setActiveTab('login')}
             />
           )}
 

@@ -4,6 +4,7 @@ const runTier3Tests = require('./tier3-flow-tests');
 const runTier4Tests = require('./tier4-workload-tests');
 const runTier5Tests = require('./tier5-enhancement-tests');
 const runTier6Tests = require('./tier6-inquiry-tests');
+const runTier7Tests = require('./tier7-social-and-feed-tests');
 
 async function runAll() {
   console.log('====================================================');
@@ -17,9 +18,10 @@ async function runAll() {
   const t4 = await runTier4Tests();
   const t5 = await runTier5Tests();
   const t6 = await runTier6Tests();
+  const t7 = await runTier7Tests();
 
-  const totalPassed = t1.passed + t2.passed + t3.passed + t4.passed + t5.passed + t6.passed;
-  const totalFailed = t1.failed + t2.failed + t3.failed + t4.failed + t5.failed + t6.failed;
+  const totalPassed = t1.passed + t2.passed + t3.passed + t4.passed + t5.passed + t6.passed + t7.passed;
+  const totalFailed = t1.failed + t2.failed + t3.failed + t4.failed + t5.failed + t6.failed + t7.failed;
   const duration = ((Date.now() - start) / 1000).toFixed(2);
 
   console.log('====================================================');
