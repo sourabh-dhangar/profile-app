@@ -39,6 +39,14 @@ import {
   fetchFollowingReels,
   toggleFollowCreator,
   checkFollowStatus,
+  toggleBookmarkReel,
+  fetchSavedReels,
+  replyToInquiry,
+  fetchNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  togglePinReel,
+  vouchSkill,
 } from './src/services/api';
 
 
@@ -189,6 +197,11 @@ function MainApp() {
   const [unreadInquiriesCount, setUnreadInquiriesCount] = useState(0);
   const [loadingInquiries, setLoadingInquiries] = useState(false);
 
+  // Notifications Hub State
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
   // Super Admin Governance State
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminAnalytics, setAdminAnalytics] = useState(null);
@@ -202,6 +215,9 @@ function MainApp() {
         loadMyProfile(currentUser.token);
       } else {
         loadProfile(profileUsername);
+        if (currentUser?.token) {
+          loadNotifications(currentUser.token);
+        }
       }
     } else if (activeTab === 'reels') {
       loadReels();
@@ -283,6 +299,7 @@ function MainApp() {
         }));
         loadAnalytics(token);
         loadInquiries(token);
+        loadNotifications(token);
         return;
       }
     } catch (err) {
@@ -395,7 +412,7 @@ function MainApp() {
     }
   };
 
-  const loadReels = async (feedTab = reelsFeedTab) => {
+  const loadReels = async (feedTab = reelsFeedTab, tag = '', search = '') => {
     setLoadingReels(true);
     try {
       if (feedTab === 'following') {
@@ -410,8 +427,20 @@ function MainApp() {
         } else {
           setReels([]);
         }
+      } else if (feedTab === 'saved') {
+        const token = authToken || currentUser?.token;
+        if (!token) {
+          setReels([]);
+          return;
+        }
+        const res = await fetchSavedReels(token);
+        if (res.success && res.data?.reels) {
+          setReels(res.data.reels);
+        } else {
+          setReels([]);
+        }
       } else {
-        const res = await fetchReels();
+        const res = await fetchReels(1, 20, tag, search);
         if (res.success && res.data?.reels?.length > 0) {
           setReels(res.data.reels);
         } else {
@@ -490,9 +519,52 @@ function MainApp() {
     }
   };
 
-  const handleSwitchReelsFeedTab = (tab) => {
+  const handleSwitchReelsFeedTab = (tab, tag = '', search = '') => {
     setReelsFeedTab(tab);
-    loadReels(tab);
+    loadReels(tab, tag, search);
+  };
+
+  const handleReplyInquiry = async (inquiryId, message) => {
+    const token = authToken || currentUser?.token;
+    if (!token) {
+      showToast('Please sign in to reply to inquiries', 'error');
+      return false;
+    }
+    try {
+      const res = await replyToInquiry(token, inquiryId, message);
+      if (res.success && res.data) {
+        showToast('Reply sent to client! 🚀', 'success');
+        setInquiries((prev) =>
+          prev.map((inq) => (inq._id === inquiryId ? res.data : inq))
+        );
+        return true;
+      }
+      showToast(res.message || 'Failed to send reply', 'error');
+      return false;
+    } catch (err) {
+      showToast(err.message, 'error');
+      return false;
+    }
+  };
+
+  const handleToggleBookmark = async (reelId) => {
+    const token = authToken || currentUser?.token;
+    if (!token) {
+      showToast('Please sign in to save reels to your vault', 'info');
+      setActiveTab('login');
+      return null;
+    }
+    try {
+      const res = await toggleBookmarkReel(token, reelId);
+      if (res.success && res.data) {
+        showToast(res.message, 'success');
+        return res.data;
+      }
+      return null;
+    } catch (err) {
+      showToast(err.message, 'error');
+      return null;
+    }
   };
 
   const handleToggleFollow = async (targetUsername) => {
@@ -1027,6 +1099,97 @@ function MainApp() {
     }
   };
 
+  const loadNotifications = async (token) => {
+    const effectiveToken = token || authToken || currentUser?.token;
+    if (!effectiveToken) return;
+    setLoadingNotifications(true);
+    try {
+      const res = await fetchNotifications(effectiveToken);
+      if (res?.success && res.data) {
+        setNotifications(res.data.notifications || []);
+        setUnreadNotificationsCount(res.data.unreadCount || 0);
+      }
+    } catch (err) {
+      console.log('Error loading notifications:', err.message);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  const handleMarkNotificationRead = async (notifId) => {
+    const effectiveToken = authToken || currentUser?.token;
+    if (!effectiveToken) return;
+    try {
+      setNotifications((prev) =>
+        prev.map((n) => (n._id === notifId ? { ...n, read: true } : n))
+      );
+      setUnreadNotificationsCount((prev) => Math.max(0, prev - 1));
+      await markNotificationRead(effectiveToken, notifId);
+    } catch (e) {}
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    const effectiveToken = authToken || currentUser?.token;
+    if (!effectiveToken) return;
+    try {
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadNotificationsCount(0);
+      await markAllNotificationsRead(effectiveToken);
+      showToast('All notifications marked as read ✓', 'success');
+    } catch (e) {}
+  };
+
+  const handleTogglePinReel = async (reelId) => {
+    const effectiveToken = authToken || currentUser?.token;
+    if (!effectiveToken) {
+      showToast('Please sign in to pin reels', 'info');
+      return;
+    }
+    try {
+      const res = await togglePinReel(effectiveToken, reelId);
+      if (res?.success) {
+        showToast(res.message, 'success');
+        if (currentUser?.profile?.username) {
+          loadMyProfile(effectiveToken);
+        }
+        return res;
+      } else {
+        showToast(res?.message || 'Could not pin reel', 'error');
+      }
+    } catch (err) {
+      showToast('Error updating pin status', 'error');
+    }
+  };
+
+  const handleVouchSkill = async (username, skillName) => {
+    const effectiveToken = authToken || currentUser?.token;
+    try {
+      const res = await vouchSkill(effectiveToken, username, skillName);
+      if (res?.success) {
+        showToast(res.message, 'success');
+        setProfileData((prev) => {
+          if (!prev || !prev.sections) return prev;
+          const updatedSections = prev.sections.map((sec) => {
+            if (sec.type === 'skills') {
+              return {
+                ...sec,
+                content: {
+                  ...sec.content,
+                  items: res.data.items,
+                },
+              };
+            }
+            return sec;
+          });
+          return { ...prev, sections: updatedSections };
+        });
+        return res;
+      }
+    } catch (err) {
+      showToast('Error vouching for skill', 'error');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeContainer}>
       <StatusBar barStyle="light-content" backgroundColor="#030712" />
@@ -1092,6 +1255,12 @@ function MainApp() {
               onRefreshInquiries={() => loadInquiries(authToken)}
               onSendInquiry={handleSendInquiry}
               onUpdateInquiryStatus={handleUpdateInquiryStatus}
+              onReplyInquiry={handleReplyInquiry}
+              onOpenSavedVault={() => {
+                setReelsFeedTab('saved');
+                setActiveTab('reels');
+                loadReels('saved');
+              }}
               onLogout={handleLogout}
               onBackToMyProfile={() => {
                 if (currentUser?.profile?.username) {
@@ -1105,6 +1274,14 @@ function MainApp() {
               }}
               isFollowing={isFollowingCurrentProfile}
               onToggleFollow={handleToggleFollow}
+              notifications={notifications}
+              unreadNotificationsCount={unreadNotificationsCount}
+              loadingNotifications={loadingNotifications}
+              onRefreshNotifications={() => loadNotifications()}
+              onMarkNotificationRead={handleMarkNotificationRead}
+              onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+              onTogglePinReel={handleTogglePinReel}
+              onVouchSkill={handleVouchSkill}
             />
           )}
 
@@ -1116,6 +1293,7 @@ function MainApp() {
               onViewCreatorProfile={handleSelectCreator}
               activeFeedTab={reelsFeedTab}
               onSwitchFeedTab={handleSwitchReelsFeedTab}
+              onToggleBookmark={handleToggleBookmark}
               currentUser={currentUser}
               authToken={authToken || currentUser?.token}
               onNavigateToAuth={() => setActiveTab('login')}

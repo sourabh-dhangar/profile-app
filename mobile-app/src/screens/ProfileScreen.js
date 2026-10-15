@@ -168,15 +168,27 @@ export default function ProfileScreen({
   onRefreshInquiries,
   onSendInquiry,
   onUpdateInquiryStatus,
+  onReplyInquiry,
+  onOpenSavedVault,
   onLogout,
   onBackToMyProfile,
   isFollowing = false,
   onToggleFollow,
+  notifications = [],
+  unreadNotificationsCount = 0,
+  loadingNotifications = false,
+  onRefreshNotifications,
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead,
+  onTogglePinReel,
+  onVouchSkill,
 }) {
   const [selectedTheme, setSelectedTheme] = useState('default');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [isNotificationsModalVisible, setIsNotificationsModalVisible] = useState(false);
+  const [notifFilter, setNotifFilter] = useState('all'); // 'all' | 'likes' | 'inquiries' | 'vouches'
 
   // Follow State
   const [localIsFollowing, setLocalIsFollowing] = useState(isFollowing);
@@ -225,8 +237,13 @@ export default function ProfileScreen({
 
   // Inquiries Inbox Modal State (Owner)
   const [isInboxModalVisible, setIsInboxModalVisible] = useState(false);
-  const [inboxFilter, setInboxFilter] = useState('all'); // 'all' | 'unread' | 'read'
+  const [inboxFilter, setInboxFilter] = useState('all'); // 'all' | 'unread' | 'read' | 'replied'
   const [expandedInquiryId, setExpandedInquiryId] = useState(null);
+
+  // 2-Way In-App Reply State
+  const [activeReplyInquiryId, setActiveReplyInquiryId] = useState(null);
+  const [replyInputText, setReplyInputText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
 
   // Section Modal State
   const [isSectionModalVisible, setIsSectionModalVisible] = useState(false);
@@ -249,6 +266,7 @@ export default function ProfileScreen({
     name: '',
     username: '',
     profileType: 'Creator',
+    verifiedBadge: 'verified_pro',
     city: '',
     bio: '',
     theme: 'default',
@@ -310,6 +328,7 @@ export default function ProfileScreen({
       name: profile.name || '',
       username: profile.username || '',
       profileType: profile.profileType || 'Creator',
+      verifiedBadge: profile.verifiedBadge || 'verified_pro',
       city: profile.city || '',
       bio: profile.bio || '',
       theme: profile.theme || 'default',
@@ -343,6 +362,8 @@ export default function ProfileScreen({
         username: editForm.username,
         photoUrl: editForm.photoUrl ? editForm.photoUrl.trim() : undefined,
         profileType: editForm.profileType,
+        verifiedBadge: editForm.verifiedBadge || 'verified_pro',
+        isVerifiedBadge: editForm.verifiedBadge !== 'none',
         city: editForm.city,
         bio: editForm.bio,
         theme: editForm.theme,
@@ -406,6 +427,26 @@ export default function ProfileScreen({
       }
     } finally {
       setSendingInquiry(false);
+    }
+  };
+
+  const handleSendReply = async (inquiryId) => {
+    if (!replyInputText.trim()) {
+      onShowToast('Please type a reply message', 'error');
+      return;
+    }
+    setSendingReply(true);
+    try {
+      if (onReplyInquiry) {
+        const res = await onReplyInquiry(inquiryId, replyInputText.trim());
+        if (res && res.success) {
+          setReplyInputText('');
+          setActiveReplyInquiryId(null);
+          onShowToast('Reply sent & recorded! 💬', 'success');
+        }
+      }
+    } finally {
+      setSendingReply(false);
     }
   };
 
@@ -674,6 +715,32 @@ export default function ProfileScreen({
             </Text>
           </View>
           <View style={styles.ownerActionButtonsRow}>
+            {/* Activity & Notifications Hub Button */}
+            <TouchableOpacity
+              style={[
+                styles.ownerInquiriesBtn,
+                unreadNotificationsCount > 0 && styles.ownerNotificationsBtnActive,
+              ]}
+              onPress={() => {
+                setIsNotificationsModalVisible(true);
+                if (onRefreshNotifications) onRefreshNotifications();
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.ownerInquiriesEmoji}>🔔</Text>
+              <Text
+                style={[
+                  styles.ownerInquiriesText,
+                  unreadNotificationsCount > 0 && { color: '#38bdf8', fontWeight: '800' },
+                ]}
+              >
+                Activity {unreadNotificationsCount > 0 ? `(${unreadNotificationsCount})` : ''}
+              </Text>
+              {unreadNotificationsCount > 0 && (
+                <View style={[styles.unreadDotBadge, { backgroundColor: '#38bdf8' }]} />
+              )}
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[
                 styles.ownerInquiriesBtn,
@@ -740,7 +807,27 @@ export default function ProfileScreen({
         </View>
 
         {/* Name & Handle */}
-        <Text style={styles.profileName}>{profile.name}</Text>
+        <View style={styles.profileNameRow}>
+          <Text style={styles.profileName}>{profile.name}</Text>
+          {profile.verifiedBadge && profile.verifiedBadge !== 'none' && (
+            <View
+              style={[
+                styles.verifiedBadgePill,
+                { backgroundColor: theme.badgeBg, borderColor: theme.badgeBorder },
+              ]}
+            >
+              <Text style={[styles.verifiedBadgeText, { color: theme.text }]}>
+                {profile.verifiedBadge === 'top_creator'
+                  ? '⭐ Top Creator'
+                  : profile.verifiedBadge === 'verified_engineer'
+                  ? '⚡ Verified Dev'
+                  : profile.verifiedBadge === 'featured_artist'
+                  ? '🎨 Featured Artist'
+                  : '🛡️ Verified Pro'}
+              </Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.badgesRow}>
           <View
@@ -1167,6 +1254,15 @@ export default function ProfileScreen({
           </View>
 
           <View style={styles.reelsHeaderActions}>
+            {onOpenSavedVault && (
+              <TouchableOpacity
+                style={styles.savedVaultBtn}
+                onPress={onOpenSavedVault}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.savedVaultBtnText}>🔖 Saved</Text>
+              </TouchableOpacity>
+            )}
             {isOwner && (
               <TouchableOpacity
                 style={[styles.postReelBtn, { backgroundColor: theme.primary }]}
@@ -1223,7 +1319,10 @@ export default function ProfileScreen({
               return (
                 <TouchableOpacity
                   key={rId}
-                  style={styles.reelPreviewCard}
+                  style={[
+                    styles.reelPreviewCard,
+                    reel.isPinned && styles.reelPreviewCardPinned,
+                  ]}
                   activeOpacity={0.88}
                   onPress={() => {
                     setActiveViewingReel(reel);
@@ -1232,6 +1331,13 @@ export default function ProfileScreen({
                 >
                   <Image source={{ uri: thumb }} style={styles.reelPreviewImg} resizeMode="cover" />
                   <View style={styles.reelPreviewGradient} />
+
+                  {/* Pinned Master Pitch Glow Badge */}
+                  {reel.isPinned && (
+                    <View style={styles.masterPitchBadge}>
+                      <Text style={styles.masterPitchBadgeText}>📌 MASTER PITCH</Text>
+                    </View>
+                  )}
 
                   {/* Top Badges */}
                   <View style={styles.reelCardTopRow}>
@@ -1250,11 +1356,21 @@ export default function ProfileScreen({
                     <Text style={styles.reelPlayIcon}>▶</Text>
                   </View>
 
-                  {/* Bottom Stats & Caption */}
+                  {/* Bottom Stats, Audio & Caption */}
                   <View style={styles.reelCardBottom}>
+                    {/* Audio track tag if available */}
+                    {reel.audioTrack?.title ? (
+                      <View style={styles.reelCardAudioTag}>
+                        <Text style={styles.reelCardAudioText} numberOfLines={1}>
+                          🎵 {reel.audioTrack.title}
+                        </Text>
+                      </View>
+                    ) : null}
+
                     <Text style={styles.reelCardCaption} numberOfLines={2}>
                       {reel.caption || 'Video Demonstration'}
                     </Text>
+
                     <View style={styles.reelEngagementRow}>
                       <TouchableOpacity
                         style={styles.reelEngagementPill}
@@ -1271,6 +1387,25 @@ export default function ProfileScreen({
                         <Text style={styles.reelEngagementEmoji}>👁️</Text>
                         <Text style={styles.reelEngagementCount}>{reel.viewsCount || 0}</Text>
                       </View>
+
+                      {/* Owner Pin/Unpin Master Reel Button */}
+                      {isOwner && onTogglePinReel && (
+                        <TouchableOpacity
+                          style={[
+                            styles.pinMiniBtn,
+                            reel.isPinned && styles.pinMiniBtnActive,
+                          ]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            onTogglePinReel(reel._id);
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.pinMiniBtnText}>
+                            {reel.isPinned ? '📌' : '📍'}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
 
                       <TouchableOpacity
                         style={styles.reelShareMiniBtn}
@@ -1461,33 +1596,55 @@ export default function ProfileScreen({
                 section.content?.items && Array.isArray(section.content.items) ? (
                   <View>
                     <View style={styles.pillsContainer}>
-                      {section.content.items.map((item, itemIdx) => (
-                        <TouchableOpacity
-                          key={itemIdx}
-                          style={[
-                            styles.skillPill,
-                            {
-                              borderColor:
-                                itemIdx === 0 ? theme.badgeBorder : 'rgba(255,255,255,0.1)',
-                            },
-                          ]}
-                          onPress={() => {
-                            if (isOwner) {
-                              handleRemoveSkill(section, itemIdx);
-                            }
-                          }}
-                          activeOpacity={isOwner ? 0.7 : 1}
-                        >
-                          <Text style={styles.skillPillText}>
-                            {typeof item === 'object' && item !== null
-                              ? item.title || item.name || JSON.stringify(item)
-                              : String(item)}
-                          </Text>
-                          {isOwner && (
-                            <Text style={styles.removeSkillBadge}> ✕</Text>
-                          )}
-                        </TouchableOpacity>
-                      ))}
+                      {section.content.items.map((item, itemIdx) => {
+                        const skillName =
+                          typeof item === 'object' && item !== null
+                            ? item.name || item.title || JSON.stringify(item)
+                            : String(item);
+                        const skillVouches =
+                          typeof item === 'object' && item !== null ? item.vouches || 0 : 0;
+
+                        return (
+                          <View
+                            key={itemIdx}
+                            style={[
+                              styles.skillPill,
+                              {
+                                borderColor:
+                                  skillVouches > 0
+                                    ? '#fbbf24'
+                                    : itemIdx === 0
+                                    ? theme.badgeBorder
+                                    : 'rgba(255,255,255,0.1)',
+                              },
+                            ]}
+                          >
+                            <Text style={styles.skillPillText}>{skillName}</Text>
+                            {skillVouches > 0 && (
+                              <View style={styles.skillVouchPill}>
+                                <Text style={styles.skillVouchPillText}>⭐ {skillVouches}</Text>
+                              </View>
+                            )}
+                            {!isOwner && onVouchSkill && (
+                              <TouchableOpacity
+                                style={styles.vouchActionBtn}
+                                onPress={() => onVouchSkill(profile.username, skillName)}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={styles.vouchActionBtnText}>+1 Vouch</Text>
+                              </TouchableOpacity>
+                            )}
+                            {isOwner && (
+                              <TouchableOpacity
+                                onPress={() => handleRemoveSkill(section, itemIdx)}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={styles.removeSkillBadge}> ✕</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      })}
                     </View>
 
                     {/* Quick Inline Skill Adder for Owner */}
@@ -1932,6 +2089,44 @@ export default function ProfileScreen({
                 })}
               </View>
 
+              {/* Creator Verified Badge Selection */}
+              <Text style={styles.modalInputLabel}>VERIFIED CREATOR BADGE</Text>
+              <View style={styles.badgeSelectorGrid}>
+                {[
+                  { id: 'verified_pro', label: 'Verified Pro', icon: '🛡️' },
+                  { id: 'top_creator', label: 'Top Creator', icon: '⭐' },
+                  { id: 'verified_engineer', label: 'Verified Dev', icon: '⚡' },
+                  { id: 'featured_artist', label: 'Featured Artist', icon: '🎨' },
+                  { id: 'none', label: 'None', icon: '⚪' },
+                ].map((b) => {
+                  const isSelected = (editForm.verifiedBadge || 'verified_pro') === b.id;
+                  return (
+                    <TouchableOpacity
+                      key={b.id}
+                      style={[
+                        styles.badgeOptionChip,
+                        isSelected && {
+                          borderColor: theme.primary,
+                          backgroundColor: theme.badgeBg,
+                        },
+                      ]}
+                      onPress={() => setEditForm((prev) => ({ ...prev, verifiedBadge: b.id }))}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.badgeOptionIcon}>{b.icon}</Text>
+                      <Text
+                        style={[
+                          styles.badgeOptionText,
+                          isSelected && { color: theme.text, fontWeight: '800' },
+                        ]}
+                      >
+                        {b.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
               {/* Location */}
               <Text style={styles.modalInputLabel}>LOCATION / CITY</Text>
               <TextInput
@@ -2338,6 +2533,15 @@ export default function ProfileScreen({
                 </View>
               </View>
 
+              {/* Audio Track Tag in Player */}
+              {activeViewingReel?.audioTrack?.title ? (
+                <View style={styles.reelPlayerAudioBadge}>
+                  <Text style={styles.reelPlayerAudioText} numberOfLines={1}>
+                    🎵 {activeViewingReel.audioTrack.title} • {activeViewingReel.audioTrack.artist || profile.name}
+                  </Text>
+                </View>
+              ) : null}
+
               {/* Engagement & Action Buttons */}
               <View style={styles.reelPlayerActionsRow}>
                 {/* Like Button */}
@@ -2359,6 +2563,36 @@ export default function ProfileScreen({
                   <Text style={styles.reelPlayerActionEmoji}>↗️</Text>
                   <Text style={styles.reelPlayerShareText}>Share</Text>
                 </TouchableOpacity>
+
+                {/* Pin / Unpin Master Pitch (Owner only) */}
+                {isOwner && onTogglePinReel && activeViewingReel && (
+                  <TouchableOpacity
+                    style={[
+                      styles.reelPlayerActionBtn,
+                      styles.reelPlayerPinBtn,
+                      activeViewingReel.isPinned && styles.reelPlayerPinBtnActive,
+                    ]}
+                    onPress={() => {
+                      onTogglePinReel(activeViewingReel._id);
+                      setActiveViewingReel((prev) =>
+                        prev ? { ...prev, isPinned: !prev.isPinned } : null
+                      );
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.reelPlayerActionEmoji}>
+                      {activeViewingReel.isPinned ? '📌' : '📍'}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.reelPlayerPinText,
+                        activeViewingReel.isPinned && { color: '#fbbf24', fontWeight: '800' },
+                      ]}
+                    >
+                      {activeViewingReel.isPinned ? 'Pinned' : 'Pin Master'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 {/* Open in Full Feed */}
                 <TouchableOpacity
@@ -2580,6 +2814,10 @@ export default function ProfileScreen({
                   key: 'read',
                   label: `Read (${inquiries.filter((i) => i.status === 'read').length})`,
                 },
+                {
+                  key: 'replied',
+                  label: `Replied (${inquiries.filter((i) => i.status === 'replied').length})`,
+                },
               ].map((tab) => {
                 const isActive = inboxFilter === tab.key;
                 return (
@@ -2617,6 +2855,7 @@ export default function ProfileScreen({
                 const filtered = inquiries.filter((inq) => {
                   if (inboxFilter === 'unread') return inq.status === 'unread';
                   if (inboxFilter === 'read') return inq.status === 'read';
+                  if (inboxFilter === 'replied') return inq.status === 'replied';
                   return true;
                 });
 
@@ -2627,11 +2866,15 @@ export default function ProfileScreen({
                       <Text style={styles.emptyInboxTitle}>
                         {inboxFilter === 'unread'
                           ? 'No Unread Inquiries'
+                          : inboxFilter === 'replied'
+                          ? 'No Replied Inquiries Yet'
                           : 'No Proposals Received Yet'}
                       </Text>
                       <Text style={styles.emptyInboxSub}>
                         {inboxFilter === 'unread'
                           ? 'All incoming inquiries have been reviewed and marked as read!'
+                          : inboxFilter === 'replied'
+                          ? 'Inquiries you respond to using the in-app reply composer will appear here.'
                           : 'When visitors tap "Hire Me / Send Inquiry" on your profile, their messages will appear here.'}
                       </Text>
                     </View>
@@ -2639,6 +2882,7 @@ export default function ProfileScreen({
                 }
 
                 return filtered.map((inq) => {
+                  const isReplied = inq.status === 'replied';
                   const isUnread = inq.status === 'unread';
                   const dateStr = inq.createdAt
                     ? new Date(inq.createdAt).toLocaleDateString(undefined, {
@@ -2681,16 +2925,24 @@ export default function ProfileScreen({
                           <View
                             style={[
                               styles.inquiryStatusPill,
-                              isUnread ? styles.pillUnread : styles.pillRead,
+                              isReplied
+                                ? styles.pillReplied
+                                : isUnread
+                                ? styles.pillUnread
+                                : styles.pillRead,
                             ]}
                           >
                             <Text
                               style={[
                                 styles.inquiryStatusText,
-                                isUnread ? styles.pillTextUnread : styles.pillTextRead,
+                                isReplied
+                                  ? styles.pillTextReplied
+                                  : isUnread
+                                  ? styles.pillTextUnread
+                                  : styles.pillTextRead,
                               ]}
                             >
-                              {isUnread ? '● NEW' : '✓ READ'}
+                              {isReplied ? '✓ REPLIED' : isUnread ? '● NEW' : '✓ READ'}
                             </Text>
                           </View>
                           <Text style={styles.inquiryDateText}>{dateStr}</Text>
@@ -2716,8 +2968,60 @@ export default function ProfileScreen({
                         {inq.message}
                       </Text>
 
+                      {/* Conversation History / Replies Thread */}
+                      {inq.replies && inq.replies.length > 0 && (
+                        <View style={styles.repliesThreadContainer}>
+                          <Text style={styles.repliesThreadHeader}>
+                            CONVERSATION HISTORY ({inq.replies.length})
+                          </Text>
+                          {inq.replies.map((rep, rIdx) => (
+                            <View key={rep._id || rIdx} style={styles.replyBubble}>
+                              <View style={styles.replyBubbleMetaRow}>
+                                <Text style={styles.replySenderTag}>
+                                  {rep.senderRole === 'creator'
+                                    ? '👤 You (Creator)'
+                                    : 'Visitor'}
+                                </Text>
+                                <Text style={styles.replyTimeText}>
+                                  {rep.createdAt
+                                    ? new Date(rep.createdAt).toLocaleTimeString([], {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })
+                                    : ''}
+                                </Text>
+                              </View>
+                              <Text style={styles.replyMessageText}>{rep.message}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
                       {/* Action Bar */}
                       <View style={styles.inquiryActionsRow}>
+                        {onReplyInquiry && (
+                          <TouchableOpacity
+                            style={[
+                              styles.inquiryActionReplyBtn,
+                              activeReplyInquiryId === inq._id &&
+                                styles.inquiryActionReplyBtnActive,
+                            ]}
+                            onPress={() => {
+                              setActiveReplyInquiryId(
+                                activeReplyInquiryId === inq._id ? null : inq._id
+                              );
+                              setReplyInputText('');
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.inquiryActionReplyText}>
+                              {activeReplyInquiryId === inq._id
+                                ? '✕ Cancel'
+                                : '💬 In-App Reply'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+
                         {inq.senderEmail ? (
                           <TouchableOpacity
                             style={styles.inquiryActionEmailBtn}
@@ -2731,7 +3035,7 @@ export default function ProfileScreen({
                             activeOpacity={0.7}
                           >
                             <Text style={styles.inquiryActionEmailText}>
-                              ✉️ Email Reply
+                              ✉️ Email
                             </Text>
                           </TouchableOpacity>
                         ) : null}
@@ -2768,6 +3072,35 @@ export default function ProfileScreen({
                           </Text>
                         </TouchableOpacity>
                       </View>
+
+                      {/* In-App Reply Composer Box */}
+                      {activeReplyInquiryId === inq._id && (
+                        <View style={styles.replyComposerBox}>
+                          <TextInput
+                            style={styles.replyComposerInput}
+                            value={replyInputText}
+                            onChangeText={setReplyInputText}
+                            placeholder={`Reply directly to ${inq.senderName}...`}
+                            placeholderTextColor="#64748b"
+                            multiline
+                            numberOfLines={3}
+                          />
+                          <TouchableOpacity
+                            style={[
+                              styles.sendReplySubmitBtn,
+                              { backgroundColor: theme.primary },
+                              sendingReply && { opacity: 0.6 },
+                            ]}
+                            onPress={() => handleSendReply(inq._id)}
+                            disabled={sendingReply}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.sendReplySubmitText}>
+                              {sendingReply ? 'Sending...' : 'Send Reply 🚀'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
                   );
                 });
@@ -2783,6 +3116,230 @@ export default function ProfileScreen({
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalCancelText}>Close Inbox</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 7. Real-Time Activity & Notifications Hub Modal */}
+      <Modal
+        visible={isNotificationsModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsNotificationsModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View>
+                <View style={styles.inboxModalTitleRow}>
+                  <Text style={styles.modalTitle}>🔔 Activity Hub</Text>
+                  {unreadNotificationsCount > 0 && (
+                    <View
+                      style={[
+                        styles.inboxModalBadge,
+                        {
+                          backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                          borderColor: 'rgba(56, 189, 248, 0.4)',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.inboxModalBadgeText, { color: '#38bdf8' }]}>
+                        {unreadNotificationsCount} New
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.modalSubtitle}>
+                  Real-time likes, saves, skill vouches, inquiries, and follows
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsNotificationsModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Top Action Bar: Refresh & Mark All as Read */}
+            <View style={styles.notifTopActionsRow}>
+              <TouchableOpacity
+                style={styles.notifRefreshBtn}
+                onPress={onRefreshNotifications}
+                disabled={loadingNotifications}
+                activeOpacity={0.7}
+              >
+                {loadingNotifications ? (
+                  <ActivityIndicator size="small" color="#38bdf8" />
+                ) : (
+                  <Text style={styles.notifRefreshText}>🔄 Refresh</Text>
+                )}
+              </TouchableOpacity>
+
+              {unreadNotificationsCount > 0 && onMarkAllNotificationsRead && (
+                <TouchableOpacity
+                  style={styles.markAllReadBtn}
+                  onPress={onMarkAllNotificationsRead}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.markAllReadText}>✓ Mark all as read</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Filter Tabs */}
+            <View style={styles.inboxFilterRow}>
+              {[
+                { key: 'all', label: `All (${notifications.length})` },
+                {
+                  key: 'likes',
+                  label: `❤️ Reactions (${notifications.filter((n) => n.type === 'like' || n.type === 'bookmark').length})`,
+                },
+                {
+                  key: 'inquiries',
+                  label: `💼 Inquiries (${notifications.filter((n) => n.type === 'inquiry' || n.type === 'reply').length})`,
+                },
+                {
+                  key: 'vouches',
+                  label: `⭐ Vouches (${notifications.filter((n) => n.type === 'vouch').length})`,
+                },
+              ].map((tab) => {
+                const isActive = notifFilter === tab.key;
+                return (
+                  <TouchableOpacity
+                    key={tab.key}
+                    style={[
+                      styles.inboxFilterTab,
+                      isActive && {
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                      },
+                    ]}
+                    onPress={() => setNotifFilter(tab.key)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.inboxFilterTabText,
+                        isActive && { color: '#38bdf8', fontWeight: '800' },
+                      ]}
+                    >
+                      {tab.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Notifications List */}
+            <ScrollView
+              style={styles.modalScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              {(() => {
+                const filtered = notifications.filter((item) => {
+                  if (notifFilter === 'likes') return item.type === 'like' || item.type === 'bookmark';
+                  if (notifFilter === 'inquiries') return item.type === 'inquiry' || item.type === 'reply';
+                  if (notifFilter === 'vouches') return item.type === 'vouch';
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <View style={styles.emptyInboxBox}>
+                      <Text style={styles.emptyInboxEmoji}>🔔</Text>
+                      <Text style={styles.emptyInboxTitle}>No Activity Yet</Text>
+                      <Text style={styles.emptyInboxSub}>
+                        {notifFilter === 'all'
+                          ? 'When people like your reels, vouch for your skills, or send inquiries, you will see notifications here in real time.'
+                          : `No notifications found under the "${notifFilter}" filter.`}
+                      </Text>
+                    </View>
+                  );
+                }
+
+                return filtered.map((notif) => {
+                  const isUnread = !notif.read;
+                  const actor = notif.actorProfileId;
+                  const actorName = actor?.name || 'Someone';
+                  const actorAvatar =
+                    actor?.photoUrl ||
+                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400';
+                  const iconByType =
+                    {
+                      like: '❤️',
+                      bookmark: '🔖',
+                      vouch: '⭐',
+                      inquiry: '💼',
+                      reply: '💬',
+                      follow: '👥',
+                    }[notif.type] || '🔔';
+
+                  const timeStr = notif.createdAt
+                    ? new Date(notif.createdAt).toLocaleDateString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : 'Recent';
+
+                  return (
+                    <TouchableOpacity
+                      key={notif._id}
+                      style={[
+                        styles.notifCard,
+                        isUnread && styles.notifCardUnread,
+                      ]}
+                      onPress={() => {
+                        if (isUnread && onMarkNotificationRead) {
+                          onMarkNotificationRead(notif._id);
+                        }
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.notifAvatarBox}>
+                        <Image source={{ uri: actorAvatar }} style={styles.notifAvatar} />
+                        <View style={styles.notifTypeBadge}>
+                          <Text style={styles.notifTypeBadgeEmoji}>{iconByType}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.notifContentCol}>
+                        <View style={styles.notifHeaderRow}>
+                          <Text style={styles.notifTitle} numberOfLines={1}>
+                            {notif.title}
+                          </Text>
+                          <Text style={styles.notifTime}>{timeStr}</Text>
+                        </View>
+
+                        <Text style={styles.notifMessage} numberOfLines={2}>
+                          {notif.message}
+                        </Text>
+
+                        {isUnread && (
+                          <View style={styles.notifUnreadRow}>
+                            <View style={styles.notifUnreadDot} />
+                            <Text style={styles.notifUnreadTag}>New • Tap to mark read</Text>
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                });
+              })()}
+              <View style={{ height: 24 }} />
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setIsNotificationsModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalCancelText}>Close Activity</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -5030,6 +5587,387 @@ const styles = StyleSheet.create({
   inquiryToggleStatusText: {
     color: '#cbd5e1',
     fontSize: 11,
+    fontWeight: '700',
+  },
+  profileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 6,
+  },
+  verifiedBadgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  verifiedBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  savedVaultBtn: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  savedVaultBtnText: {
+    color: '#fbbf24',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  badgeSelectorGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  badgeOptionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  badgeOptionIcon: {
+    fontSize: 14,
+  },
+  badgeOptionText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pillReplied: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  pillTextReplied: {
+    color: '#34d399',
+  },
+  repliesThreadContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 10,
+    gap: 8,
+  },
+  repliesThreadHeader: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  replyBubble: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 8,
+  },
+  replyBubbleMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  replySenderTag: {
+    color: '#60a5fa',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  replyTimeText: {
+    color: '#64748b',
+    fontSize: 9,
+  },
+  replyMessageText: {
+    color: '#f1f5f9',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  inquiryActionReplyBtn: {
+    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  inquiryActionReplyBtnActive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+  },
+  inquiryActionReplyText: {
+    color: '#c084fc',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  replyComposerBox: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  replyComposerInput: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 8,
+    padding: 10,
+    color: '#ffffff',
+    fontSize: 12,
+    minHeight: 50,
+    textAlignVertical: 'top',
+    marginBottom: 8,
+  },
+  sendReplySubmitBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+  },
+  sendReplySubmitText: {
+    color: '#020617',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  // Creator Expansion Styles
+  ownerNotificationsBtnActive: {
+    borderColor: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+  },
+  reelPreviewCardPinned: {
+    borderColor: '#fbbf24',
+    borderWidth: 2,
+    shadowColor: '#fbbf24',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+  },
+  masterPitchBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(251, 191, 36, 0.95)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  masterPitchBadgeText: {
+    color: '#0f172a',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  reelCardAudioTag: {
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  reelCardAudioText: {
+    color: '#cbd5e1',
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  pinMiniBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinMiniBtnActive: {
+    backgroundColor: 'rgba(251, 191, 36, 0.3)',
+    borderColor: '#fbbf24',
+    borderWidth: 1,
+  },
+  pinMiniBtnText: {
+    fontSize: 12,
+  },
+  skillVouchPill: {
+    backgroundColor: 'rgba(251, 191, 36, 0.2)',
+    borderColor: 'rgba(251, 191, 36, 0.4)',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  skillVouchPillText: {
+    color: '#fbbf24',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  vouchActionBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  vouchActionBtnText: {
+    color: '#38bdf8',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  reelPlayerAudioBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  reelPlayerAudioText: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  reelPlayerPinBtn: {
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    borderColor: 'rgba(251, 191, 36, 0.3)',
+  },
+  reelPlayerPinBtnActive: {
+    backgroundColor: 'rgba(251, 191, 36, 0.25)',
+    borderColor: '#fbbf24',
+  },
+  reelPlayerPinText: {
+    color: '#e2e8f0',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  notifTopActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  notifRefreshBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  notifRefreshText: {
+    color: '#38bdf8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  markAllReadBtn: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  markAllReadText: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  notifCard: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  notifCardUnread: {
+    backgroundColor: 'rgba(56, 189, 248, 0.06)',
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  notifAvatarBox: {
+    position: 'relative',
+  },
+  notifAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#1e293b',
+  },
+  notifTypeBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#0f172a',
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  notifTypeBadgeEmoji: {
+    fontSize: 10,
+  },
+  notifContentCol: {
+    flex: 1,
+  },
+  notifHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  notifTitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+    flex: 1,
+  },
+  notifTime: {
+    color: '#64748b',
+    fontSize: 10,
+    marginLeft: 8,
+  },
+  notifMessage: {
+    color: '#94a3b8',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  notifUnreadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 6,
+  },
+  notifUnreadDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#38bdf8',
+  },
+  notifUnreadTag: {
+    color: '#38bdf8',
+    fontSize: 10,
     fontWeight: '700',
   },
 });

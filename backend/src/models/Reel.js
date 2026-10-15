@@ -49,6 +49,27 @@ const ReelSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  bookmarksCount: {
+    type: Number,
+    default: 0,
+  },
+  isPinned: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  audioTrack: {
+    title: {
+      type: String,
+      default: 'Original Sound',
+      trim: true,
+    },
+    artist: {
+      type: String,
+      default: 'Creator',
+      trim: true,
+    },
+  },
 }, {
   timestamps: true,
 });

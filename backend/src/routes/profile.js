@@ -15,9 +15,11 @@ const {
   createInquiry,
   getMyInquiries,
   updateInquiryStatus,
+  replyToInquiry,
   toggleFollow,
   getFollowStatus,
   getFollowers,
+  vouchSkill,
 } = require('../controllers/profileController');
 const { authenticate, optionalAuth } = require('../middleware/auth');
 const { uploadPhoto: photoUploader } = require('../middleware/upload');
@@ -30,6 +32,7 @@ router.get('/me', authenticate, getMyProfile);
 router.get('/me/analytics', authenticate, getProfileAnalytics);
 router.get('/me/inquiries', authenticate, getMyInquiries);
 router.put('/me/inquiries/:id/status', authenticate, updateInquiryStatus);
+router.post('/me/inquiries/:id/reply', authenticate, replyToInquiry);
 router.put('/me', authenticate, updateMyProfile);
 router.post('/me/photo', authenticate, photoUploader.single('photo'), uploadPhoto);
 router.post('/me/publish', authenticate, publishProfile);
@@ -40,6 +43,7 @@ router.get('/:username/vcard', getVCard);
 router.post('/:username/view', trackProfileView);
 router.post('/:username/click', trackLinkClick);
 router.post('/:username/inquiries', createInquiry);
+router.post('/:username/skills/vouch', optionalAuth, vouchSkill);
 
 // Follow / Social routes
 router.post('/:username/follow', authenticate, toggleFollow);

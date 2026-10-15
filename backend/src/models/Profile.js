@@ -103,6 +103,15 @@ const ProfileSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  verifiedBadge: {
+    type: String,
+    enum: ['none', 'verified_pro', 'top_creator', 'verified_engineer', 'featured_artist'],
+    default: 'verified_pro',
+  },
+  isVerifiedBadge: {
+    type: Boolean,
+    default: true,
+  },
 }, {
   timestamps: true,
 });

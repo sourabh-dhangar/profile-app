@@ -21,7 +21,15 @@ import {
   checkFollowStatus,
 } from '../services/api';
 
-const { width } = Dimensions.get('window');
+const TOPIC_CHIPS = [
+  { key: 'all', label: '✨ All' },
+  { key: 'code', label: '💻 Code' },
+  { key: 'uiux', label: '🎨 UI/UX' },
+  { key: 'ai', label: '🤖 AI & ML' },
+  { key: 'mobile', label: '📱 Mobile' },
+  { key: 'career', label: '💼 Career' },
+  { key: '3d', label: '🌐 3D & Cloud' },
+];
 
 export default function ReelsScreen({
   reels = [],
@@ -30,13 +38,18 @@ export default function ReelsScreen({
   onViewCreatorProfile,
   currentUser = null,
   authToken = null,
-  activeFeedTab = 'forYou', // 'forYou' | 'following'
+  activeFeedTab = 'forYou', // 'forYou' | 'following' | 'saved'
   onSwitchFeedTab,
+  onToggleBookmark,
   onNavigateToAuth,
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [likedMap, setLikedMap] = useState({});
   const [likesCountMap, setLikesCountMap] = useState({});
+  const [bookmarkedMap, setBookmarkedMap] = useState({});
+  const [bookmarksCountMap, setBookmarksCountMap] = useState({});
+  const [selectedTopic, setSelectedTopic] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [showPlayState, setShowPlayState] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -64,7 +77,9 @@ export default function ReelsScreen({
   const reelId = currentReel?._id || `reel-${currentIndex}`;
   const creatorUsername = currentReel?.profileId?.username;
   const isLiked = !!likedMap[reelId];
+  const isBookmarked = bookmarkedMap[reelId] ?? Boolean(currentReel?.isBookmarked);
   const likesCount = (likesCountMap[reelId] ?? currentReel?.likesCount) || 0;
+  const bookmarksCount = (bookmarksCountMap[reelId] ?? currentReel?.bookmarksCount) || 0;
   const commentsCount = (commentsCountMap[reelId] ?? currentReel?.commentsCount) || 0;
   const isFollowing = !!followMap[creatorUsername];
   const isOwnReel = Boolean(
@@ -72,6 +87,35 @@ export default function ReelsScreen({
     creatorUsername &&
     currentUser.profile.username === creatorUsername
   );
+
+  const handleToggleBookmark = async () => {
+    if (!authToken) {
+      onShowToast('Sign in to save reels to your vault 🔖', 'info');
+      if (onNavigateToAuth) onNavigateToAuth();
+      return;
+    }
+    const nextBookmarked = !isBookmarked;
+    setBookmarkedMap((prev) => ({ ...prev, [reelId]: nextBookmarked }));
+    setBookmarksCountMap((prev) => ({
+      ...prev,
+      [reelId]: nextBookmarked ? bookmarksCount + 1 : Math.max(bookmarksCount - 1, 0),
+    }));
+
+    if (onToggleBookmark && currentReel?._id) {
+      const res = await onToggleBookmark(currentReel._id);
+      if (res) {
+        setBookmarkedMap((prev) => ({ ...prev, [reelId]: res.isBookmarked }));
+        setBookmarksCountMap((prev) => ({ ...prev, [reelId]: res.bookmarksCount }));
+      }
+    }
+  };
+
+  const handleSelectTopic = (topicKey) => {
+    setSelectedTopic(topicKey);
+    if (onSwitchFeedTab) {
+      onSwitchFeedTab(activeFeedTab, topicKey === 'all' ? '' : topicKey, searchQuery);
+    }
+  };
 
   // Check follow status when active reel changes
   useEffect(() => {
@@ -249,11 +293,11 @@ export default function ReelsScreen({
 
   return (
     <View style={styles.container}>
-      {/* Top Feed Tabs: For You vs Following */}
+      {/* Top Feed Tabs: For You vs Following vs Saved */}
       <View style={styles.feedTabsHeader}>
         <TouchableOpacity
           style={[styles.feedTabBtn, activeFeedTab === 'forYou' && styles.feedTabBtnActive]}
-          onPress={() => onSwitchFeedTab && onSwitchFeedTab('forYou')}
+          onPress={() => onSwitchFeedTab && onSwitchFeedTab('forYou', selectedTopic === 'all' ? '' : selectedTopic, searchQuery)}
           activeOpacity={0.8}
         >
           <Text
@@ -285,7 +329,61 @@ export default function ReelsScreen({
           </Text>
           {activeFeedTab === 'following' && <View style={styles.activeTabIndicator} />}
         </TouchableOpacity>
+
+        <View style={styles.feedTabSeparator} />
+
+        <TouchableOpacity
+          style={[styles.feedTabBtn, activeFeedTab === 'saved' && styles.feedTabBtnActive]}
+          onPress={() => {
+            if (!authToken) {
+              onShowToast('Sign in to view your Saved Vault', 'info');
+              if (onNavigateToAuth) onNavigateToAuth();
+              return;
+            }
+            if (onSwitchFeedTab) onSwitchFeedTab('saved');
+          }}
+          activeOpacity={0.8}
+        >
+          <Text
+            style={[styles.feedTabText, activeFeedTab === 'saved' && styles.feedTabTextActive]}
+          >
+            🔖 Saved
+          </Text>
+          {activeFeedTab === 'saved' && <View style={styles.activeTabIndicator} />}
+        </TouchableOpacity>
       </View>
+
+      {/* Topic Filter Chips & Search Bar (Active on For You tab) */}
+      {activeFeedTab === 'forYou' && (
+        <View style={styles.topicFilterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.topicChipsScroll}
+          >
+            {TOPIC_CHIPS.map((chip) => {
+              const isSelected = selectedTopic === chip.key;
+              return (
+                <TouchableOpacity
+                  key={chip.key}
+                  style={[styles.topicChip, isSelected && styles.topicChipActive]}
+                  onPress={() => handleSelectTopic(chip.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.topicChipText,
+                      isSelected && styles.topicChipTextActive,
+                    ]}
+                  >
+                    {chip.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Empty State for current feed */}
       {reels.length === 0 ? (
@@ -382,6 +480,23 @@ export default function ReelsScreen({
               <Text style={styles.actionCount}>{commentsCount}</Text>
             </TouchableOpacity>
 
+            {/* Bookmark / Saved Vault Button */}
+            <TouchableOpacity
+              style={[styles.actionBtn, isBookmarked && styles.actionBtnActive]}
+              onPress={handleToggleBookmark}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.actionIcon}>{isBookmarked ? '🔖' : '📑'}</Text>
+              <Text
+                style={[
+                  styles.actionCount,
+                  isBookmarked && { color: '#fbbf24', fontWeight: '800' },
+                ]}
+              >
+                {bookmarksCount > 0 ? bookmarksCount : 'Save'}
+              </Text>
+            </TouchableOpacity>
+
             {/* View Counter */}
             <View style={styles.actionBtn}>
               <Text style={styles.actionIcon}>👁️</Text>
@@ -424,6 +539,13 @@ export default function ReelsScreen({
 
           {/* Bottom Drawer (Creator info & Caption) */}
           <View style={styles.bottomDrawer}>
+            {/* Master Pitch Golden Pinned Badge */}
+            {currentReel.isPinned && (
+              <View style={styles.masterPitchBadge}>
+                <Text style={styles.masterPitchBadgeText}>📌 MASTER PITCH</Text>
+              </View>
+            )}
+
             {currentReel.profileId && (
               <View style={styles.creatorRow}>
                 <TouchableOpacity
@@ -442,7 +564,13 @@ export default function ReelsScreen({
                   <View style={styles.creatorTexts}>
                     <Text style={styles.creatorName}>
                       {currentReel.profileId.name}{' '}
-                      <Text style={styles.verifiedCheck}>✓</Text>
+                      <Text style={styles.verifiedCheck}>
+                        {currentReel.profileId.verifiedBadge === 'top_creator'
+                          ? '⭐'
+                          : currentReel.profileId.verifiedBadge === 'verified_engineer'
+                          ? '⚡'
+                          : '🛡️'}
+                      </Text>
                     </Text>
                     <Text style={styles.creatorHandle}>
                       @{creatorUsername}
@@ -482,12 +610,19 @@ export default function ReelsScreen({
               </View>
             ) : null}
 
-            {/* Audio Ticker */}
-            <View style={styles.audioRow}>
-              <Text style={styles.audioIcon}>🎵</Text>
-              <Text style={styles.audioText} numberOfLines={1}>
-                Original Sound • {currentReel.profileId?.name || 'Verified Creator'}
-              </Text>
+            {/* Audio Ticker & Spinning Vinyl Disc */}
+            <View style={styles.audioContainer}>
+              <View style={styles.audioRow}>
+                <Text style={styles.audioIcon}>🎵</Text>
+                <Text style={styles.audioText} numberOfLines={1}>
+                  {currentReel.audioTrack?.title || 'Original Sound'} • {currentReel.audioTrack?.artist || currentReel.profileId?.name || 'Verified Creator'}
+                </Text>
+              </View>
+              <View style={styles.vinylDisc}>
+                <View style={styles.vinylInnerRing}>
+                  <View style={styles.vinylCenterHole} />
+                </View>
+              </View>
             </View>
           </View>
 
@@ -585,9 +720,20 @@ export default function ReelsScreen({
 
             {/* Bottom Overlay on Player */}
             <View style={styles.fullPlayerBottomOverlay}>
+              {currentReel?.isPinned && (
+                <View style={styles.masterPitchBadge}>
+                  <Text style={styles.masterPitchBadgeText}>📌 MASTER PITCH</Text>
+                </View>
+              )}
               <Text style={styles.fullPlayerCaption}>
                 {currentReel?.caption}
               </Text>
+              <View style={styles.audioRow}>
+                <Text style={styles.audioIcon}>🎵</Text>
+                <Text style={styles.audioText} numberOfLines={1}>
+                  {currentReel?.audioTrack?.title || 'Original Sound'} • {currentReel?.audioTrack?.artist || currentReel?.profileId?.name || 'Verified Creator'}
+                </Text>
+              </View>
 
               {/* Progress Line */}
               <View style={styles.progressBarTrack}>
@@ -1444,5 +1590,89 @@ const styles = StyleSheet.create({
     color: '#020617',
     fontSize: 14,
     fontWeight: '900',
+  },
+  topicFilterContainer: {
+    marginVertical: 4,
+    zIndex: 10,
+  },
+  topicChipsScroll: {
+    paddingHorizontal: 8,
+    gap: 6,
+    alignItems: 'center',
+  },
+  topicChip: {
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  topicChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  topicChipText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  topicChipTextActive: {
+    color: '#020617',
+    fontWeight: '800',
+  },
+  masterPitchBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(251, 191, 36, 0.95)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 6,
+    shadowColor: '#fbbf24',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+  },
+  masterPitchBadgeText: {
+    color: '#0f172a',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  audioContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  vinylDisc: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0f172a',
+    borderWidth: 2,
+    borderColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 3,
+  },
+  vinylInnerRing: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#fbbf24',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vinylCenterHole: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#ffffff',
   },
 });

@@ -3,6 +3,7 @@ const Section = require('../models/Section');
 const Reel = require('../models/Reel');
 const Inquiry = require('../models/Inquiry');
 const Follow = require('../models/Follow');
+const { createNotificationHelper } = require('./notificationController');
 const config = require('../config/env');
 const { generateQRCodeDataURL } = require('../utils/qr');
 const { generateVCard } = require('../utils/vcard');
@@ -22,7 +23,7 @@ const getMyProfile = async (req, res, next) => {
     }
 
     const sections = await Section.find({ profileId: profile._id }).sort({ order: 1 });
-    const reels = await Reel.find({ profileId: profile._id, status: 'active' }).sort({ createdAt: -1 });
+    const reels = await Reel.find({ profileId: profile._id, status: 'active' }).sort({ isPinned: -1, createdAt: -1 });
     const reelsCount = reels.length;
 
     res.status(200).json({
@@ -85,6 +86,7 @@ const updateMyProfile = async (req, res, next) => {
     if (socialLinks !== undefined) profile.socialLinks = socialLinks;
     if (theme !== undefined) profile.theme = theme;
     if (req.body.photoUrl !== undefined) profile.photoUrl = req.body.photoUrl;
+    if (req.body.verifiedBadge !== undefined) profile.verifiedBadge = req.body.verifiedBadge;
     if (contactDetails !== undefined) {
       profile.contactDetails = {
         ...profile.contactDetails.toObject(),
@@ -244,7 +246,7 @@ const getPublicProfile = async (req, res, next) => {
       profileId: profile._id,
       status: 'active',
       visibility: 'public',
-    }).sort({ createdAt: -1 });
+    }).sort({ isPinned: -1, createdAt: -1 });
 
     // Sanitize contact details based on show* flags
     const sanitizedContact = {
@@ -270,6 +272,8 @@ const getPublicProfile = async (req, res, next) => {
           contactDetails: sanitizedContact,
           followersCount: profile.followersCount || 0,
           followingCount: profile.followingCount || 0,
+          verifiedBadge: profile.verifiedBadge || 'verified_pro',
+          isVerifiedBadge: profile.isVerifiedBadge !== false,
           completionPercentage: profile.completionPercentage || 0,
           updatedAt: profile.updatedAt,
         },
@@ -510,6 +514,22 @@ const createInquiry = async (req, res, next) => {
       message,
     });
 
+    // Trigger notification to creator
+    try {
+      await createNotificationHelper({
+        recipientUserId: profile.userId,
+        actorProfileId: null,
+        type: 'inquiry',
+        title: 'New Proposal Received 💼',
+        message: `${senderName} submitted a "${subject || 'General Proposal'}" proposal`,
+        entityId: inquiry._id,
+        entityType: 'Inquiry',
+        metadata: { senderEmail, senderName, subject },
+      });
+    } catch (notifErr) {
+      console.error('Notification inquiry error:', notifErr.message);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Your message has been sent to the creator successfully',
@@ -533,7 +553,7 @@ const getMyInquiries = async (req, res, next) => {
 
     const { status } = req.query;
     const query = { profileId: profile._id };
-    if (status && ['unread', 'read', 'archived'].includes(status)) {
+    if (status && ['unread', 'read', 'replied', 'archived'].includes(status)) {
       query.status = status;
     }
 
@@ -561,10 +581,10 @@ const updateInquiryStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!status || !['unread', 'read', 'archived'].includes(status)) {
+    if (!status || !['unread', 'read', 'replied', 'archived'].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Valid status (unread, read, archived) is required',
+        message: 'Valid status (unread, read, replied, archived) is required',
       });
     }
 
@@ -586,6 +606,52 @@ const updateInquiryStatus = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'Inquiry status updated',
+      data: inquiry,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Reply to Inquiry
+ * POST /api/v1/profiles/me/inquiries/:id/reply
+ * Body: { message }
+ */
+const replyToInquiry = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { message } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ success: false, message: 'Reply message cannot be empty' });
+    }
+
+    const profile = await Profile.findOne({ userId: req.user._id });
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Profile not found' });
+    }
+
+    const inquiry = await Inquiry.findOne({ _id: id, profileId: profile._id });
+    if (!inquiry) {
+      return res.status(404).json({ success: false, message: 'Inquiry not found' });
+    }
+
+    if (!Array.isArray(inquiry.replies)) {
+      inquiry.replies = [];
+    }
+
+    inquiry.replies.push({
+      senderRole: 'creator',
+      message: message.trim(),
+      createdAt: new Date(),
+    });
+    inquiry.status = 'replied';
+    await inquiry.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Reply sent successfully',
       data: inquiry,
     });
   } catch (error) {
@@ -657,6 +723,21 @@ const toggleFollow = async (req, res, next) => {
 
       userProfile.followingCount = (userProfile.followingCount || 0) + 1;
       await userProfile.save();
+
+      // Trigger notification to followed creator
+      try {
+        await createNotificationHelper({
+          recipientUserId: targetProfile.userId,
+          actorProfileId: userProfile._id,
+          type: 'follow',
+          title: 'New Follower 👥',
+          message: `@${userProfile.username} started following your profile`,
+          entityId: targetProfile._id,
+          entityType: 'Profile',
+        });
+      } catch (notifErr) {
+        console.error('Notification follow error:', notifErr.message);
+      }
 
       return res.status(200).json({
         success: true,
@@ -736,6 +817,95 @@ const getFollowers = async (req, res, next) => {
   }
 };
 
+/**
+ * Vouch for a Creator Skill
+ * POST /api/v1/profiles/:username/skills/vouch
+ * Body: { skillName }
+ */
+const vouchSkill = async (req, res, next) => {
+  try {
+    const { username } = req.params;
+    const { skillName } = req.body;
+
+    if (!skillName || !skillName.trim()) {
+      return res.status(400).json({ success: false, message: 'Skill name is required' });
+    }
+
+    const cleanSkill = skillName.trim();
+    const profile = await Profile.findOne({ username: username.toLowerCase().trim() });
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Profile not found' });
+    }
+
+    // Find section with type 'skills'
+    let skillSection = await Section.findOne({ profileId: profile._id, type: 'skills' });
+    if (!skillSection) {
+      return res.status(404).json({ success: false, message: 'Skills section not found for this profile' });
+    }
+
+    const currentItems = Array.isArray(skillSection.content?.items) ? skillSection.content.items : [];
+    let found = false;
+    let newVouches = 1;
+
+    const updatedItems = currentItems.map((item) => {
+      if (typeof item === 'string' && item.toLowerCase() === cleanSkill.toLowerCase()) {
+        found = true;
+        newVouches = 1;
+        return { name: item, vouches: 1 };
+      } else if (
+        typeof item === 'object' &&
+        item !== null &&
+        (item.name || item.title || '').toLowerCase() === cleanSkill.toLowerCase()
+      ) {
+        found = true;
+        const count = (item.vouches || 0) + 1;
+        newVouches = count;
+        return { ...item, name: item.name || item.title, vouches: count };
+      }
+      return item;
+    });
+
+    if (!found) {
+      updatedItems.push({ name: cleanSkill, vouches: 1 });
+      newVouches = 1;
+    }
+
+    skillSection.content = { ...skillSection.content, items: updatedItems };
+    skillSection.markModified('content');
+    await skillSection.save();
+
+    // Trigger notification to creator if caller is logged in and not the creator
+    if (req.user && profile.userId.toString() !== req.user._id.toString()) {
+      try {
+        const actorProfile = await Profile.findOne({ userId: req.user._id });
+        await createNotificationHelper({
+          recipientUserId: profile.userId,
+          actorProfileId: actorProfile?._id,
+          type: 'vouch',
+          title: 'Skill Endorsed ⭐',
+          message: `@${actorProfile?.username || 'A visitor'} vouched for your "${cleanSkill}" skill`,
+          entityId: skillSection._id,
+          entityType: 'Section',
+        });
+      } catch (notifErr) {
+        console.error('Notification vouch error:', notifErr.message);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Vouched for ${cleanSkill}! ⭐`,
+      data: {
+        skillName: cleanSkill,
+        vouches: newVouches,
+        items: updatedItems,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyProfile,
   updateMyProfile,
@@ -751,7 +921,9 @@ module.exports = {
   createInquiry,
   getMyInquiries,
   updateInquiryStatus,
+  replyToInquiry,
   toggleFollow,
   getFollowStatus,
   getFollowers,
+  vouchSkill,
 };

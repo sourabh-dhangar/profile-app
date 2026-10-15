@@ -15,6 +15,7 @@ const reelRoutes = require('./routes/reels');
 const discoveryRoutes = require('./routes/discovery');
 const reportRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 
@@ -63,6 +64,7 @@ app.use('/api/v1/reels', reelRoutes);
 app.use('/api/v1/discovery', discoveryRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 // 404 handler for unknown routes
 app.use('*', (req, res) => {

@@ -2,6 +2,8 @@ const Reel = require('../models/Reel');
 const Profile = require('../models/Profile');
 const Comment = require('../models/Comment');
 const Follow = require('../models/Follow');
+const Bookmark = require('../models/Bookmark');
+const { createNotificationHelper } = require('./notificationController');
 const config = require('../config/env');
 
 /**
@@ -13,23 +15,31 @@ const getFeed = async (req, res, next) => {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = Math.min(parseInt(req.query.limit, 10) || 10, 30);
     const skip = (page - 1) * limit;
+    const { tag, search } = req.query;
 
-    const reels = await Reel.find({
+    const query = {
       status: 'active',
       visibility: 'public',
-    })
-      .sort({ createdAt: -1 })
+    };
+
+    if (tag && tag.toLowerCase() !== 'all') {
+      query.caption = { $regex: tag.replace('#', ''), $options: 'i' };
+    }
+
+    if (search && search.trim()) {
+      query.caption = { $regex: search.trim(), $options: 'i' };
+    }
+
+    const reels = await Reel.find(query)
+      .sort({ isPinned: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .populate({
         path: 'profileId',
-        select: 'name username photoUrl profileType city',
+        select: 'name username photoUrl profileType city verifiedBadge isVerifiedBadge',
       });
 
-    const total = await Reel.countDocuments({
-      status: 'active',
-      visibility: 'public',
-    });
+    const total = await Reel.countDocuments(query);
 
     res.status(200).json({
       success: true,
@@ -77,6 +87,8 @@ const createReel = async (req, res, next) => {
       durationSeconds = 15,
       visibility = 'public',
       thumbnailUrl = '',
+      audioTitle,
+      audioArtist,
     } = req.body;
 
     const duration = parseFloat(durationSeconds);
@@ -95,6 +107,10 @@ const createReel = async (req, res, next) => {
       durationSeconds: Math.round(duration),
       visibility,
       status: 'active',
+      audioTrack: {
+        title: audioTitle && audioTitle.trim() ? audioTitle.trim() : 'Original Sound',
+        artist: audioArtist && audioArtist.trim() ? audioArtist.trim() : profile.name || 'Creator',
+      },
     });
 
     await reel.save();
@@ -177,6 +193,27 @@ const likeReel = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Reel not found' });
     }
 
+    // Trigger notification if authenticated user liked another creator's reel
+    if (req.user) {
+      try {
+        const targetProfile = await Profile.findById(reel.profileId);
+        if (targetProfile && targetProfile.userId && targetProfile.userId.toString() !== req.user._id.toString()) {
+          const actorProfile = await Profile.findOne({ userId: req.user._id });
+          await createNotificationHelper({
+            recipientUserId: targetProfile.userId,
+            actorProfileId: actorProfile?._id,
+            type: 'like',
+            title: 'New Reel Like ❤️',
+            message: `@${actorProfile?.username || 'A creator'} liked your video reel`,
+            entityId: reel._id,
+            entityType: 'Reel',
+          });
+        }
+      } catch (notifErr) {
+        console.error('Notification like error:', notifErr.message);
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: { likesCount: reel.likesCount },
@@ -245,7 +282,7 @@ const getFollowingFeed = async (req, res, next) => {
       .limit(limit)
       .populate({
         path: 'profileId',
-        select: 'name username photoUrl profileType city followersCount',
+        select: 'name username photoUrl profileType city followersCount verifiedBadge isVerifiedBadge',
       });
 
     const total = await Reel.countDocuments(query);
@@ -392,9 +429,171 @@ const deleteComment = async (req, res, next) => {
   }
 };
 
+/**
+ * Toggle Bookmark on a Reel
+ * POST /api/v1/reels/:id/bookmark
+ */
+const toggleBookmark = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const reel = await Reel.findById(id);
+    if (!reel || reel.status === 'taken_down') {
+      return res.status(404).json({ success: false, message: 'Reel not found' });
+    }
+
+    const existing = await Bookmark.findOne({ userId: req.user._id, reelId: id });
+    let isBookmarked = false;
+
+    if (existing) {
+      await Bookmark.deleteOne({ _id: existing._id });
+      reel.bookmarksCount = Math.max(0, (reel.bookmarksCount || 1) - 1);
+      await reel.save();
+      isBookmarked = false;
+    } else {
+      await Bookmark.create({ userId: req.user._id, reelId: id });
+      reel.bookmarksCount = (reel.bookmarksCount || 0) + 1;
+      await reel.save();
+      isBookmarked = true;
+
+      // Trigger notification to reel owner
+      try {
+        const targetProfile = await Profile.findById(reel.profileId);
+        if (targetProfile && targetProfile.userId && targetProfile.userId.toString() !== req.user._id.toString()) {
+          const actorProfile = await Profile.findOne({ userId: req.user._id });
+          await createNotificationHelper({
+            recipientUserId: targetProfile.userId,
+            actorProfileId: actorProfile?._id,
+            type: 'bookmark',
+            title: 'Reel Saved 🔖',
+            message: `@${actorProfile?.username || 'A creator'} saved your video reel to their vault`,
+            entityId: reel._id,
+            entityType: 'Reel',
+          });
+        }
+      } catch (notifErr) {
+        console.error('Notification bookmark error:', notifErr.message);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: isBookmarked ? 'Reel saved to bookmarks vault' : 'Reel removed from bookmarks',
+      data: {
+        isBookmarked,
+        bookmarksCount: reel.bookmarksCount,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get User Saved / Bookmarked Reels
+ * GET /api/v1/reels/feed/saved?page=1&limit=20
+ */
+const getSavedReels = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
+    const skip = (page - 1) * limit;
+
+    const bookmarks = await Bookmark.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: 'reelId',
+        match: { status: 'active', visibility: 'public' },
+        populate: {
+          path: 'profileId',
+          select: 'name username photoUrl profileType city verifiedBadge isVerifiedBadge',
+        },
+      });
+
+    const reels = bookmarks
+      .filter((b) => b.reelId)
+      .map((b) => ({
+        ...b.reelId.toObject(),
+        isBookmarked: true,
+        bookmarkedAt: b.createdAt,
+      }));
+
+    const total = await Bookmark.countDocuments({ userId: req.user._id });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        reels,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Toggle Pin Reel to Profile Showcase
+ * POST /api/v1/reels/:id/pin
+ */
+const togglePinReel = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const profile = await Profile.findOne({ userId: req.user._id });
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Profile required' });
+    }
+
+    const reel = await Reel.findById(id);
+    if (!reel) {
+      return res.status(404).json({ success: false, message: 'Reel not found' });
+    }
+
+    const isOwner = reel.profileId.toString() === profile._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to pin this reel' });
+    }
+
+    const willBePinned = !reel.isPinned;
+    if (willBePinned) {
+      // Unpin any previously pinned reels for this creator
+      await Reel.updateMany(
+        { profileId: profile._id, isPinned: true },
+        { $set: { isPinned: false } }
+      );
+      reel.isPinned = true;
+    } else {
+      reel.isPinned = false;
+    }
+
+    await reel.save();
+
+    res.status(200).json({
+      success: true,
+      message: willBePinned ? 'Reel pinned as Master Pitch 📌' : 'Reel unpinned',
+      data: {
+        isPinned: reel.isPinned,
+        reel,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getFeed,
   getFollowingFeed,
+  getSavedReels,
+  toggleBookmark,
+  togglePinReel,
   createReel,
   getReelById,
   recordView,
@@ -404,3 +603,4 @@ module.exports = {
   getComments,
   deleteComment,
 };
+

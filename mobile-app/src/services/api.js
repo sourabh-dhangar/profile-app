@@ -31,8 +31,15 @@ export const updateMyProfile = async (token, profileData) => {
   return res.json();
 };
 
-export const fetchReels = async (page = 1, limit = 20) => {
-  const res = await fetch(`${API_BASE_URL}/reels/feed?page=${page}&limit=${limit}`);
+export const fetchReels = async (page = 1, limit = 20, tag = '', search = '') => {
+  let url = `${API_BASE_URL}/reels/feed?page=${page}&limit=${limit}`;
+  if (tag && tag.toLowerCase() !== 'all') {
+    url += `&tag=${encodeURIComponent(tag)}`;
+  }
+  if (search && search.trim()) {
+    url += `&search=${encodeURIComponent(search.trim())}`;
+  }
+  const res = await fetch(url);
   return res.json();
 };
 
@@ -327,6 +334,95 @@ export const checkFollowStatus = async (token, username) => {
 
 export const fetchFollowers = async (username) => {
   const res = await fetch(`${API_BASE_URL}/profiles/${username}/followers`);
+  return res.json();
+};
+
+export const toggleBookmarkReel = async (token, reelId) => {
+  const res = await fetch(`${API_BASE_URL}/reels/${reelId}/bookmark`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const fetchSavedReels = async (token, page = 1, limit = 20) => {
+  const res = await fetch(`${API_BASE_URL}/reels/feed/saved?page=${page}&limit=${limit}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const replyToInquiry = async (token, inquiryId, message) => {
+  const res = await fetch(`${API_BASE_URL}/profiles/me/inquiries/${inquiryId}/reply`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ message }),
+  });
+  return res.json();
+};
+
+// ==========================================
+// Notifications & Expansion Hub APIs
+// ==========================================
+export const fetchNotifications = async (token, page = 1, limit = 20) => {
+  const res = await fetch(`${API_BASE_URL}/notifications?page=${page}&limit=${limit}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const markNotificationRead = async (token, notificationId) => {
+  const res = await fetch(`${API_BASE_URL}/notifications/${notificationId}/read`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const markAllNotificationsRead = async (token) => {
+  const res = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const togglePinReel = async (token, reelId) => {
+  const res = await fetch(`${API_BASE_URL}/reels/${reelId}/pin`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const vouchSkill = async (token, username, skillName) => {
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const res = await fetch(`${API_BASE_URL}/profiles/${username}/skills/vouch`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ skillName }),
+  });
   return res.json();
 };
 

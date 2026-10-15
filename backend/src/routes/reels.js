@@ -3,6 +3,9 @@ const router = express.Router();
 const {
   getFeed,
   getFollowingFeed,
+  getSavedReels,
+  toggleBookmark,
+  togglePinReel,
   createReel,
   getReelById,
   recordView,
@@ -18,6 +21,7 @@ const { uploadReel: reelUploader } = require('../middleware/upload');
 // Public feed & specific feeds (MUST be before /:id)
 router.get('/feed', getFeed);
 router.get('/feed/following', authenticate, getFollowingFeed);
+router.get('/feed/saved', authenticate, getSavedReels);
 
 // Comments routes
 router.get('/:id/comments', getComments);
@@ -28,6 +32,8 @@ router.delete('/:id/comments/:commentId', authenticate, deleteComment);
 router.get('/:id', getReelById);
 router.post('/:id/view', recordView);
 router.post('/:id/like', optionalAuth, likeReel);
+router.post('/:id/bookmark', authenticate, toggleBookmark);
+router.post('/:id/pin', authenticate, togglePinReel);
 
 // Authenticated endpoints
 router.post('/', authenticate, reelUploader.single('video'), createReel);

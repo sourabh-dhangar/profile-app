@@ -39,10 +39,29 @@ const InquirySchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['unread', 'read', 'archived'],
+    enum: ['unread', 'read', 'replied', 'archived'],
     default: 'unread',
     index: true,
   },
+  replies: [
+    {
+      senderRole: {
+        type: String,
+        enum: ['creator', 'client'],
+        default: 'creator',
+      },
+      message: {
+        type: String,
+        required: true,
+        trim: true,
+        maxlength: 2000,
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
 }, {
   timestamps: true,
 });
