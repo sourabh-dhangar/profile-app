@@ -89,6 +89,7 @@ const createReel = async (req, res, next) => {
       thumbnailUrl = '',
       audioTitle,
       audioArtist,
+      audioTrack,
     } = req.body;
 
     const duration = parseFloat(durationSeconds);
@@ -99,6 +100,13 @@ const createReel = async (req, res, next) => {
       });
     }
 
+    const resolvedAudioTitle =
+      (audioTrack && typeof audioTrack === 'object' && audioTrack.title) ||
+      audioTitle;
+    const resolvedAudioArtist =
+      (audioTrack && typeof audioTrack === 'object' && audioTrack.artist) ||
+      audioArtist;
+
     const reel = new Reel({
       profileId: profile._id,
       videoUrl,
@@ -108,8 +116,8 @@ const createReel = async (req, res, next) => {
       visibility,
       status: 'active',
       audioTrack: {
-        title: audioTitle && audioTitle.trim() ? audioTitle.trim() : 'Original Sound',
-        artist: audioArtist && audioArtist.trim() ? audioArtist.trim() : profile.name || 'Creator',
+        title: resolvedAudioTitle && resolvedAudioTitle.trim() ? resolvedAudioTitle.trim() : 'Original Sound',
+        artist: resolvedAudioArtist && resolvedAudioArtist.trim() ? resolvedAudioArtist.trim() : profile.name || 'Creator',
       },
     });
 

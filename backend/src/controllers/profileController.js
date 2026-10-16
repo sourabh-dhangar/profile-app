@@ -825,22 +825,29 @@ const getFollowers = async (req, res, next) => {
 const vouchSkill = async (req, res, next) => {
   try {
     const { username } = req.params;
-    const { skillName } = req.body;
+    const rawSkill = req.body.skillName || req.body.skill;
 
-    if (!skillName || !skillName.trim()) {
+    if (!rawSkill || !rawSkill.trim()) {
       return res.status(400).json({ success: false, message: 'Skill name is required' });
     }
 
-    const cleanSkill = skillName.trim();
+    const cleanSkill = rawSkill.trim();
     const profile = await Profile.findOne({ username: username.toLowerCase().trim() });
     if (!profile) {
       return res.status(404).json({ success: false, message: 'Profile not found' });
     }
 
-    // Find section with type 'skills'
+    // Find section with type 'skills' or auto-create if not yet created
     let skillSection = await Section.findOne({ profileId: profile._id, type: 'skills' });
     if (!skillSection) {
-      return res.status(404).json({ success: false, message: 'Skills section not found for this profile' });
+      skillSection = new Section({
+        profileId: profile._id,
+        type: 'skills',
+        title: 'Skills & Expertise',
+        visibility: 'public',
+        order: 1,
+        content: { items: [] },
+      });
     }
 
     const currentItems = Array.isArray(skillSection.content?.items) ? skillSection.content.items : [];

@@ -12,6 +12,8 @@ router.use(authenticate);
 
 router.get('/', getNotifications);
 router.patch('/:id/read', markNotificationRead);
+router.put('/:id/read', markNotificationRead);
 router.post('/read-all', markAllRead);
+router.put('/read-all', markAllRead);
 
 module.exports = router;

@@ -74,6 +74,10 @@ class TestClient {
     return this.request(path, 'PUT', data, headers);
   }
 
+  patch(path, data = {}, headers = {}) {
+    return this.request(path, 'PATCH', data, headers);
+  }
+
   delete(path, headers = {}) {
     return this.request(path, 'DELETE', null, headers);
   }

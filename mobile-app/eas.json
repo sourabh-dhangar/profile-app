@@ -13,12 +13,12 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://backend-eight-black-60.vercel.app/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://backend-sourabh-kuamr-dhangars-projects.vercel.app/api/v1"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://backend-eight-black-60.vercel.app/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://backend-sourabh-kuamr-dhangars-projects.vercel.app/api/v1"
       }
     }
   },
