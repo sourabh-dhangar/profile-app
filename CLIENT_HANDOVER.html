@@ -173,15 +173,54 @@
       border-top: 1px solid var(--border);
       padding-top: 20px;
     }
+    .print-btn {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      transition: all 0.2s ease;
+    }
+    .print-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+    }
+    @media print {
+      body { background: #ffffff !important; color: #111827 !important; padding: 10px !important; }
+      .container { max-width: 100% !important; margin: 0 !important; }
+      .print-btn { display: none !important; }
+      .card { background: #ffffff !important; border: 1px solid #e5e7eb !important; box-shadow: none !important; color: #111827 !important; page-break-inside: avoid; margin-bottom: 16px !important; padding: 16px !important; }
+      h1, h2, h3, h4, .card-title { color: #111827 !important; -webkit-text-fill-color: initial !important; }
+      p, span, td, th, li { color: #374151 !important; }
+      .link-tile { background: #f9fafb !important; border-color: #e5e7eb !important; }
+      .link-tile .title { color: #111827 !important; }
+      .link-tile .desc { color: #4b5563 !important; }
+      .pill { background: #f3f4f6 !important; color: #111827 !important; border: 1px solid #d1d5db !important; }
+      .category-tag { background: #f3f4f6 !important; color: #111827 !important; border: 1px solid #e5e7eb !important; }
+      .step-box { border-left-color: #10b981 !important; }
+      .step-box h4 { color: #111827 !important; }
+      .step-box p { color: #4b5563 !important; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="badge">
-      <span class="badge-dot"></span> v2.1 Universal Business Release • 210/210 Tests Passing
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 8px;">
+      <div>
+        <div class="badge">
+          <span class="badge-dot"></span> v2.1 Universal Business Release • 210/210 Tests Passing
+        </div>
+        <h1>MyProfile Platform Handover</h1>
+      </div>
+      <button onclick="window.print()" class="print-btn">🖨️ Print / Save as PDF</button>
     </div>
-
-    <h1>MyProfile Platform Handover</h1>
     <p class="subtitle">Universal digital card, tabletop QR stands, category discovery & portfolio ecosystem for salons, tech professionals & local businesses.</p>
 
     <!-- Quick Access Links -->
