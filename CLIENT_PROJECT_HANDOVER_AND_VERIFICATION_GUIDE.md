@@ -87,6 +87,16 @@ The platform features a secure, passwordless mobile OTP authentication system:
 - **7-Day Analytics:** Total views, link clicks breakdown, daily trend graph.
 - **RFC 6350 vCard 4.0 (`.vcf`):** Direct phone contact download into smartphone address book.
 
+### G. 1-Click Customer Leads & Inquiries CSV Export (NEW in v2.1)
+- **Instant Excel / CSV Download:** Business owners (salons, clinics, freelancers) can download all incoming visitor leads directly from the Inquiries tab in their dashboard.
+- **Comprehensive Fields:** Export includes Date, Sender Name, Email, Phone Number, Subject/Service, Status, and Message.
+- **Secure Client-Side Generation:** Zero server overhead and instant download.
+
+### H. Industry Business Directory & Keyword Search (NEW in v2.1)
+- **Browse by Industry:** Interactive category pill filters at `/discover` for Salon, IT, Fitness, Doctor, Restaurant, Retail, Education, and Professional Services.
+- **Keyword Search:** Instant live filtering by specialty, service name, or city.
+- **Direct Business Contact:** Each business card displays working hours, address, direct profile link, and 1-click WhatsApp inquiry chat.
+
 ---
 
 ## 4. Client Step-by-Step Verification Runbook
