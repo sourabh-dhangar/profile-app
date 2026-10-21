@@ -141,6 +141,11 @@ export default function DiscoverScreen({
               <Text style={styles.resultHandle}>
                 @{discoverResult.username} • {discoverResult.profileType || 'Creator'}
               </Text>
+              {discoverResult.category && (
+                <Text style={{ fontSize: 11, color: '#38bdf8', fontWeight: '700', marginTop: 2 }}>
+                  🏷️ {discoverResult.category}
+                </Text>
+              )}
               {discoverResult.city && (
                 <Text style={styles.resultCity}>📍 {discoverResult.city}</Text>
               )}
@@ -170,6 +175,80 @@ export default function DiscoverScreen({
           <Text style={styles.errorText}>{discoverMsg}</Text>
         </View>
       ) : null}
+
+      {/* Featured Business Categories & Digital Profiles */}
+      <View style={{ marginTop: 20 }}>
+        <Text style={{ fontSize: 13, fontWeight: '900', color: '#94a3b8', letterSpacing: 0.6, marginBottom: 12 }}>
+          FEATURED BUSINESS & PROFESSIONAL PROFILES
+        </Text>
+
+        {[
+          {
+            username: 'ananya_hair_studio',
+            name: 'Ananya Hair & Beauty Studio',
+            category: '💇 Salon & Beauty',
+            city: 'Bandra West, Mumbai',
+            hours: '10:00 AM - 8:30 PM',
+            tag: 'Bridal & Hair Spa',
+            color: '#ec4899',
+          },
+          {
+            username: 'rahul_dev',
+            name: 'Rahul Sharma',
+            category: '💻 IT & Software',
+            city: 'Bengaluru, India',
+            hours: 'Available for Hire',
+            tag: 'Full-Stack Architect',
+            color: '#06b6d4',
+          },
+          {
+            username: 'dr_kavita_care',
+            name: 'Dr. Kavita Verma Clinic',
+            category: '🩺 Doctor & Clinic',
+            city: 'Indiranagar, Bengaluru',
+            hours: '10:00 AM - 7:00 PM',
+            tag: 'Senior Consultant',
+            color: '#10b981',
+          },
+        ].map((item) => (
+          <TouchableOpacity
+            key={item.username}
+            style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.7)',
+              borderRadius: 16,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.08)',
+              marginBottom: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+            activeOpacity={0.8}
+            onPress={() => onSelectProfile(item.username)}
+          >
+            <View style={{ flex: 1, paddingRight: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: item.color, backgroundColor: 'rgba(255, 255, 255, 0.06)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                  {item.category}
+                </Text>
+                <Text style={{ fontSize: 10, color: '#64748b', fontWeight: '700' }}>
+                  {item.tag}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: '#ffffff' }}>
+                {item.name}
+              </Text>
+              <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                📍 {item.city} • ⏰ {item.hours}
+              </Text>
+            </View>
+            <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>→</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
     </ScrollView>
   );
 }

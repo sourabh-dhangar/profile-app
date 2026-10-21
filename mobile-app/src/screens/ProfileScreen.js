@@ -845,12 +845,86 @@ export default function ProfileScreen({
             <Text style={styles.roleText}>{profile.profileType || 'Creator'}</Text>
           </View>
 
+          {profile.category && (
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryBadgeText}>🏷️ {profile.category}</Text>
+            </View>
+          )}
+
+          {profile.subCategory ? (
+            <View style={styles.subCategoryBadge}>
+              <Text style={styles.subCategoryBadgeText}>✨ {profile.subCategory}</Text>
+            </View>
+          ) : null}
+
           {profile.city && (
             <View style={styles.cityBadge}>
               <Text style={styles.cityText}>📍 {profile.city}</Text>
             </View>
           )}
         </View>
+
+        {/* Storefront & Business Details Strip */}
+        {profile.businessDetails &&
+          (profile.businessDetails.timing ||
+            profile.businessDetails.address ||
+            profile.businessDetails.whatsappNumber ||
+            profile.businessDetails.bookingUrl) && (
+            <View style={styles.storefrontCard}>
+              <View style={styles.storefrontHeader}>
+                <Text style={styles.storefrontHeaderIcon}>🏪</Text>
+                <Text style={styles.storefrontHeaderTitle}>Business & Storefront</Text>
+              </View>
+
+              {profile.businessDetails.timing ? (
+                <View style={styles.storefrontRow}>
+                  <Text style={styles.storefrontIcon}>⏰</Text>
+                  <Text style={styles.storefrontText}>{profile.businessDetails.timing}</Text>
+                </View>
+              ) : null}
+
+              {profile.businessDetails.address ? (
+                <TouchableOpacity
+                  style={styles.storefrontRow}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    if (profile.businessDetails.googleMapsUrl) {
+                      Linking.openURL(profile.businessDetails.googleMapsUrl);
+                    }
+                  }}
+                >
+                  <Text style={styles.storefrontIcon}>📍</Text>
+                  <Text style={[styles.storefrontText, profile.businessDetails.googleMapsUrl && styles.storefrontLinkText]}>
+                    {profile.businessDetails.address}
+                    {profile.businessDetails.googleMapsUrl ? " (Open Map ↗)" : ""}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+
+              <View style={styles.storefrontActionsRow}>
+                {profile.businessDetails.whatsappNumber ? (
+                  <TouchableOpacity
+                    style={styles.whatsappActionBtn}
+                    onPress={() => {
+                      const cleanPhone = profile.businessDetails.whatsappNumber.replace(/[^0-9]/g, "");
+                      Linking.openURL("https://wa.me/" + cleanPhone + "?text=Hi%20" + encodeURIComponent(profile.name) + ",%20I%20found%20your%20profile%20on%20MyProfile!");
+                    }}
+                  >
+                    <Text style={styles.whatsappActionText}>💬 WhatsApp Chat</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {profile.businessDetails.bookingUrl ? (
+                  <TouchableOpacity
+                    style={styles.bookingActionBtn}
+                    onPress={() => Linking.openURL(profile.businessDetails.bookingUrl)}
+                  >
+                    <Text style={styles.bookingActionText}>📅 Book Now</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+          )}
 
         {/* Bio */}
         {profile.bio ? (
@@ -1705,9 +1779,9 @@ export default function ProfileScreen({
             </View>
 
             <View style={styles.qrCodeBox}>
-              {profile.qrCodeUrl ? (
+              {(profile.qrCodeDataUrl || profile.qrCodeUrl) ? (
                 <Image
-                  source={{ uri: profile.qrCodeUrl }}
+                  source={{ uri: profile.qrCodeDataUrl || profile.qrCodeUrl }}
                   style={styles.qrImage}
                 />
               ) : (
@@ -5969,5 +6043,108 @@ const styles = StyleSheet.create({
     color: '#38bdf8',
     fontSize: 10,
     fontWeight: '700',
+  },
+  categoryBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  categoryBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#38bdf8',
+  },
+  subCategoryBadge: {
+    backgroundColor: 'rgba(168, 85, 247, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.3)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  subCategoryBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#c084fc',
+  },
+  storefrontCard: {
+    width: '100%',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+  },
+  storefrontHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    paddingBottom: 8,
+  },
+  storefrontHeaderIcon: {
+    fontSize: 16,
+  },
+  storefrontHeaderTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#38bdf8',
+    letterSpacing: 0.5,
+  },
+  storefrontRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  storefrontIcon: {
+    fontSize: 14,
+  },
+  storefrontText: {
+    fontSize: 12,
+    color: '#e2e8f0',
+    fontWeight: '500',
+    flex: 1,
+  },
+  storefrontLinkText: {
+    color: '#38bdf8',
+    textDecorationLine: 'underline',
+  },
+  storefrontActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  whatsappActionBtn: {
+    flex: 1,
+    backgroundColor: '#25D366',
+    paddingVertical: 9,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  whatsappActionText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  bookingActionBtn: {
+    flex: 1,
+    backgroundColor: '#0284c7',
+    paddingVertical: 9,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bookingActionText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });

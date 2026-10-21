@@ -49,6 +49,21 @@ export default function MyProfileDashboardScreen({
     profileData?.profile?.profileType || 'Creator'
   );
   const [editCity, setEditCity] = useState(profileData?.profile?.city || '');
+  const [editCategory, setEditCategory] = useState(
+    profileData?.profile?.category || 'Content Creator & Artist'
+  );
+  const [editSubCategory, setEditSubCategory] = useState(
+    profileData?.profile?.subCategory || ''
+  );
+  const [editTiming, setEditTiming] = useState(
+    profileData?.profile?.businessDetails?.timing || '10:00 AM - 8:00 PM'
+  );
+  const [editAddress, setEditAddress] = useState(
+    profileData?.profile?.businessDetails?.address || ''
+  );
+  const [editWhatsapp, setEditWhatsapp] = useState(
+    profileData?.profile?.businessDetails?.whatsappNumber || ''
+  );
 
   if (loading) {
     return (
@@ -133,6 +148,13 @@ export default function MyProfileDashboardScreen({
       bio: editBio.trim(),
       profileType: editProfileType,
       city: editCity.trim(),
+      category: editCategory,
+      subCategory: editSubCategory.trim(),
+      businessDetails: {
+        timing: editTiming.trim(),
+        address: editAddress.trim(),
+        whatsappNumber: editWhatsapp.trim(),
+      },
     });
     setEditModalVisible(false);
   };
@@ -175,6 +197,11 @@ export default function MyProfileDashboardScreen({
                 <View style={styles.rolePill}>
                   <Text style={styles.rolePillText}>{profile.profileType}</Text>
                 </View>
+                {profile.category ? (
+                  <View style={[styles.rolePill, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: '#38bdf8' }]}>
+                    <Text style={[styles.rolePillText, { color: '#38bdf8' }]}>🏷️ {profile.category}</Text>
+                  </View>
+                ) : null}
                 {profile.city ? (
                   <Text style={styles.cityText}>📍 {profile.city}</Text>
                 ) : null}
@@ -717,6 +744,77 @@ export default function MyProfileDashboardScreen({
                 value={editName}
                 onChangeText={setEditName}
                 placeholder="Full Name"
+                placeholderTextColor="#64748b"
+              />
+
+              <Text style={styles.fieldLabel}>Business & Industry Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                {[
+                  'IT & Software',
+                  'Salon & Beauty',
+                  'Fitness & Health',
+                  'Doctor & Clinic',
+                  'Restaurant & Food',
+                  'Professional Services',
+                  'Education & Coaching',
+                  'Retail & Commerce',
+                  'Content Creator & Artist',
+                  'Other Business',
+                ].map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      marginRight: 8,
+                      backgroundColor: editCategory === cat ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                      borderColor: editCategory === cat ? '#38bdf8' : 'rgba(255, 255, 255, 0.1)',
+                    }}
+                    onPress={() => setEditCategory(cat)}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: editCategory === cat ? '#38bdf8' : '#94a3b8' }}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.fieldLabel}>Sub-Category / Specialization Title</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editSubCategory}
+                onChangeText={setEditSubCategory}
+                placeholder="e.g. Bridal Makeup, Full Stack Dev, Dentist"
+                placeholderTextColor="#64748b"
+              />
+
+              <Text style={styles.fieldLabel}>Storefront Timings / Working Hours</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editTiming}
+                onChangeText={setEditTiming}
+                placeholder="e.g. Mon-Sat: 10:00 AM - 8:30 PM"
+                placeholderTextColor="#64748b"
+              />
+
+              <Text style={styles.fieldLabel}>Physical Storefront / Clinic Address</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editAddress}
+                onChangeText={setEditAddress}
+                placeholder="e.g. Shop 4B, MG Road, Mumbai"
+                placeholderTextColor="#64748b"
+              />
+
+              <Text style={styles.fieldLabel}>WhatsApp Inquiry Number</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editWhatsapp}
+                onChangeText={setEditWhatsapp}
+                placeholder="e.g. +91 98765 43210"
+                keyboardType="phone-pad"
                 placeholderTextColor="#64748b"
               />
 
