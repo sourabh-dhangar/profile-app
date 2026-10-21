@@ -61,7 +61,7 @@ const requestOtp = async (req, res, next) => {
       data: {
         mobile: normalized,
         // In dev mode, return code to speed up testing
-        devOtp: process.env.OTP_MODE === 'dev' ? code : undefined,
+        devOtp: config.otpMode === 'dev' ? code : undefined,
       },
     });
   } catch (error) {
@@ -111,7 +111,7 @@ const verifyOtp = async (req, res, next) => {
     }
 
     // Check code match (or dev mock 123456)
-    const isDev = process.env.OTP_MODE === 'dev';
+    const isDev = config.otpMode === 'dev';
     const isMatch = user.otp.code === otp || (isDev && otp === '123456');
 
     if (!isMatch) {

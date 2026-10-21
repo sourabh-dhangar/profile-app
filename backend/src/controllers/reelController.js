@@ -122,6 +122,10 @@ const createReel = async (req, res, next) => {
     });
 
     await reel.save();
+    await reel.populate({
+      path: 'profileId',
+      select: 'name username photoUrl profileType',
+    });
 
     res.status(201).json({
       success: true,
@@ -596,6 +600,100 @@ const togglePinReel = async (req, res, next) => {
   }
 };
 
+
+/**
+ * Get My Reels (Authenticated creator)
+ * GET /api/v1/reels/my-reels
+ */
+const getMyReels = async (req, res, next) => {
+  try {
+    const profile = await Profile.findOne({ userId: req.user._id });
+    if (!profile) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          reels: [],
+          total: 0,
+        },
+      });
+    }
+
+    const reels = await Reel.find({
+      profileId: profile._id,
+      status: { $ne: 'taken_down' },
+    })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: 'profileId',
+        select: 'name username photoUrl profileType',
+      });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        reels,
+        total: reels.length,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update Reel Visibility
+ * PUT /api/v1/reels/:id/visibility
+ */
+const updateReelVisibility = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { visibility } = req.body;
+
+    const validVisibilities = ['public', 'profile-only', 'private'];
+    if (!visibility || !validVisibilities.includes(visibility)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid visibility. Must be one of: ${validVisibilities.join(', ')}`,
+      });
+    }
+
+    const profile = await Profile.findOne({ userId: req.user._id });
+    const reel = await Reel.findById(id);
+
+    if (!reel) {
+      return res.status(404).json({
+        success: false,
+        message: 'Reel not found',
+      });
+    }
+
+    const isOwner = profile && reel.profileId.toString() === profile._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized to update this reel visibility',
+      });
+    }
+
+    reel.visibility = visibility;
+    await reel.save();
+    await reel.populate({
+      path: 'profileId',
+      select: 'name username photoUrl profileType',
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Reel visibility updated successfully',
+      data: reel,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getFeed,
   getFollowingFeed,
@@ -610,5 +708,7 @@ module.exports = {
   addComment,
   getComments,
   deleteComment,
+  getMyReels,
+  updateReelVisibility,
 };
 

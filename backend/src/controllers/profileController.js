@@ -5,6 +5,15 @@ const Inquiry = require('../models/Inquiry');
 const Follow = require('../models/Follow');
 const { createNotificationHelper } = require('./notificationController');
 const config = require('../config/env');
+
+const RESERVED_USERNAMES = [
+  'admin', 'administrator', 'root', 'api', 'dashboard', 'login', 'signup',
+  'register', 'auth', 'reels', 'feed', 'discover', 'discovery', 'settings',
+  'profile', 'profiles', 'p', 'help', 'support', 'terms', 'privacy',
+  'about', 'contact', 'system', 'me', 'inquiries', 'analytics', 'null',
+  'undefined', 'test', 'official', 'app', 'myprofile'
+];
+
 const { generateQRCodeDataURL } = require('../utils/qr');
 const { generateVCard } = require('../utils/vcard');
 
@@ -68,8 +77,15 @@ const updateMyProfile = async (req, res, next) => {
     } = req.body;
 
     // Check username conflict if changed
-    if (username && username.toLowerCase() !== profile.username) {
-      const existing = await Profile.findOne({ username: username.toLowerCase() });
+    if (username && username.toLowerCase().trim() !== profile.username) {
+      const cleanUser = username.toLowerCase().trim();
+      if (RESERVED_USERNAMES.includes(cleanUser)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username is reserved and cannot be claimed',
+        });
+      }
+      const existing = await Profile.findOne({ username: cleanUser });
       if (existing) {
         return res.status(409).json({
           success: false,
@@ -201,7 +217,29 @@ const checkUsername = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Username is required' });
     }
 
-    const clean = username.toLowerCase().trim();
+        const clean = username.toLowerCase().trim();
+
+    if (RESERVED_USERNAMES.includes(clean)) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          username: clean,
+          available: false,
+          reason: 'reserved',
+        },
+      });
+    }
+
+    if (clean.length < 3 || clean.length > 30 || !/^[a-z0-9][a-z0-9._-]*[a-z0-9]$/.test(clean)) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          username: clean,
+          available: false,
+          reason: 'invalid_format',
+        },
+      });
+    }
     const existing = await Profile.findOne({ username: clean });
 
     res.status(200).json({
@@ -484,7 +522,11 @@ const getProfileAnalytics = async (req, res, next) => {
 const createInquiry = async (req, res, next) => {
   try {
     const { username } = req.params;
-    const { senderName, senderEmail, senderPhone, subject, message } = req.body;
+    const senderName = req.body.senderName || req.body.name;
+    const senderEmail = req.body.senderEmail || req.body.email;
+    const senderPhone = req.body.senderPhone || req.body.phone || '';
+    const subject = req.body.subject || 'General Inquiry';
+    const message = req.body.message;
 
     if (!senderName || !senderEmail || !message) {
       return res.status(400).json({
@@ -581,10 +623,11 @@ const updateInquiryStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!status || !['unread', 'read', 'replied', 'archived'].includes(status)) {
+    const validStatuses = ['unread', 'read', 'replied', 'archived', 'new', 'contacted', 'closed'];
+    if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Valid status (unread, read, replied, archived) is required',
+        message: 'Valid status is required',
       });
     }
 
@@ -913,6 +956,48 @@ const vouchSkill = async (req, res, next) => {
   }
 };
 
+
+/**
+ * Delete / Deactivate User Account & Associated Profile Data
+ * DELETE /api/v1/profiles/me/account
+ */
+const deleteMyAccount = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const profile = await Profile.findOne({ userId });
+
+    if (profile) {
+      const userReels = await Reel.find({ profileId: profile._id }).select('_id');
+      const reelIds = userReels.map((r) => r._id);
+
+      await Section.deleteMany({ profileId: profile._id });
+      await Reel.deleteMany({ profileId: profile._id });
+      await Inquiry.deleteMany({ profileId: profile._id });
+      const ProfileLookup = require('../models/ProfileLookup');
+      const Report = require('../models/Report');
+      await ProfileLookup.deleteMany({ profileId: profile._id });
+      await Report.deleteMany({
+        $or: [
+          { targetId: profile._id },
+          { targetId: { $in: reelIds } },
+          { reporterId: userId },
+        ],
+      });
+      await Profile.findByIdAndDelete(profile._id);
+    }
+
+    const User = require('../models/User');
+    await User.findByIdAndUpdate(userId, { accountStatus: 'deactivated' });
+
+    res.status(200).json({
+      success: true,
+      message: 'Account deactivated and profile data deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyProfile,
   updateMyProfile,
@@ -933,4 +1018,5 @@ module.exports = {
   getFollowStatus,
   getFollowers,
   vouchSkill,
+  deleteMyAccount,
 };

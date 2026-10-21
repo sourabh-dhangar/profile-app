@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/client';
 import {
@@ -20,6 +20,13 @@ import {
   Copy,
   FileText,
   Printer,
+  Heart,
+  Volume2,
+  VolumeX,
+  Pause,
+  X,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import InquiryModal from '../components/InquiryModal';
 import { useToast } from '../components/Toast';
@@ -86,11 +93,65 @@ const PublicProfilePage = () => {
   const [qrModal, setQrModal] = useState(false);
   const [activeReel, setActiveReel] = useState(null);
   const [inquiryModal, setInquiryModal] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [likedReelMap, setLikedReelMap] = useState({});
+  const [likesCountMap, setLikesCountMap] = useState({});
+  const videoPlayerRef = useRef(null);
   const toast = useToast();
+
+  const handleOpenReel = (reel) => {
+    setActiveReel(reel);
+    setIsPlaying(true);
+    if (reel?._id) {
+      api.post(`/reels/${reel._id}/view`).catch(() => {});
+    }
+  };
+
+  useEffect(() => {
+    if (videoPlayerRef.current) {
+      if (isPlaying) {
+        videoPlayerRef.current.play().catch(() => {});
+      } else {
+        videoPlayerRef.current.pause();
+      }
+    }
+  }, [isPlaying, activeReel]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     toast.success('Profile URL copied to clipboard!');
+  };
+
+  const handleLikeReel = async (reelId) => {
+    const isCurrentlyLiked = !!likedReelMap[reelId];
+    const currentCount = likesCountMap[reelId] ?? activeReel?.likesCount ?? 0;
+    const newLiked = !isCurrentlyLiked;
+    const newCount = newLiked ? currentCount + 1 : Math.max(0, currentCount - 1);
+
+    setLikedReelMap((prev) => ({ ...prev, [reelId]: newLiked }));
+    setLikesCountMap((prev) => ({ ...prev, [reelId]: newCount }));
+
+    try {
+      if (newLiked) {
+        await api.post(`/reels/${reelId}/like`);
+      }
+    } catch (e) {
+      // Non-blocking
+    }
+  };
+
+  const handleShareReel = (reel) => {
+    if (navigator.share) {
+      navigator.share({
+        title: `${profile?.name}'s Reel`,
+        text: reel.caption,
+        url: window.location.href,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success('Reel link copied to clipboard!');
+    }
   };
 
   useEffect(() => {
@@ -128,7 +189,7 @@ const PublicProfilePage = () => {
     try {
       await api.post('/reports', {
         targetType: 'profile',
-        targetId: profile.id,
+        targetId: profile._id || profile.id,
         reason: reportReason,
       });
       setReportSent(true);
@@ -183,7 +244,7 @@ const PublicProfilePage = () => {
   const currentTheme = THEMES[profile.theme] || THEMES.default;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 pb-28 sm:pb-10 space-y-8">
       {/* Profile Card Header with Theme */}
       <div className={`p-8 sm:p-10 rounded-3xl relative overflow-hidden border backdrop-blur-xl transition-colors duration-500 ${currentTheme.card}`}>
         {/* Ambient Top Glow */}
@@ -412,7 +473,7 @@ const PublicProfilePage = () => {
             reels.map((reel) => (
               <div
                 key={reel._id}
-                onClick={() => setActiveReel(reel)}
+                onClick={() => handleOpenReel(reel)}
                 className="group relative aspect-[9/16] rounded-2xl overflow-hidden glass-card cursor-pointer border-slate-800 hover:border-emerald-500/40 transition-all"
               >
                 <img
@@ -437,28 +498,192 @@ const PublicProfilePage = () => {
         </div>
       )}
 
-      {/* Reel Video Player Modal */}
-      {activeReel && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-3xl overflow-hidden glass-panel border border-slate-800 relative">
-            <video
-              src={activeReel.videoUrl}
-              controls
-              autoPlay
-              className="w-full aspect-[9/16] object-cover bg-black"
+      {/* Instagram-Style Reel Video Player Modal */}
+      {activeReel && (() => {
+        const activeIndex = reels.findIndex((r) => r._id === activeReel._id);
+        const hasPrev = activeIndex > 0;
+        const hasNext = activeIndex >= 0 && activeIndex < reels.length - 1;
+        const reelLiked = !!likedReelMap[activeReel._id];
+        const reelLikes = likesCountMap[activeReel._id] ?? activeReel.likesCount ?? 0;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+            {/* Modal Overlay Close backdrop */}
+            <div
+              className="absolute inset-0"
+              onClick={() => setActiveReel(null)}
             />
-            <div className="p-4 bg-slate-950 space-y-2">
-              <p className="text-sm text-white font-medium">{activeReel.caption}</p>
-              <button
-                onClick={() => setActiveReel(null)}
-                className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white"
+
+            {/* Video Chassis Container (9:16 Aspect Ratio) */}
+            <div className="relative w-full max-w-sm sm:max-w-md h-full sm:h-[88vh] sm:max-h-[780px] bg-black sm:rounded-3xl overflow-hidden shadow-2xl border border-slate-800/80 flex flex-col justify-between z-10">
+              {/* HTML5 Video Element */}
+              <div
+                className="relative flex-1 w-full bg-black flex items-center justify-center cursor-pointer select-none"
+                onClick={() => setIsPlaying((p) => !p)}
               >
-                Close Reel
-              </button>
+                <video
+                  ref={videoPlayerRef}
+                  src={activeReel.videoUrl}
+                  poster={activeReel.thumbnailUrl}
+                  autoPlay
+                  loop
+                  playsInline
+                  muted={isMuted}
+                  className="w-full h-full object-cover"
+                />
+
+                {/* Top Vignette Gradient */}
+                <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/80 via-black/30 to-transparent pointer-events-none" />
+
+                {/* Bottom Vignette Gradient */}
+                <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+
+                {/* Center Play/Pause Indicator when paused */}
+                {!isPlaying && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-16 h-16 rounded-full bg-black/60 border border-white/20 backdrop-blur-sm flex items-center justify-center text-white scale-110 shadow-2xl">
+                      <Play className="w-8 h-8 ml-1" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Floating Top Controls Header */}
+              <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20 pointer-events-auto">
+                <div className="flex items-center space-x-2.5 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+                  <img
+                    src={profile.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'}
+                    alt={profile.name}
+                    className="w-6 h-6 rounded-full object-cover border border-emerald-400"
+                  />
+                  <span className="text-xs font-bold text-white tracking-wide">
+                    @{profile.username}
+                  </span>
+                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                    REEL
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMuted((m) => !m);
+                    }}
+                    className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+                    title={isMuted ? 'Unmute' : 'Mute'}
+                  >
+                    {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveReel(null);
+                    }}
+                    className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+                    title="Close"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Vertical Interaction Rail */}
+              <div className="absolute right-3 bottom-24 flex flex-col items-center space-y-4 z-20 pointer-events-auto">
+                {/* Like Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLikeReel(activeReel._id);
+                  }}
+                  className="flex flex-col items-center group"
+                >
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${
+                    reelLiked
+                      ? 'bg-rose-500/30 text-rose-400 border-rose-500/50 scale-110'
+                      : 'bg-black/50 text-white border-white/15 hover:bg-white/20'
+                  }`}>
+                    <Heart className={`w-5 h-5 ${reelLiked ? 'fill-rose-400' : ''}`} />
+                  </div>
+                  <span className="text-[11px] font-bold text-white mt-1 drop-shadow">
+                    {reelLikes}
+                  </span>
+                </button>
+
+                {/* Views Counter */}
+                <div className="flex flex-col items-center">
+                  <div className="w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-white flex items-center justify-center">
+                    <Play className="w-5 h-5 ml-0.5" />
+                  </div>
+                  <span className="text-[11px] font-bold text-white mt-1 drop-shadow">
+                    {activeReel.viewsCount || 0}
+                  </span>
+                </div>
+
+                {/* Share Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleShareReel(activeReel);
+                  }}
+                  className="flex flex-col items-center group"
+                >
+                  <div className="w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-white flex items-center justify-center hover:bg-white/20 transition-all">
+                    <Share2 className="w-5 h-5" />
+                  </div>
+                  <span className="text-[11px] font-bold text-white mt-1 drop-shadow">
+                    Share
+                  </span>
+                </button>
+
+                {/* Up/Down Reel Navigation */}
+                {reels.length > 1 && (
+                  <div className="flex flex-col space-y-1 pt-1">
+                    <button
+                      disabled={!hasPrev}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (hasPrev) handleOpenReel(reels[activeIndex - 1]);
+                      }}
+                      className={`w-8 h-8 rounded-full bg-black/60 border border-white/10 text-white flex items-center justify-center ${
+                        !hasPrev ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/20'
+                      }`}
+                      title="Previous Reel"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      disabled={!hasNext}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (hasNext) handleOpenReel(reels[activeIndex + 1]);
+                      }}
+                      className={`w-8 h-8 rounded-full bg-black/60 border border-white/10 text-white flex items-center justify-center ${
+                        !hasNext ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/20'
+                      }`}
+                      title="Next Reel"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Caption & Audio Metadata */}
+              <div className="absolute bottom-4 left-4 right-16 z-20 pointer-events-auto space-y-2">
+                <p className="text-xs sm:text-sm text-white font-medium drop-shadow-md leading-snug line-clamp-3">
+                  {activeReel.caption}
+                </p>
+                <div className="flex items-center space-x-2 text-[11px] text-slate-300 font-semibold drop-shadow">
+                  <Film className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Original Reel • {profile.name}</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* QR Code Modal */}
       {qrModal && (
@@ -473,7 +698,7 @@ const PublicProfilePage = () => {
               />
             )}
             <p className="text-xs font-mono text-emerald-400">
-              {window.location.origin}/p/{profile.username}
+              {window.location.origin}/{profile.username}
             </p>
             <button
               onClick={() => setQrModal(false)}
@@ -537,6 +762,65 @@ const PublicProfilePage = () => {
         creatorName={profile.name}
         accentBg={currentTheme.accentBg}
       />
+
+      {/* Sticky Mobile Action Rail */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-2xl border-t border-slate-800/80 px-4 py-3 shadow-[0_-10px_25px_rgba(0,0,0,0.7)] flex items-center justify-between gap-2 print-hide">
+        {/* Get in Touch CTA */}
+        <button
+          onClick={() => setInquiryModal(true)}
+          className={`flex-1 py-2.5 rounded-xl ${currentTheme.accentBg} font-black text-xs shadow-lg flex items-center justify-center space-x-1.5 active:scale-95 transition-transform`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Get in Touch</span>
+        </button>
+
+        {/* Save Contact vCard */}
+        <a
+          href={`/api/v1/profiles/${profile.username}/vcard`}
+          download={`${profile.username}.vcf`}
+          onClick={() => {
+            handleTrackClick('Mobile Rail vCard', `/api/v1/profiles/${profile.username}/vcard`);
+            toast.success('Downloading contact card...');
+          }}
+          className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-xs border border-slate-700 flex items-center space-x-1"
+          title="Save Contact"
+        >
+          <Download className="w-4 h-4 text-emerald-400" />
+          <span>Save</span>
+        </a>
+
+        {/* Direct Call / WhatsApp */}
+        {profile.contactDetails?.phone ? (
+          <a
+            href={`tel:${profile.contactDetails.phone}`}
+            onClick={() => handleTrackClick('Mobile Rail Call', `tel:${profile.contactDetails.phone}`)}
+            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700"
+            title="Call"
+          >
+            <Phone className="w-4 h-4" />
+          </a>
+        ) : profile.contactDetails?.whatsapp ? (
+          <a
+            href={`https://wa.me/${profile.contactDetails.whatsapp.replace(/[^0-9]/g, '')}`}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => handleTrackClick('Mobile Rail WhatsApp', 'https://wa.me')}
+            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-400 border border-slate-700"
+            title="WhatsApp"
+          >
+            <MessageSquare className="w-4 h-4" />
+          </a>
+        ) : null}
+
+        {/* Share / QR */}
+        <button
+          onClick={() => setQrModal(true)}
+          className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+          title="QR Code"
+        >
+          <QrCode className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 };

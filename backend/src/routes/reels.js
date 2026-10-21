@@ -14,11 +14,14 @@ const {
   addComment,
   getComments,
   deleteComment,
+  getMyReels,
+  updateReelVisibility,
 } = require('../controllers/reelController');
 const { authenticate, optionalAuth } = require('../middleware/auth');
 const { uploadReel: reelUploader } = require('../middleware/upload');
 
 // Public feed & specific feeds (MUST be before /:id)
+router.get('/my-reels', authenticate, getMyReels);
 router.get('/feed', getFeed);
 router.get('/feed/following', authenticate, getFollowingFeed);
 router.get('/feed/saved', authenticate, getSavedReels);
@@ -37,6 +40,7 @@ router.post('/:id/pin', authenticate, togglePinReel);
 
 // Authenticated endpoints
 router.post('/', authenticate, reelUploader.single('video'), createReel);
+router.put('/:id/visibility', authenticate, updateReelVisibility);
 router.delete('/:id', authenticate, deleteReel);
 
 module.exports = router;

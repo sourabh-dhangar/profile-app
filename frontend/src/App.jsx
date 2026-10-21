@@ -60,6 +60,8 @@ function App() {
                   </AdminRoute>
                 }
               />
+              {/* Direct /:username routing for public profiles */}
+              <Route path="/:username" element={<PublicProfilePage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

@@ -20,6 +20,7 @@ const {
   getFollowStatus,
   getFollowers,
   vouchSkill,
+  deleteMyAccount,
 } = require('../controllers/profileController');
 const { authenticate, optionalAuth } = require('../middleware/auth');
 const { uploadPhoto: photoUploader } = require('../middleware/upload');
@@ -36,6 +37,7 @@ router.post('/me/inquiries/:id/reply', authenticate, replyToInquiry);
 router.put('/me', authenticate, updateMyProfile);
 router.post('/me/photo', authenticate, photoUploader.single('photo'), uploadPhoto);
 router.post('/me/publish', authenticate, publishProfile);
+router.delete('/me/account', authenticate, deleteMyAccount);
 
 // Specific sub-resource parametric routes
 router.get('/:username/qr', getProfileQR);

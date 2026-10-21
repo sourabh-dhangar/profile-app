@@ -30,29 +30,38 @@ import {
   X,
   Mail,
   Clock,
+  Layers,
+  Shield,
+  Wand2,
+  ShieldAlert,
+  Play,
+  Heart,
 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import MobileDeviceFrame from '../components/MobileDeviceFrame';
 
 const DashboardPage = () => {
-  const { user, profile, updateProfileState } = useAuth();
+  const { user, profile, updateProfileState, logout } = useAuth();
+  const toast = useToast();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sections, setSections] = useState([]);
+  const [myReels, setMyReels] = useState([]);
   const [allowDiscovery, setAllowDiscovery] = useState(false);
-  const toast = useToast();
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // Active Studio Tab: 'profile' | 'sections' | 'reels' | 'privacy' | 'inquiries' | 'analytics'
+  const [activeStudioTab, setActiveStudioTab] = useState('profile');
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+
   // Inquiries State
   const [inquiries, setInquiries] = useState([]);
   const [unreadInquiries, setUnreadInquiries] = useState(0);
   const [inquiryFilter, setInquiryFilter] = useState('all');
-  const [activeStudioTab, setActiveStudioTab] = useState('editor'); // 'editor', 'inquiries', 'analytics'
-  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
 
   // Analytics state
   const [analytics, setAnalytics] = useState({
@@ -91,7 +100,22 @@ const DashboardPage = () => {
     videoUrl: '',
     caption: '',
     durationSeconds: 15,
+    visibility: 'public',
   });
+
+  // AI Bio Helper State
+  const [aiBioModal, setAiBioModal] = useState(false);
+  const [aiBioTone, setAiBioTone] = useState('professional');
+  const [aiBioKeywords, setAiBioKeywords] = useState('');
+  const [aiBioSuggestions, setAiBioSuggestions] = useState([]);
+  const [aiBioLoading, setAiBioLoading] = useState(false);
+
+  // AI Caption Helper State
+  const [aiCaptionModal, setAiCaptionModal] = useState(false);
+  const [aiCaptionTopic, setAiCaptionTopic] = useState('');
+  const [aiCaptionTone, setAiCaptionTone] = useState('engaging');
+  const [aiCaptionSuggestions, setAiCaptionSuggestions] = useState([]);
+  const [aiCaptionLoading, setAiCaptionLoading] = useState(false);
 
   useEffect(() => {
     fetchProfileData();
@@ -100,14 +124,15 @@ const DashboardPage = () => {
   const fetchProfileData = async () => {
     setLoading(true);
     try {
-      const [resProfile, resDiscovery, resAnalytics, resInquiries] = await Promise.all([
+      const [resProfile, resDiscovery, resAnalytics, resInquiries, resReels] = await Promise.all([
         api.get('/profiles/me'),
         api.get('/discovery/settings'),
         api.get('/profiles/me/analytics').catch(() => ({ data: { success: false } })),
         api.get('/profiles/me/inquiries').catch(() => ({ data: { success: false } })),
+        api.get('/reels/my-reels').catch(() => ({ data: { success: false } })),
       ]);
 
-      if (resProfile.data.success) {
+      if (resProfile.data?.success) {
         const p = resProfile.data.data.profile;
         setSections(resProfile.data.data.sections || []);
         updateProfileState(p);
@@ -126,7 +151,7 @@ const DashboardPage = () => {
         });
       }
 
-      if (resDiscovery.data.success) {
+      if (resDiscovery.data?.success) {
         setAllowDiscovery(resDiscovery.data.data.allowDiscovery);
       }
 
@@ -138,6 +163,10 @@ const DashboardPage = () => {
         setInquiries(resInquiries.data.data.inquiries || []);
         setUnreadInquiries(resInquiries.data.data.unreadCount || 0);
       }
+
+      if (resReels.data?.success) {
+        setMyReels(resReels.data.data.reels || []);
+      }
     } catch (err) {
       setErrorMsg('Failed to load profile data');
     } finally {
@@ -148,38 +177,25 @@ const DashboardPage = () => {
   const handleUpdateInquiryStatus = async (id, status) => {
     try {
       const res = await api.put(`/profiles/me/inquiries/${id}/status`, { status });
-      if (res.data.success) {
+      if (res.data?.success) {
         setInquiries((prev) =>
-          prev.map((inq) => (inq._id === id ? { ...inq, status } : inq))
+          prev.map((i) => (i._id === id ? { ...i, status } : i))
         );
-        setUnreadInquiries((prev) =>
-          status === 'read' ? Math.max(prev - 1, 0) : prev + 1
-        );
-        toast.success(status === 'read' ? 'Inquiry marked as read' : 'Inquiry marked as unread');
+        if (status === 'read') {
+          setUnreadInquiries((c) => Math.max(0, c - 1));
+        }
+        toast.success(`Inquiry marked as ${status}`);
       }
     } catch (err) {
       toast.error('Failed to update inquiry status');
     }
   };
 
-  const handleThemeChange = async (newTheme) => {
-    setFormData((prev) => ({ ...prev, theme: newTheme }));
-    try {
-      const res = await api.put('/profiles/me', { theme: newTheme });
-      if (res.data.success) {
-        updateProfileState(res.data.data);
-        toast.success(`Theme updated to ${newTheme}!`);
-      }
-    } catch (err) {
-      toast.error('Failed to update theme');
-    }
-  };
-
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setErrorMsg('');
     setSuccessMsg('');
+    setErrorMsg('');
 
     try {
       const res = await api.put('/profiles/me', {
@@ -197,20 +213,35 @@ const DashboardPage = () => {
         },
       });
 
-      if (res.data.success) {
+      if (res.data?.success) {
         updateProfileState(res.data.data);
         setSuccessMsg('Profile details saved successfully!');
-        setTimeout(() => setSuccessMsg(''), 4000);
+        toast.success('Profile updated successfully!');
       }
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Error updating profile');
+      const msg = err.response?.data?.message || 'Failed to update profile';
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
   };
 
+  const handleThemeChange = async (themeId) => {
+    setFormData((prev) => ({ ...prev, theme: themeId }));
+    try {
+      const res = await api.put('/profiles/me', { theme: themeId });
+      if (res.data?.success) {
+        updateProfileState(res.data.data);
+        toast.success(`Theme updated to ${themeId}`);
+      }
+    } catch (err) {
+      toast.error('Failed to change theme');
+    }
+  };
+
   const handlePhotoUpload = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
     const data = new FormData();
@@ -220,37 +251,45 @@ const DashboardPage = () => {
       const res = await api.post('/profiles/me/photo', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      if (res.data.success) {
-        setSuccessMsg('Photo updated successfully!');
-        fetchProfileData();
+
+      if (res.data?.success) {
+        updateProfileState({ ...profile, photoUrl: res.data.data.photoUrl });
+        toast.success('Profile photo uploaded!');
       }
     } catch (err) {
-      setErrorMsg('Failed to upload photo');
+      toast.error('Failed to upload photo');
     }
   };
 
   const handleDiscoveryToggle = async (e) => {
-    const val = e.target.checked;
-    setAllowDiscovery(val);
+    const nextVal = e.target.checked;
+    setAllowDiscovery(nextVal);
     try {
-      await api.put('/discovery/settings', { allowDiscovery: val });
-      setSuccessMsg(val ? 'Phone discovery enabled' : 'Phone discovery disabled');
-      setTimeout(() => setSuccessMsg(''), 3000);
+      await api.put('/discovery/settings', { allowDiscovery: nextVal });
+      toast.success(nextVal ? 'Phone discovery enabled' : 'Phone discovery disabled');
     } catch (err) {
-      setAllowDiscovery(!val);
-      setErrorMsg('Failed to update discovery setting');
+      setAllowDiscovery(!nextVal);
+      toast.error('Failed to update discovery settings');
     }
   };
 
-  const handlePublish = async () => {
+  const handlePublishToggle = async () => {
     try {
-      const res = await api.post('/profiles/me/publish');
-      if (res.data.success) {
-        updateProfileState(res.data.data);
-        setSuccessMsg('🎉 Your profile is now published and live!');
+      if (profile?.status === 'published') {
+        const res = await api.put('/profiles/me', { status: 'draft' });
+        if (res.data?.success) {
+          updateProfileState({ ...profile, status: 'draft' });
+          toast.info('Profile unpublished (Draft mode)');
+        }
+      } else {
+        const res = await api.post('/profiles/me/publish');
+        if (res.data?.success) {
+          updateProfileState(res.data.data);
+          toast.success('🎉 Your profile is now published and live!');
+        }
       }
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Failed to publish profile');
+      toast.error(err.response?.data?.message || 'Failed to toggle publish status');
     }
   };
 
@@ -268,14 +307,15 @@ const DashboardPage = () => {
         content,
       });
 
-      if (res.data.success) {
+      if (res.data?.success) {
         setSections([...sections, res.data.data]);
         setNewSectionModal(false);
         setSectionForm({ type: 'about', title: 'About Me', text: '', itemsString: '' });
+        toast.success('Section added successfully!');
         fetchProfileData();
       }
     } catch (err) {
-      setErrorMsg('Failed to add section');
+      toast.error('Failed to add section');
     }
   };
 
@@ -284,9 +324,10 @@ const DashboardPage = () => {
     try {
       await api.delete(`/profiles/me/sections/${id}`);
       setSections(sections.filter((s) => s._id !== id));
+      toast.success('Section deleted');
       fetchProfileData();
     } catch (err) {
-      setErrorMsg('Failed to delete section');
+      toast.error('Failed to delete section');
     }
   };
 
@@ -300,7 +341,6 @@ const DashboardPage = () => {
     reordered[targetIndex] = temp;
 
     setSections(reordered);
-
     const sectionOrders = reordered.map((s, idx) => ({ id: s._id, order: idx }));
     try {
       await api.put('/profiles/me/sections/reorder', { sectionOrders });
@@ -316,23 +356,119 @@ const DashboardPage = () => {
         videoUrl: reelForm.videoUrl,
         caption: reelForm.caption,
         durationSeconds: reelForm.durationSeconds,
+        visibility: reelForm.visibility,
       });
 
-      if (res.data.success) {
-        setSuccessMsg('Reel published successfully!');
+      if (res.data?.success) {
+        toast.success('Reel published successfully!');
         setReelModal(false);
-        setReelForm({ videoUrl: '', caption: '', durationSeconds: 15 });
+        setReelForm({ videoUrl: '', caption: '', durationSeconds: 15, visibility: 'public' });
+        // Refresh my reels
+        const reelsRes = await api.get('/reels/my-reels');
+        if (reelsRes.data?.success) {
+          setMyReels(reelsRes.data.data.reels || []);
+        }
       }
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || 'Failed to upload reel');
+      toast.error(err.response?.data?.message || 'Failed to post reel');
     }
   };
 
-  const profileUrl = `${window.location.origin}/p/${profile?.username || ''}`;
+  const handleUpdateReelVisibility = async (reelId, visibility) => {
+    try {
+      const res = await api.put(`/reels/${reelId}/visibility`, { visibility });
+      if (res.data?.success) {
+        setMyReels((prev) =>
+          prev.map((r) => (r._id === reelId ? { ...r, visibility } : r))
+        );
+        toast.success(`Reel visibility updated to ${visibility}`);
+      }
+    } catch (err) {
+      toast.error('Failed to update reel visibility');
+    }
+  };
+
+  const handleDeleteReel = async (reelId) => {
+    if (!window.confirm('Delete this reel permanently?')) return;
+    try {
+      const res = await api.delete(`/reels/${reelId}`);
+      if (res.data?.success) {
+        setMyReels((prev) => prev.filter((r) => r._id !== reelId));
+        toast.success('Reel deleted successfully');
+      }
+    } catch (err) {
+      toast.error('Failed to delete reel');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (
+      !window.confirm(
+        '⚠️ DANGER ZONE: Are you sure you want to delete your profile and deactivate your account? All sections, reels, and inquiries will be permanently removed.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await api.delete('/profiles/me/account');
+      if (res.data?.success) {
+        toast.success('Account deactivated and data deleted');
+        if (logout) logout();
+        window.location.href = '/login';
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to deactivate account');
+    }
+  };
+
+  // AI Helpers
+  const handleGenerateAiBio = async () => {
+    setAiBioLoading(true);
+    try {
+      const res = await api.post('/ai/generate-bio', {
+        profession: formData.profileType || 'Creator',
+        tone: aiBioTone,
+        keywords: aiBioKeywords.split(',').map((s) => s.trim()).filter(Boolean),
+        currentBio: formData.bio,
+      });
+
+      if (res.data?.success) {
+        setAiBioSuggestions(res.data.data.suggestions || []);
+        toast.success('AI Bios generated!');
+      }
+    } catch (err) {
+      toast.error('Failed to generate AI bio suggestions');
+    } finally {
+      setAiBioLoading(false);
+    }
+  };
+
+  const handleGenerateAiCaption = async () => {
+    setAiCaptionLoading(true);
+    try {
+      const res = await api.post('/ai/generate-caption', {
+        topic: aiCaptionTopic || `${formData.name || 'Creator'} showcase`,
+        tone: aiCaptionTone,
+      });
+
+      if (res.data?.success) {
+        setAiCaptionSuggestions(res.data.data.suggestions || []);
+        toast.success('AI Captions generated!');
+      }
+    } catch (err) {
+      toast.error('Failed to generate AI captions');
+    } finally {
+      setAiCaptionLoading(false);
+    }
+  };
+
+  const profileUrl = `${window.location.origin}/${profile?.username || ''}`;
 
   const copyProfileLink = () => {
     navigator.clipboard.writeText(profileUrl);
     setCopiedLink(true);
+    toast.success('Profile URL copied!');
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
@@ -345,156 +481,184 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
-      {/* Header with status & links */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+      {/* Header Banner */}
+      <div className="glass-panel p-6 sm:p-8 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-slate-800">
         <div className="flex items-center space-x-5">
           <div className="relative group">
             <img
-              src={profile?.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'}
-              alt={profile?.name}
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover ring-2 ring-emerald-500/30"
+              src={
+                profile?.photoUrl ||
+                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'
+              }
+              alt="Profile"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-2 ring-emerald-500/30"
             />
-            <label className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-              <Camera className="w-6 h-6 text-white" />
+            <label className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+              <Camera className="w-5 h-5 text-white" />
               <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
             </label>
           </div>
 
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-2xl font-bold text-white">{profile?.name || 'New Profile'}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-white">{profile?.name || 'Creator'}</h1>
               <span
-                className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+                className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                   profile?.status === 'published'
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
                 }`}
               >
-                {profile?.status?.toUpperCase()}
+                {profile?.status || 'Draft'}
               </span>
             </div>
-            <p className="text-sm text-slate-400 mt-0.5">@{profile?.username} • {profile?.profileType}</p>
-            <div className="flex items-center space-x-3 mt-3">
-              <button
-                onClick={copyProfileLink}
-                className="inline-flex items-center space-x-1.5 text-xs text-slate-300 hover:text-white bg-slate-800/80 px-2.5 py-1.5 rounded-lg transition-colors"
-              >
-                <Copy className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{copiedLink ? 'Copied!' : 'Copy Link'}</span>
-              </button>
-              <a
-                href={`/p/${profile?.username}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center space-x-1.5 text-xs text-slate-300 hover:text-white bg-slate-800/80 px-2.5 py-1.5 rounded-lg transition-colors"
-              >
-                <ExternalLink className="w-3.5 h-3.5 text-teal-400" />
-                <span>Live View</span>
-              </a>
-              <button
-                onClick={() => setQrModalOpen(true)}
-                className="inline-flex items-center space-x-1.5 text-xs text-slate-300 hover:text-white bg-slate-800/80 px-2.5 py-1.5 rounded-lg transition-colors"
-              >
-                <QrCode className="w-3.5 h-3.5 text-cyan-400" />
-                <span>QR Code</span>
-              </button>
-            </div>
+            <p className="text-xs text-slate-400 font-mono mt-1">@{profile?.username}</p>
           </div>
         </div>
 
-        {/* Action button */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-          {profile?.status !== 'published' ? (
-            <button
-              onClick={handlePublish}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center space-x-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Publish Profile</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => setReelModal(true)}
-              className="px-5 py-2.5 rounded-xl bg-teal-500/10 border border-teal-500/30 hover:bg-teal-500/20 text-teal-400 font-semibold text-sm transition-all flex items-center justify-center space-x-2"
-            >
-              <Video className="w-4 h-4" />
-              <span>Post Reel</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Completion Meter */}
-      <div className="glass-card p-6 rounded-2xl border-slate-800">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-semibold text-white">Profile Completion</span>
-          <span className="text-sm font-bold text-emerald-400">{profile?.completionPercentage}%</span>
-        </div>
-        <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
-          <div
-            className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-500"
-            style={{ width: `${profile?.completionPercentage || 20}%` }}
-          ></div>
-        </div>
-        <p className="text-xs text-slate-400 mt-2">
-          {profile?.completionPercentage < 50
-            ? 'Add a bio, custom username, and at least 1 section to reach 50% and unlock public sharing.'
-            : 'Looking sharp! Your profile has sufficient details for public discovery.'}
-        </p>
-      </div>
-
-      {/* Creator Studio Navigation Tabs */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-        <div className="flex items-center space-x-2 sm:space-x-3 overflow-x-auto pb-1 sm:pb-0">
+        {/* Action Controls */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
           <button
-            type="button"
-            onClick={() => setActiveStudioTab('editor')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center space-x-2 transition-all whitespace-nowrap ${
-              activeStudioTab === 'editor'
-                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
+            onClick={copyProfileLink}
+            className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 text-xs font-semibold text-slate-200 flex items-center space-x-1.5 transition-colors"
           >
-            <User className="w-4 h-4" />
-            <span>Profile & Content</span>
+            <Copy className="w-3.5 h-3.5" />
+            <span>{copiedLink ? 'Copied!' : 'Copy Link'}</span>
           </button>
 
+          <a
+            href={profileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 text-xs font-semibold text-slate-200 flex items-center space-x-1.5 transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>View Profile</span>
+          </a>
+
+          <button
+            onClick={handlePublishToggle}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
+              profile?.status === 'published'
+                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-emerald-500/20'
+            }`}
+          >
+            {profile?.status === 'published' ? 'Unpublish' : 'Publish Profile'}
+          </button>
+        </div>
+      </div>
+
+      {/* Completion Gauge Strip */}
+      <div className="glass-card p-5 rounded-2xl border-slate-800/80">
+        <div className="flex items-center justify-between text-xs font-semibold mb-2">
+          <span className="text-slate-300 flex items-center space-x-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Profile Strength & Completion</span>
+          </span>
+          <span className="font-mono text-emerald-400 font-bold">
+            {profile?.completionPercentage || 0}%
+          </span>
+        </div>
+        <div className="w-full h-2 rounded-full bg-slate-900 overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+            style={{ width: `${profile?.completionPercentage || 0}%` }}
+          />
+        </div>
+      </div>
+
+      {/* MODULAR DASHBOARD STUDIO TABS */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          {/* Tab 1: Profile & Bio */}
+          <button
+            type="button"
+            onClick={() => setActiveStudioTab('profile')}
+            className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center space-x-1.5 transition-all whitespace-nowrap ${
+              activeStudioTab === 'profile'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <User className="w-3.5 h-3.5" />
+            <span>Profile & Bio</span>
+          </button>
+
+          {/* Tab 2: Section Builder */}
+          <button
+            type="button"
+            onClick={() => setActiveStudioTab('sections')}
+            className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center space-x-1.5 transition-all whitespace-nowrap ${
+              activeStudioTab === 'sections'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Section Builder ({sections.length})</span>
+          </button>
+
+          {/* Tab 3: Reels Studio */}
+          <button
+            type="button"
+            onClick={() => setActiveStudioTab('reels')}
+            className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center space-x-1.5 transition-all whitespace-nowrap ${
+              activeStudioTab === 'reels'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Video className="w-3.5 h-3.5" />
+            <span>Reels Studio ({myReels.length})</span>
+          </button>
+
+          {/* Tab 4: Privacy Hub */}
+          <button
+            type="button"
+            onClick={() => setActiveStudioTab('privacy')}
+            className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center space-x-1.5 transition-all whitespace-nowrap ${
+              activeStudioTab === 'privacy'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span>Privacy Hub</span>
+          </button>
+
+          {/* Tab 5: Leads / Inquiries */}
           <button
             type="button"
             onClick={() => setActiveStudioTab('inquiries')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center space-x-2 transition-all whitespace-nowrap relative ${
+            className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center space-x-1.5 transition-all whitespace-nowrap relative ${
               activeStudioTab === 'inquiries'
                 ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <Inbox className="w-4 h-4" />
-            <span>Inquiries Inbox</span>
+            <Inbox className="w-3.5 h-3.5" />
+            <span>Leads / Inquiries</span>
             {unreadInquiries > 0 && (
-              <span
-                className={`px-2 py-0.5 text-[11px] rounded-full font-black ${
-                  activeStudioTab === 'inquiries'
-                    ? 'bg-slate-950 text-emerald-400'
-                    : 'bg-rose-500 text-white animate-pulse'
-                }`}
-              >
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-black animate-pulse">
                 {unreadInquiries}
               </span>
             )}
           </button>
 
+          {/* Tab 6: Analytics */}
           <button
             type="button"
             onClick={() => setActiveStudioTab('analytics')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center space-x-2 transition-all whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center space-x-1.5 transition-all whitespace-nowrap ${
               activeStudioTab === 'analytics'
                 ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <BarChart3 className="w-4 h-4" />
-            <span>Visitor Analytics</span>
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Analytics</span>
           </button>
         </div>
 
@@ -502,191 +666,163 @@ const DashboardPage = () => {
         <button
           type="button"
           onClick={() => setMobilePreviewOpen(true)}
-          className="xl:hidden inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-emerald-400 hover:text-emerald-300 text-xs font-bold hover:bg-slate-800 transition-colors shadow-lg"
+          className="xl:hidden inline-flex items-center justify-center space-x-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 text-xs font-bold hover:bg-slate-800 transition-colors shadow"
         >
-          <Smartphone className="w-4 h-4" />
+          <Smartphone className="w-3.5 h-3.5" />
           <span>Live Mobile Preview</span>
         </button>
       </div>
 
-      {/* Notification banners */}
-      {successMsg && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center space-x-2">
-          <CheckCircle className="w-5 h-5 flex-shrink-0" />
-          <span>{successMsg}</span>
-        </div>
-      )}
-      {errorMsg && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm flex items-center space-x-2">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
-
-      {/* TAB 1: Profile & Content (Dual-Pane on Desktop) */}
-      {activeStudioTab === 'editor' && (
-        <div className="xl:grid xl:grid-cols-12 xl:gap-8 items-start">
-          {/* Left Column: Editor Controls */}
-          <div className="xl:col-span-7 space-y-8">
-            {/* Core Info & Contact Form */}
-            <form onSubmit={handleProfileSubmit} className="glass-card p-6 sm:p-8 rounded-2xl space-y-6">
-              <h2 className="text-lg font-bold text-white border-b border-slate-800 pb-3">
-                Basic Information
-              </h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Display Name</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Username (Slug)</label>
-                  <input
-                    type="text"
-                    value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Profile Type / Role</label>
-                  <select
-                    value={formData.profileType}
-                    onChange={(e) => setFormData({ ...formData, profileType: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="Personal">Personal</option>
-                    <option value="Student">Student</option>
-                    <option value="Sportsperson">Sportsperson</option>
-                    <option value="Teacher">Teacher</option>
-                    <option value="Professional">Professional</option>
-                    <option value="Freelancer">Freelancer</option>
-                    <option value="ServiceProvider">Service Provider</option>
-                    <option value="SmallBusiness">Small Business</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">City / Location</label>
-                  <input
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    placeholder="e.g. Mumbai, India"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Bio / Summary</label>
-                <textarea
-                  rows={3}
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  placeholder="A short punchy intro about your expertise and background..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="border-t border-slate-800 pt-6">
-                <h3 className="text-sm font-semibold text-white mb-4">Contact Privacy Controls</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                    <div>
-                      <p className="text-xs font-medium text-slate-200">Show Phone Number on Profile</p>
-                      <p className="text-[11px] text-slate-500">Allow visitors to call or message you directly</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={formData.showPhone}
-                      onChange={(e) => setFormData({ ...formData, showPhone: e.target.checked })}
-                      className="rounded text-emerald-500 focus:ring-emerald-500/30"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                    <div>
-                      <p className="text-xs font-medium text-slate-200">Show Email Address</p>
-                      <p className="text-[11px] text-slate-500">Display email contact button</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={formData.showEmail}
-                      onChange={(e) => setFormData({ ...formData, showEmail: e.target.checked })}
-                      className="rounded text-emerald-500 focus:ring-emerald-500/30"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-md transition-all disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save Profile Changes'}
-              </button>
-            </form>
-
-            {/* Visual Aesthetic Themes Card */}
-            <div className="glass-card p-6 sm:p-8 rounded-2xl space-y-5 border-slate-800">
-              <div className="flex items-center space-x-3 text-fuchsia-400 border-b border-slate-800 pb-3">
-                <Palette className="w-5 h-5" />
-                <div>
-                  <h3 className="text-base font-bold text-white">Visual Aesthetic Themes</h3>
-                  <p className="text-xs text-slate-400">Curated styling applied to your public profile and live mobile viewer</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
-                {[
-                  { id: 'default', label: 'Dark Slate', desc: 'Emerald Neon', colors: 'from-slate-900 via-slate-800 to-emerald-950', ring: 'ring-emerald-500' },
-                  { id: 'dark-neon', label: 'Dark Neon', desc: 'Fuchsia Glow', colors: 'from-purple-950 via-slate-900 to-fuchsia-950', ring: 'ring-fuchsia-500' },
-                  { id: 'minimalist-luxe', label: 'Luxe Gold', desc: 'Amber Accent', colors: 'from-zinc-950 via-zinc-900 to-amber-950', ring: 'ring-amber-400' },
-                  { id: 'cyberpunk-emerald', label: 'Cyberpunk', desc: 'Cyan / Teal', colors: 'from-teal-950 via-slate-950 to-cyan-950', ring: 'ring-cyan-400' },
-                  { id: 'sunset-gradient', label: 'Sunset', desc: 'Rose Crimson', colors: 'from-rose-950 via-slate-950 to-orange-950', ring: 'ring-rose-500' },
-                ].map((th) => (
+      {/* Main Studio Dual-Pane Layout */}
+      <div className="xl:grid xl:grid-cols-12 xl:gap-8 items-start">
+        {/* Left Column: Active Modular Tab Content */}
+        <div className="xl:col-span-7 space-y-6">
+          {/* TAB 1: Profile & Bio Studio */}
+          {activeStudioTab === 'profile' && (
+            <div className="space-y-6">
+              <form onSubmit={handleProfileSubmit} className="glass-card p-6 sm:p-8 rounded-2xl space-y-5 border-slate-800">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <h2 className="text-base font-bold text-white flex items-center space-x-2">
+                    <User className="w-4 h-4 text-emerald-400" />
+                    <span>Identity & Bio Details</span>
+                  </h2>
                   <button
-                    key={th.id}
-                    type="button"
-                    onClick={() => handleThemeChange(th.id)}
-                    className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between h-24 ${
-                      formData.theme === th.id
-                        ? `border-emerald-400 ring-2 ${th.ring} bg-white/10 shadow-lg`
-                        : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
-                    }`}
+                    type="submit"
+                    disabled={saving}
+                    className="px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-all disabled:opacity-50"
                   >
-                    <div className={`w-full h-8 rounded-lg bg-gradient-to-r ${th.colors} mb-2 shadow-inner`} />
-                    <div>
-                      <span className="block text-xs font-bold text-white">{th.label}</span>
-                      <span className="block text-[10px] text-slate-400">{th.desc}</span>
-                    </div>
+                    {saving ? 'Saving...' : 'Save Changes'}
                   </button>
-                ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Display Name</label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Username (Vanity Slug)</label>
+                    <input
+                      type="text"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500 font-mono"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Role / Profession</label>
+                    <select
+                      value={formData.profileType}
+                      onChange={(e) => setFormData({ ...formData, profileType: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="Personal">Personal</option>
+                      <option value="Student">Student</option>
+                      <option value="Sportsperson">Sportsperson</option>
+                      <option value="Teacher">Teacher</option>
+                      <option value="Professional">Professional</option>
+                      <option value="Freelancer">Freelancer</option>
+                      <option value="ServiceProvider">Service Provider</option>
+                      <option value="SmallBusiness">Small Business</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">City / Location</label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      placeholder="e.g. Mumbai, India"
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Bio Section with Prominent AI Helper */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-slate-400">Bio / Summary</label>
+                    <button
+                      type="button"
+                      onClick={() => setAiBioModal(true)}
+                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-[11px] font-bold transition-all shadow-sm"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>✨ AI Bio Helper</span>
+                    </button>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    placeholder="Short punchy intro about your expertise, craft, or business..."
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500 leading-relaxed"
+                  />
+                </div>
+              </form>
+
+              {/* Aesthetic Visual Theme Picker */}
+              <div className="glass-card p-6 rounded-2xl space-y-4 border-slate-800">
+                <div className="flex items-center space-x-2 text-fuchsia-400 border-b border-slate-800 pb-2">
+                  <Palette className="w-4 h-4" />
+                  <h3 className="text-sm font-bold text-white">Visual Aesthetic Themes</h3>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  {[
+                    { id: 'default', label: 'Dark Slate', desc: 'Emerald Neon', colors: 'from-slate-900 to-emerald-950' },
+                    { id: 'dark-neon', label: 'Dark Neon', desc: 'Fuchsia Glow', colors: 'from-purple-950 to-fuchsia-950' },
+                    { id: 'minimalist-luxe', label: 'Luxe Gold', desc: 'Amber Accent', colors: 'from-zinc-950 to-amber-950' },
+                    { id: 'cyberpunk-emerald', label: 'Cyberpunk', desc: 'Cyan / Teal', colors: 'from-teal-950 to-cyan-950' },
+                    { id: 'sunset-gradient', label: 'Sunset', desc: 'Rose Crimson', colors: 'from-rose-950 to-orange-950' },
+                  ].map((th) => (
+                    <button
+                      key={th.id}
+                      type="button"
+                      onClick={() => handleThemeChange(th.id)}
+                      className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between h-20 ${
+                        formData.theme === th.id
+                          ? 'border-emerald-400 ring-2 ring-emerald-500/30 bg-white/10 shadow-md'
+                          : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className={`w-full h-6 rounded-lg bg-gradient-to-r ${th.colors} mb-1.5`} />
+                      <div>
+                        <span className="block text-[11px] font-bold text-white">{th.label}</span>
+                        <span className="block text-[9px] text-slate-400">{th.desc}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Modular Profile Sections */}
-            <div className="glass-card p-6 sm:p-8 rounded-2xl space-y-6">
+          {/* TAB 2: Section Builder */}
+          {activeStudioTab === 'sections' && (
+            <div className="glass-card p-6 sm:p-8 rounded-2xl space-y-5 border-slate-800">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div>
-                  <h2 className="text-lg font-bold text-white">Modular Profile Sections</h2>
-                  <p className="text-xs text-slate-400">Order, add, or remove custom blocks</p>
+                  <h2 className="text-base font-bold text-white flex items-center space-x-2">
+                    <Layers className="w-4 h-4 text-emerald-400" />
+                    <span>Modular Profile Sections</span>
+                  </h2>
+                  <p className="text-xs text-slate-400">Add customizable sections displayed on your public identity page</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setNewSectionModal(true)}
-                  className="px-3.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-semibold flex items-center space-x-1.5 transition-colors"
+                  className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-bold flex items-center space-x-1.5 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Section</span>
@@ -694,24 +830,28 @@ const DashboardPage = () => {
               </div>
 
               {sections.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-6">
-                  No custom sections yet. Add an About block or Skills list!
-                </p>
+                <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 space-y-2">
+                  <Layers className="w-8 h-8 text-slate-500 mx-auto mb-1" />
+                  <p className="text-xs font-bold text-slate-300">No Custom Sections Yet</p>
+                  <p className="text-[11px] text-slate-500">
+                    Add Skills & Stacks, Work Experience, Education, or Services to stand out!
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {sections.map((sec, idx) => (
                     <div
                       key={sec._id}
-                      className="flex items-center justify-between p-4 rounded-xl bg-slate-900/80 border border-slate-800"
+                      className="flex items-center justify-between p-4 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-colors"
                     >
                       <div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm font-semibold text-white">{sec.title}</span>
+                          <span className="text-xs font-bold text-white">{sec.title}</span>
                           <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 uppercase font-mono">
                             {sec.type}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-400 mt-1 line-clamp-1">
+                        <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">
                           {sec.content?.text || (sec.content?.items && sec.content.items.join(', ')) || 'Custom content'}
                         </p>
                       </div>
@@ -722,23 +862,26 @@ const DashboardPage = () => {
                           onClick={() => handleMoveSection(idx, -1)}
                           disabled={idx === 0}
                           className="p-1.5 rounded hover:bg-slate-800 text-slate-400 disabled:opacity-30"
+                          title="Move Up"
                         >
-                          <ArrowUp className="w-4 h-4" />
+                          <ArrowUp className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleMoveSection(idx, 1)}
                           disabled={idx === sections.length - 1}
                           className="p-1.5 rounded hover:bg-slate-800 text-slate-400 disabled:opacity-30"
+                          title="Move Down"
                         >
-                          <ArrowDown className="w-4 h-4" />
+                          <ArrowDown className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteSection(sec._id)}
                           className="p-1.5 rounded hover:bg-rose-500/10 text-rose-400 transition-colors"
+                          title="Delete"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -746,19 +889,117 @@ const DashboardPage = () => {
                 </div>
               )}
             </div>
+          )}
 
-            {/* Privacy & Quick Share Settings Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="glass-card p-6 rounded-2xl border-slate-800 space-y-4">
-                <div className="flex items-center space-x-3 text-emerald-400">
-                  <Lock className="w-5 h-5" />
-                  <h3 className="text-base font-bold text-white">Phone Privacy</h3>
+          {/* TAB 3: Reels Studio */}
+          {activeStudioTab === 'reels' && (
+            <div className="glass-card p-6 sm:p-8 rounded-2xl space-y-6 border-slate-800">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                  <h2 className="text-base font-bold text-white flex items-center space-x-2">
+                    <Video className="w-4 h-4 text-emerald-400" />
+                    <span>My Reels Studio</span>
+                  </h2>
+                  <p className="text-xs text-slate-400">Manage short-form video showcases and visibility controls</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReelModal(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-emerald-500/20 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Post Reel</span>
+                </button>
+              </div>
+
+              {myReels.length === 0 ? (
+                <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 space-y-2">
+                  <Video className="w-8 h-8 text-slate-500 mx-auto mb-1" />
+                  <p className="text-xs font-bold text-slate-300">No Reels Uploaded Yet</p>
+                  <p className="text-[11px] text-slate-500">
+                    Upload short clips (under 60s) showcasing your projects, speech, or portfolio!
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {myReels.map((reel) => (
+                    <div
+                      key={reel._id}
+                      className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between space-y-3"
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="w-16 h-24 rounded-xl overflow-hidden bg-black flex-shrink-0 relative">
+                          <img
+                            src={reel.thumbnailUrl || reel.videoUrl}
+                            alt={reel.caption}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <Play className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-white line-clamp-2">{reel.caption || 'Untitled Reel'}</p>
+                          <div className="flex items-center space-x-3 text-[10px] text-slate-400 mt-2 font-mono">
+                            <span>{reel.viewsCount || 0} views</span>
+                            <span>•</span>
+                            <span>{reel.likesCount || 0} likes</span>
+                          </div>
+                          <span className="inline-block mt-1 text-[10px] font-bold text-slate-400">
+                            ⏱️ {reel.durationSeconds || 15}s
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Granular Visibility & Delete controls */}
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                        <div className="flex items-center space-x-1.5">
+                          <label className="text-[10px] text-slate-400 font-semibold">Visibility:</label>
+                          <select
+                            value={reel.visibility || 'public'}
+                            onChange={(e) => handleUpdateReelVisibility(reel._id, e.target.value)}
+                            className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-700 text-white text-[10px] font-bold"
+                          >
+                            <option value="public">Public (Feed & Profile)</option>
+                            <option value="profile-only">Profile Only</option>
+                            <option value="private">Private (Owner Only)</option>
+                          </select>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteReel(reel._id)}
+                          className="p-1.5 rounded-lg hover:bg-rose-500/10 text-rose-400 transition-colors"
+                          title="Delete Reel"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: Privacy Hub */}
+          {activeStudioTab === 'privacy' && (
+            <div className="space-y-6">
+              {/* Phone Discovery & Privacy Settings */}
+              <div className="glass-card p-6 sm:p-8 rounded-2xl space-y-4 border-slate-800">
+                <div className="flex items-center space-x-2 text-emerald-400 border-b border-slate-800 pb-2">
+                  <Shield className="w-4 h-4" />
+                  <h3 className="text-sm font-bold text-white">Discovery & Search Privacy</h3>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  When enabled, contacts with your phone number can discover your profile via the search bar.
+                  When enabled, visitors who already possess your exact mobile number can look up your minimal profile preview. Unlisted phone numbers never disclose registration status.
                 </p>
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800">
-                  <span className="text-xs font-semibold text-slate-200">Allow Phone Discovery</span>
+
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                  <div>
+                    <span className="text-xs font-bold text-white">Allow Mobile Discovery</span>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Indexed via salted HMAC-SHA256 cryptographic hashes</p>
+                  </div>
                   <input
                     type="checkbox"
                     checked={allowDiscovery}
@@ -766,329 +1007,420 @@ const DashboardPage = () => {
                     className="rounded text-emerald-500 focus:ring-emerald-500/30"
                   />
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  Protected by HMAC-SHA256 indexing. Plaintext numbers are never exposed.
+              </div>
+
+              {/* Contact Information Visibility Hub */}
+              <div className="glass-card p-6 sm:p-8 rounded-2xl space-y-4 border-slate-800">
+                <div className="flex items-center space-x-2 text-cyan-400 border-b border-slate-800 pb-2">
+                  <Lock className="w-4 h-4" />
+                  <h3 className="text-sm font-bold text-white">Contact Visibility Toggles</h3>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <div>
+                      <p className="text-xs font-bold text-white">Show Mobile Number on Profile</p>
+                      <p className="text-[10px] text-slate-400">Allows visitors to trigger direct phone calls</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={formData.showPhone}
+                      onChange={(e) => setFormData({ ...formData, showPhone: e.target.checked })}
+                      className="rounded text-emerald-500 focus:ring-emerald-500/30"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <div>
+                      <p className="text-xs font-bold text-white">Show Email Address</p>
+                      <p className="text-[10px] text-slate-400">Renders mailto button on public card</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={formData.showEmail}
+                      onChange={(e) => setFormData({ ...formData, showEmail: e.target.checked })}
+                      className="rounded text-emerald-500 focus:ring-emerald-500/30"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleProfileSubmit}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white transition-colors"
+                >
+                  Save Privacy Preferences
+                </button>
+              </div>
+
+              {/* Danger Zone: Account Deactivation */}
+              <div className="glass-card p-6 rounded-2xl border-rose-900/40 bg-rose-950/10 space-y-3">
+                <div className="flex items-center space-x-2 text-rose-400">
+                  <ShieldAlert className="w-4 h-4" />
+                  <h3 className="text-sm font-bold text-rose-300">Danger Zone: Account Deactivation</h3>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Deactivating your account will immediately remove your public profile, delete all associated modular sections, and wipe published video reels.
                 </p>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md transition-colors"
+                >
+                  Deactivate & Delete My Account
+                </button>
               </div>
+            </div>
+          )}
 
-              <div className="glass-card p-6 rounded-2xl border-slate-800 text-center space-y-4 flex flex-col justify-between">
+          {/* TAB 5: Leads & Inquiries */}
+          {activeStudioTab === 'inquiries' && (
+            <div className="glass-panel p-6 sm:p-8 rounded-2xl border border-slate-800 space-y-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-white">Quick Share QR Code</h3>
-                  <p className="text-[11px] text-slate-400 mt-1">Scan from any phone camera</p>
+                  <h2 className="text-base font-bold text-white flex items-center space-x-2">
+                    <Inbox className="w-4 h-4 text-emerald-400" />
+                    <span>Direct Inquiries Inbox</span>
+                  </h2>
+                  <p className="text-xs text-slate-400">Visitor messages and project leads submitted from your profile</p>
                 </div>
-                {profile?.qrCodeUrl ? (
-                  <img
-                    src={profile.qrCodeUrl}
-                    alt="Profile QR Code"
-                    className="w-32 h-32 mx-auto rounded-xl p-2 bg-white shadow-md"
-                  />
-                ) : (
-                  <div className="w-32 h-32 mx-auto rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xs text-slate-500">
-                    Publish profile to generate QR
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setQrModalOpen(true)}
-                  className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors"
-                >
-                  Open Fullscreen QR
-                </button>
-              </div>
-            </div>
-          </div>
 
-          {/* Right Column: Sticky Live Smartphone Mockup (Desktop) */}
-          <div className="hidden xl:block xl:col-span-5 sticky top-24">
-            <div className="glass-panel p-6 rounded-3xl border border-slate-800/80 shadow-2xl flex flex-col items-center">
-              <div className="w-full flex items-center justify-between pb-4 mb-3 border-b border-slate-800/80">
-                <div className="flex items-center space-x-2">
-                  <Smartphone className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-white">Live Mobile Chassis</span>
+                <div className="flex items-center space-x-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-xs">
+                  {[
+                    { id: 'all', label: 'All', count: inquiries.filter((i) => i.status !== 'archived').length },
+                    { id: 'unread', label: 'Unread', count: inquiries.filter((i) => i.status === 'unread').length },
+                    { id: 'read', label: 'Read', count: inquiries.filter((i) => i.status === 'read').length },
+                    { id: 'archived', label: 'Archived', count: inquiries.filter((i) => i.status === 'archived').length },
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setInquiryFilter(f.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1 ${
+                        inquiryFilter === f.id
+                          ? 'bg-emerald-500 text-slate-950 font-bold shadow'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span>{f.label}</span>
+                      <span className="text-[10px] font-mono">({f.count})</span>
+                    </button>
+                  ))}
                 </div>
-                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                  Real-Time Sync
+              </div>
+
+              {inquiries.filter((inq) => (inquiryFilter === 'all' ? inq.status !== 'archived' : inq.status === inquiryFilter)).length === 0 ? (
+                <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 space-y-2">
+                  <MessageSquare className="w-8 h-8 text-slate-500 mx-auto mb-1" />
+                  <p className="text-xs font-bold text-slate-300">No {inquiryFilter} inquiries found</p>
+                  <p className="text-[11px] text-slate-500">
+                    Visitors can contact you directly by clicking "Get in Touch" on your public profile.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {inquiries
+                    .filter((inq) => (inquiryFilter === 'all' ? inq.status !== 'archived' : inq.status === inquiryFilter))
+                    .map((inq) => (
+                      <div
+                        key={inq._id}
+                        className={`p-4 rounded-xl border transition-all ${
+                          inq.status === 'unread'
+                            ? 'bg-slate-900/90 border-emerald-500/40 shadow-sm'
+                            : 'bg-slate-900/50 border-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="font-bold text-white">{inq.senderName}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(inq.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400">{inq.senderEmail} {inq.senderPhone && `• ${inq.senderPhone}`}</p>
+                        <p className="text-xs text-slate-300 mt-2 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800 leading-relaxed">
+                          {inq.message}
+                        </p>
+                        <div className="flex items-center justify-end space-x-2 mt-3 pt-1">
+                          <a
+                            href={`mailto:${inq.senderEmail}?subject=Re: Inquiry from MyProfile`}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold"
+                          >
+                            Reply via Email
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateInquiryStatus(inq._id, inq.status === 'read' ? 'unread' : 'read')}
+                            className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[11px] font-semibold"
+                          >
+                            {inq.status === 'read' ? 'Mark Unread' : 'Mark Read'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 6: Visitor Analytics */}
+          {activeStudioTab === 'analytics' && (
+            <div className="glass-panel p-6 sm:p-8 rounded-2xl border border-slate-800 space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h2 className="text-base font-bold text-white flex items-center space-x-2">
+                  <BarChart3 className="w-4 h-4 text-emerald-400" />
+                  <span>Real-Time Profile Analytics</span>
+                </h2>
+                <div className="flex items-center space-x-4 text-xs font-mono">
+                  <span className="text-emerald-400 font-bold">👁️ {analytics.totalViews || 0} views</span>
+                  <span className="text-cyan-400 font-bold">🖱️ {analytics.totalClicks || 0} clicks</span>
+                </div>
+              </div>
+
+              {/* 7-Day Trend */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-slate-300 flex items-center space-x-1">
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>7-Day View Trend</span>
                 </span>
-              </div>
-              <MobileDeviceFrame
-                profile={{
-                  ...profile,
-                  ...formData,
-                  contactDetails: {
-                    email: formData.contactEmail,
-                    phone: formData.contactPhone,
-                    showEmail: formData.showEmail,
-                    showPhone: formData.showPhone,
-                  },
-                }}
-                sections={sections}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: Inquiries Inbox */}
-      {activeStudioTab === 'inquiries' && (
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <Inbox className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">Direct Inquiries Inbox</h2>
-                <p className="text-xs text-slate-400">Visitor messages and business inquiries sent from your public profile</p>
-              </div>
-            </div>
-
-            {/* Filter pills */}
-            <div className="flex items-center space-x-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-xs">
-              {[
-                { id: 'all', label: 'All', count: inquiries.filter((i) => i.status !== 'archived').length },
-                { id: 'unread', label: 'Unread', count: inquiries.filter((i) => i.status === 'unread').length },
-                { id: 'read', label: 'Read', count: inquiries.filter((i) => i.status === 'read').length },
-                { id: 'archived', label: 'Archived', count: inquiries.filter((i) => i.status === 'archived').length },
-              ].map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setInquiryFilter(f.id)}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center space-x-1.5 ${
-                    inquiryFilter === f.id
-                      ? 'bg-emerald-500 text-slate-950 font-bold shadow'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <span>{f.label}</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                      inquiryFilter === f.id ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    {f.count}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Inquiries List */}
-          {inquiries.filter((inq) => (inquiryFilter === 'all' ? inq.status !== 'archived' : inq.status === inquiryFilter)).length === 0 ? (
-            <div className="text-center py-16 px-4 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-slate-800/80 text-slate-500 flex items-center justify-center mx-auto">
-                <MessageSquare className="w-6 h-6" />
-              </div>
-              <h3 className="text-sm font-bold text-slate-300">No {inquiryFilter} inquiries found</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                {inquiryFilter === 'unread'
-                  ? 'Great job! You have cleared all your unread messages.'
-                  : 'Visitors can contact you directly by clicking the "Get in Touch" button on your public profile.'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {inquiries
-                .filter((inq) => (inquiryFilter === 'all' ? inq.status !== 'archived' : inq.status === inquiryFilter))
-                .map((inq) => (
-                  <div
-                    key={inq._id}
-                    className={`p-5 rounded-2xl border transition-all ${
-                      inq.status === 'unread'
-                        ? 'bg-slate-900/90 border-emerald-500/40 shadow-lg shadow-emerald-500/5'
-                        : 'bg-slate-900/50 border-slate-800/80 opacity-90 hover:opacity-100'
-                    }`}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/60 pb-3">
-                      <div className="flex items-center space-x-3">
+                <div className="flex items-end space-x-2.5 h-32 pt-4 pb-2 px-4 bg-slate-900/60 rounded-xl border border-slate-800">
+                  {analytics.recentViews?.map((item, idx) => {
+                    const maxViews = Math.max(...(analytics.recentViews.map((v) => v.views) || [1]), 1);
+                    const barHeight = Math.max((item.views / maxViews) * 100, 8);
+                    const dayLabel = new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' });
+                    return (
+                      <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full">
+                        <span className="text-[9px] font-mono text-emerald-400 mb-1">{item.views}</span>
                         <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm ${
-                            inq.status === 'unread'
-                              ? 'bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black shadow'
-                              : 'bg-slate-800 text-slate-300'
-                          }`}
-                        >
-                          {inq.name?.charAt(0)?.toUpperCase() || 'V'}
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <h4 className="text-sm font-bold text-white">{inq.name}</h4>
-                            <span
-                              className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                                inq.status === 'unread'
-                                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                                  : inq.status === 'read'
-                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {inq.status}
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-3 text-xs text-slate-400 mt-0.5">
-                            <span className="flex items-center space-x-1">
-                              <Mail className="w-3 h-3 text-slate-500" />
-                              <span>{inq.email}</span>
-                            </span>
-                            {inq.phone && (
-                              <span className="flex items-center space-x-1">
-                                <Smartphone className="w-3 h-3 text-slate-500" />
-                                <span>{inq.phone}</span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                          className="w-full max-w-[24px] rounded-t-md bg-gradient-to-t from-emerald-600 to-teal-400"
+                          style={{ height: `${barHeight}%` }}
+                        />
+                        <span className="text-[9px] text-slate-400 mt-1">{dayLabel}</span>
                       </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-                      <div className="flex items-center space-x-2 text-xs text-slate-400">
-                        <Clock className="w-3.5 h-3.5 text-slate-500" />
-                        <span>{new Date(inq.createdAt).toLocaleString()}</span>
-                      </div>
-                    </div>
-
-                    {inq.subject && (
-                      <div className="mt-3 text-xs font-semibold text-slate-200">
-                        Subject: <span className="text-white font-normal">{inq.subject}</span>
-                      </div>
-                    )}
-
-                    <div className="mt-3 p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-300 leading-relaxed whitespace-pre-line font-normal">
-                      {inq.message}
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap items-center justify-end gap-2 pt-2">
-                      <a
-                        href={`mailto:${inq.email}?subject=Re: ${encodeURIComponent(
-                          inq.subject || 'Inquiry on MyProfile'
-                        )}`}
-                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold transition-colors"
+              {/* Top Links */}
+              <div className="space-y-2 pt-2">
+                <span className="text-xs font-bold text-slate-300">Top Clicked Links</span>
+                <div className="space-y-2">
+                  {!analytics.topLinks || analytics.topLinks.length === 0 ? (
+                    <p className="text-xs text-slate-500 py-3 text-center">No link clicks recorded yet.</p>
+                  ) : (
+                    analytics.topLinks.map((link, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs"
                       >
-                        <Mail className="w-3.5 h-3.5" />
-                        <span>Reply by Email</span>
-                      </a>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleUpdateInquiryStatus(inq._id, inq.status === 'read' ? 'unread' : 'read')
-                        }
-                        className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
-                      >
-                        <Check className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{inq.status === 'read' ? 'Mark as Unread' : 'Mark as Read'}</span>
-                      </button>
-
-                      {inq.status !== 'archived' && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateInquiryStatus(inq._id, 'archived')}
-                          className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-xs font-medium transition-colors"
-                        >
-                          <span>Archive</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                        <span className="text-slate-200 font-medium">{link.label}</span>
+                        <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 font-mono text-[10px] font-bold">
+                          {link.count} clicks
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
-      )}
 
-      {/* TAB 3: Live Visitor Analytics */}
-      {activeStudioTab === 'analytics' && (
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                <BarChart3 className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">Live Visitor Analytics</h2>
-                <p className="text-xs text-slate-400">Real-time profile views and engagement metrics</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-6 text-xs">
+        {/* Right Column: Sticky Live Smartphone Mockup (Desktop) */}
+        <div className="hidden xl:block xl:col-span-5 sticky top-24">
+          <div className="glass-panel p-6 rounded-3xl border border-slate-800/80 shadow-2xl flex flex-col items-center">
+            <div className="w-full flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
               <div className="flex items-center space-x-2">
-                <Eye className="w-4 h-4 text-emerald-400" />
-                <span className="text-slate-400">Total Views:</span>
-                <span className="font-bold text-white text-sm">{analytics.totalViews}</span>
+                <Smartphone className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-white">Live Mobile Chassis</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <MousePointer className="w-4 h-4 text-cyan-400" />
-                <span className="text-slate-400">Link Clicks:</span>
-                <span className="font-bold text-white text-sm">{analytics.totalClicks}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 7-Day Trend Visualization */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
-            <div className="md:col-span-2 space-y-3">
-              <span className="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                <span>7-Day View Trend</span>
+              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                Instant Preview
               </span>
-              <div className="flex items-end space-x-3 h-32 pt-4 pb-2 px-4 bg-slate-900/60 rounded-2xl border border-slate-800/80">
-                {analytics.recentViews?.map((item, idx) => {
-                  const maxViews = Math.max(...(analytics.recentViews.map((v) => v.views) || [1]), 1);
-                  const barHeight = Math.max((item.views / maxViews) * 100, 8);
-                  const dayLabel = new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' });
-                  return (
-                    <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full group">
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-mono text-emerald-400 mb-1">
-                        {item.views}
-                      </div>
-                      <div
-                        className="w-full max-w-[28px] rounded-t-lg bg-gradient-to-t from-emerald-600 to-teal-400 transition-all duration-500 hover:brightness-125"
-                        style={{ height: `${barHeight}%` }}
-                      />
-                      <span className="text-[10px] text-slate-400 mt-1 font-medium">{dayLabel}</span>
-                    </div>
-                  );
-                })}
+            </div>
+            <MobileDeviceFrame
+              profile={{
+                ...profile,
+                ...formData,
+                contactDetails: {
+                  email: formData.contactEmail,
+                  phone: formData.contactPhone,
+                  showEmail: formData.showEmail,
+                  showPhone: formData.showPhone,
+                },
+              }}
+              sections={sections}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL 1: AI Bio Helper Modal */}
+      {aiBioModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-emerald-400">
+                <Sparkles className="w-4 h-4" />
+                <h3 className="text-base font-bold text-white">✨ AI Bio Generator Helper</h3>
+              </div>
+              <button onClick={() => setAiBioModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Tone of Voice</label>
+              <div className="grid grid-cols-4 gap-2">
+                {['professional', 'creative', 'minimalist', 'punchy'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setAiBioTone(t)}
+                    className={`py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
+                      aiBioTone === t
+                        ? 'bg-emerald-500 text-slate-950 shadow'
+                        : 'bg-slate-900 border border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Top Clicked Links */}
-            <div className="space-y-3">
-              <span className="text-xs font-semibold text-slate-300">Top Clicked Links</span>
-              <div className="space-y-2 h-32 overflow-y-auto pr-1">
-                {!analytics.topLinks || analytics.topLinks.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-center text-xs text-slate-500">
-                    No link clicks recorded yet
-                  </div>
-                ) : (
-                  analytics.topLinks.map((link, idx) => (
-                    <div
-                      key={idx}
-                      className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs"
-                    >
-                      <span className="text-slate-200 truncate max-w-[130px] font-medium">{link.label}</span>
-                      <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 font-mono text-[10px] font-bold">
-                        {link.count} clicks
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">
+                Keywords & Specializations (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. React, Fullstack, Open Source, Scalable UI"
+                value={aiBioKeywords}
+                onChange={(e) => setAiBioKeywords(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+              />
             </div>
+
+            <button
+              type="button"
+              disabled={aiBioLoading}
+              onClick={handleGenerateAiBio}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs shadow-md transition-all disabled:opacity-50"
+            >
+              {aiBioLoading ? 'Generating AI Suggestions...' : '✨ Generate Smart Bios'}
+            </button>
+
+            {aiBioSuggestions.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-bold text-slate-300">Click a suggestion to apply:</p>
+                {aiBioSuggestions.map((sug, i) => (
+                  <div
+                    key={i}
+                    onClick={() => {
+                      setFormData({ ...formData, bio: sug });
+                      setAiBioModal(false);
+                      toast.success('Bio applied! Click "Save Changes" to persist.');
+                    }}
+                    className="p-3 rounded-xl bg-slate-900/90 border border-slate-700/80 hover:border-emerald-500/60 cursor-pointer text-xs text-slate-200 transition-all leading-relaxed"
+                  >
+                    {sug}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Add Section Modal */}
+      {/* MODAL 2: AI Caption Helper Modal */}
+      {aiCaptionModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-cyan-400">
+                <Sparkles className="w-4 h-4" />
+                <h3 className="text-base font-bold text-white">✨ AI Reel Caption Generator</h3>
+              </div>
+              <button onClick={() => setAiCaptionModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Reel Topic / Highlight</label>
+              <input
+                type="text"
+                placeholder="e.g. Behind the scenes building our new mobile app"
+                value={aiCaptionTopic}
+                onChange={(e) => setAiCaptionTopic(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Style</label>
+              <div className="grid grid-cols-3 gap-2">
+                {['engaging', 'punchy', 'creative'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setAiCaptionTone(t)}
+                    className={`py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
+                      aiCaptionTone === t
+                        ? 'bg-cyan-500 text-slate-950 shadow'
+                        : 'bg-slate-900 border border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={aiCaptionLoading}
+              onClick={handleGenerateAiCaption}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 font-bold text-xs shadow-md transition-all disabled:opacity-50"
+            >
+              {aiCaptionLoading ? 'Generating Captions...' : '✨ Generate Captions & Hashtags'}
+            </button>
+
+            {aiCaptionSuggestions.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-bold text-slate-300">Click a caption to apply to your reel:</p>
+                {aiCaptionSuggestions.map((sug, i) => (
+                  <div
+                    key={i}
+                    onClick={() => {
+                      setReelForm({ ...reelForm, caption: sug });
+                      setAiCaptionModal(false);
+                      toast.success('Caption applied to reel!');
+                    }}
+                    className="p-3 rounded-xl bg-slate-900/90 border border-slate-700/80 hover:border-cyan-500/60 cursor-pointer text-xs text-slate-200 transition-all leading-relaxed"
+                  >
+                    {sug}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Add Section Modal */}
       {newSectionModal && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg glass-panel p-6 rounded-2xl border border-slate-800 space-y-5">
-            <h3 className="text-lg font-bold text-white">Add Modular Section</h3>
+          <div className="w-full max-w-lg glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+            <h3 className="text-base font-bold text-white">Add Modular Section</h3>
 
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-1">Section Type</label>
               <select
                 value={sectionForm.type}
                 onChange={(e) => setSectionForm({ ...sectionForm, type: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm"
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
               >
                 <option value="about">About / Narrative</option>
                 <option value="skills">Skills & Tags</option>
@@ -1103,7 +1435,7 @@ const DashboardPage = () => {
                 type="text"
                 value={sectionForm.title}
                 onChange={(e) => setSectionForm({ ...sectionForm, title: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm"
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
                 required
               />
             </div>
@@ -1118,7 +1450,7 @@ const DashboardPage = () => {
                   placeholder="e.g. React, Node.js, UI Design, AWS"
                   value={sectionForm.itemsString}
                   onChange={(e) => setSectionForm({ ...sectionForm, itemsString: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm"
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
                 />
               </div>
             ) : (
@@ -1129,23 +1461,23 @@ const DashboardPage = () => {
                   value={sectionForm.text}
                   onChange={(e) => setSectionForm({ ...sectionForm, text: e.target.value })}
                   placeholder="Describe your background or narrative..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm"
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
                 />
               </div>
             )}
 
-            <div className="flex items-center justify-end space-x-3 pt-3">
+            <div className="flex items-center justify-end space-x-3 pt-2">
               <button
                 type="button"
                 onClick={() => setNewSectionModal(false)}
-                className="px-4 py-2 text-sm text-slate-400 hover:text-white"
+                className="px-4 py-2 text-xs text-slate-400 hover:text-white"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleAddSection}
-                className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-md"
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs"
               >
                 Save Section
               </button>
@@ -1154,59 +1486,84 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* Post Reel Modal */}
+      {/* MODAL 4: Post Reel Modal */}
       {reelModal && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg glass-panel p-6 rounded-2xl border border-slate-800 space-y-5">
-            <h3 className="text-lg font-bold text-white">Post Short-Form Reel</h3>
+          <div className="w-full max-w-lg glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+            <h3 className="text-base font-bold text-white">Post Short-Form Reel</h3>
 
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-1">Video URL (MP4 / WebM)</label>
               <input
                 type="url"
-                placeholder="https://... or sample video URL"
+                placeholder="https://... or video CDN URL"
                 value={reelForm.videoUrl}
                 onChange={(e) => setReelForm({ ...reelForm, videoUrl: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm"
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Caption</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-400">Caption</label>
+                <button
+                  type="button"
+                  onClick={() => setAiCaptionModal(true)}
+                  className="text-[11px] text-cyan-400 hover:text-cyan-300 font-bold flex items-center space-x-1"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>✨ AI Caption Helper</span>
+                </button>
+              </div>
               <textarea
                 rows={2}
                 placeholder="Tell viewers what this reel is about..."
                 value={reelForm.caption}
                 onChange={(e) => setReelForm({ ...reelForm, caption: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm"
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Duration (Seconds, max 60)</label>
-              <input
-                type="number"
-                min="1"
-                max="60"
-                value={reelForm.durationSeconds}
-                onChange={(e) => setReelForm({ ...reelForm, durationSeconds: parseInt(e.target.value, 10) })}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Duration (1-60s)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={reelForm.durationSeconds}
+                  onChange={(e) => setReelForm({ ...reelForm, durationSeconds: parseInt(e.target.value, 10) })}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">Visibility</label>
+                <select
+                  value={reelForm.visibility}
+                  onChange={(e) => setReelForm({ ...reelForm, visibility: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                >
+                  <option value="public">Public</option>
+                  <option value="profile-only">Profile Only</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
             </div>
 
-            <div className="flex items-center justify-end space-x-3 pt-3">
+            <div className="flex items-center justify-end space-x-3 pt-2">
               <button
                 type="button"
                 onClick={() => setReelModal(false)}
-                className="px-4 py-2 text-sm text-slate-400 hover:text-white"
+                className="px-4 py-2 text-xs text-slate-400 hover:text-white"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleCreateReel}
-                className="px-5 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-sm shadow-md"
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs"
               >
                 Post Reel
               </button>
@@ -1215,24 +1572,24 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* QR Fullscreen Modal */}
+      {/* MODAL 5: QR Fullscreen Modal */}
       {qrModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm glass-panel p-8 rounded-3xl border border-slate-800 text-center space-y-6">
-            <h3 className="text-xl font-bold text-white">{profile?.name}</h3>
-            <p className="text-xs text-slate-400">Scan to view digital profile card</p>
+          <div className="w-full max-w-sm glass-panel p-8 rounded-3xl border border-slate-800 text-center space-y-5">
+            <h3 className="text-lg font-bold text-white">{profile?.name}</h3>
+            <p className="text-xs text-slate-400">Scan to open digital identity</p>
             {profile?.qrCodeUrl && (
               <img
                 src={profile.qrCodeUrl}
                 alt="Profile QR Code"
-                className="w-64 h-64 mx-auto rounded-2xl p-3 bg-white shadow-2xl"
+                className="w-60 h-60 mx-auto rounded-2xl p-3 bg-white shadow-2xl"
               />
             )}
             <p className="text-xs font-mono text-emerald-400">{profileUrl}</p>
             <button
               type="button"
               onClick={() => setQrModalOpen(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold transition-colors"
+              className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold"
             >
               Close
             </button>
@@ -1240,7 +1597,7 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* Mobile Live Frame Modal (Screens < xl) */}
+      {/* MODAL 6: Mobile Live Frame Modal (Screens < xl) */}
       {mobilePreviewOpen && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
           <div className="relative max-w-sm w-full flex flex-col items-center my-auto">

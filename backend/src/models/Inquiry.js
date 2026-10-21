@@ -39,7 +39,7 @@ const InquirySchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['unread', 'read', 'replied', 'archived'],
+    enum: ['unread', 'read', 'replied', 'archived', 'new', 'contacted', 'closed'],
     default: 'unread',
     index: true,
   },
