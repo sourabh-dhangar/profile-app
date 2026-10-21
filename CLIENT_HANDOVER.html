@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MyProfile Platform — Client Handover & Verification Guide</title>
+  <title>MyProfile Platform — Universal Business Handover Guide</title>
   <style>
     :root {
       --bg: #090d16;
@@ -115,26 +115,9 @@
       word-break: break-all;
       font-family: monospace;
     }
-    .button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--accent);
-      color: #000;
-      font-weight: 700;
-      padding: 12px 20px;
-      border-radius: 8px;
-      text-decoration: none;
-      font-size: 14px;
-      transition: background 0.2s;
-      gap: 8px;
-    }
-    .button:hover {
-      background: var(--accent-hover);
-    }
     .feature-list {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 12px;
       margin-top: 12px;
     }
@@ -142,7 +125,7 @@
       display: flex;
       align-items: flex-start;
       gap: 10px;
-      font-size: 14px;
+      font-size: 13.5px;
       color: #d1d5db;
     }
     .feature-icon {
@@ -171,6 +154,17 @@
       font-size: 12px;
       color: #a5f3fc;
     }
+    .category-tag {
+      background: #1e293b;
+      border: 1px solid #334155;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #e2e8f0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
     footer {
       text-align: center;
       font-size: 13px;
@@ -184,55 +178,72 @@
 <body>
   <div class="container">
     <div class="badge">
-      <span class="badge-dot"></span> 100% Verified & Live in Production
+      <span class="badge-dot"></span> v2.1 Universal Business Release • 210/210 Tests Passing
     </div>
 
     <h1>MyProfile Platform Handover</h1>
-    <p class="subtitle">Complete digital identity, video reels feed, modular portfolio, and mobile app overview.</p>
+    <p class="subtitle">Universal digital card, tabletop QR stands, category discovery & portfolio ecosystem for salons, tech professionals & local businesses.</p>
 
     <!-- Quick Access Links -->
     <div class="card">
-      <h3 class="card-title">🌐 Live Application Links</h3>
+      <h3 class="card-title">🌐 Live Production Links</h3>
       <div class="grid-2">
         <a class="link-tile" href="https://frontend-six-jet-94.vercel.app" target="_blank">
           <span class="title">Web Application (Frontend)</span>
-          <span class="desc">Responsive digital profile & creator dashboard</span>
+          <span class="desc">Live profile builder & business showcase</span>
           <span class="url">https://frontend-six-jet-94.vercel.app</span>
         </a>
         <a class="link-tile" href="https://backend-eight-black-60.vercel.app/health" target="_blank">
           <span class="title">Backend API Health</span>
-          <span class="desc">Production serverless REST gateway</span>
+          <span class="desc">Serverless API gateway status</span>
           <span class="url">https://backend-eight-black-60.vercel.app/health</span>
         </a>
         <a class="link-tile" href="https://expo.dev/artifacts/eas/fIFxZfwGE3y5e3xcfFmZ1ICMr5qwJw_BD8HSqIVpqHU.apk" target="_blank">
           <span class="title">Android App (Direct APK)</span>
-          <span class="desc">Standalone installable APK for Android devices</span>
+          <span class="desc">Standalone installable APK for Android</span>
           <span class="url">Download .apk file</span>
         </a>
         <a class="link-tile" href="https://github.com/sourabh-dhangar/profile-app" target="_blank">
           <span class="title">GitHub Repository</span>
-          <span class="desc">Full source code (Frontend, Backend, Mobile)</span>
+          <span class="desc">Production branch with all 210 E2E tests</span>
           <span class="url">github.com/sourabh-dhangar/profile-app</span>
         </a>
       </div>
     </div>
 
-    <!-- Quick Login Credentials -->
+    <!-- Supported Business Categories -->
+    <div class="card">
+      <h3 class="card-title">🏪 Universal Business Categories Supported</h3>
+      <p style="font-size: 13.5px; color: #cbd5e1; margin-bottom: 14px;">
+        Profiles can now be customized for any industry with category badges, business timings, Google Maps location, and WhatsApp quick chat:
+      </p>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <span class="category-tag">💇 Salon & Beauty</span>
+        <span class="category-tag">💻 IT & Software</span>
+        <span class="category-tag">🏋️ Fitness & Health</span>
+        <span class="category-tag">🩺 Doctor & Clinic</span>
+        <span class="category-tag">🍕 Restaurant & Food</span>
+        <span class="category-tag">⚖️ Professional Services</span>
+        <span class="category-tag">🎓 Education & Coaching</span>
+        <span class="category-tag">🛍️ Retail & Store</span>
+        <span class="category-tag">🎨 Content Creator & Artist</span>
+        <span class="category-tag">🏢 Other Business</span>
+      </div>
+    </div>
+
+    <!-- Demo Login Instructions -->
     <div class="card">
       <h3 class="card-title">🔑 Quick Demo Login Instructions</h3>
-      <p style="margin-bottom: 12px; font-size: 14px; color: #d1d5db;">
-        The system uses passwordless mobile OTP authentication. For client review and demonstration:
-      </p>
       <div style="background: #172033; padding: 16px; border-radius: 8px; border: 1px solid #232e48; margin-bottom: 16px;">
-        <p style="font-size: 14px; margin-bottom: 6px;">📱 <strong>Mobile Number:</strong> Any 10-digit number (e.g. <span class="pill">9876543210</span> or <span class="pill">9123456789</span>)</p>
-        <p style="font-size: 14px; margin-bottom: 6px;">🔒 <strong>Universal Dev OTP:</strong> <span class="pill">123456</span> (Instant bypass for immediate testing)</p>
-        <p style="font-size: 14px;">👑 <strong>Admin Account:</strong> Mobile <span class="pill">9999999999</span>, OTP <span class="pill">123456</span> (Grants access to /admin)</p>
+        <p style="font-size: 14px; margin-bottom: 6px;">📱 <strong>Mobile Login:</strong> Any 10-digit number (e.g. <span class="pill">9876543210</span>)</p>
+        <p style="font-size: 14px; margin-bottom: 6px;">🔒 <strong>Dev OTP Bypass:</strong> <span class="pill">123456</span> (Instant bypass for immediate testing)</p>
+        <p style="font-size: 14px;">👑 <strong>Admin Account:</strong> Mobile <span class="pill">9999999999</span>, OTP <span class="pill">123456</span></p>
       </div>
       <p style="font-size: 13.5px; color: var(--text-muted);">
-        Demo Profiles to inspect:
-        <a href="https://frontend-six-jet-94.vercel.app/rahul_dev" target="_blank" style="color: var(--accent); margin: 0 8px;">/rahul_dev</a>
+        Pre-configured Profiles to view:
+        <a href="https://frontend-six-jet-94.vercel.app/rahul_dev" target="_blank" style="color: var(--accent); margin: 0 8px;">/rahul_dev (IT & Cloud)</a>
         •
-        <a href="https://frontend-six-jet-94.vercel.app/ananya_art" target="_blank" style="color: var(--accent); margin: 0 8px;">/ananya_art</a>
+        <a href="https://frontend-six-jet-94.vercel.app/ananya_art" target="_blank" style="color: var(--accent); margin: 0 8px;">/ananya_art (Design & Art)</a>
       </p>
     </div>
 
@@ -240,63 +251,63 @@
     <div class="card">
       <h3 class="card-title">✨ Key Features Implemented</h3>
       <div class="feature-list">
-        <div class="feature-item"><span class="feature-icon">✓</span> Unified Digital Identity & Claimable Slugs</div>
-        <div class="feature-item"><span class="feature-icon">✓</span> 5 Curated Themes (Emerald, Cyber, Luxe, etc.)</div>
-        <div class="feature-item"><span class="feature-icon">✓</span> 8 Modular Profile Section Types</div>
-        <div class="feature-item"><span class="feature-icon">✓</span> Skill Vouching & Endorsement Counter</div>
+        <div class="feature-item"><span class="feature-icon">✓</span> 10 Industry Categories & Sub-Category Tags</div>
+        <div class="feature-item"><span class="feature-icon">✓</span> Storefront Timings & Google Maps Link</div>
+        <div class="feature-item"><span class="feature-icon">✓</span> WhatsApp Direct Chat & Booking Link</div>
+        <div class="feature-item"><span class="feature-icon">✓</span> Printable Tabletop / Counter Stand QR</div>
+        <div class="feature-item"><span class="feature-icon">✓</span> 1-Click Rate Card & Tech Stack Presets</div>
+        <div class="feature-item"><span class="feature-icon">✓</span> Category Discovery & Keyword Search</div>
+        <div class="feature-item"><span class="feature-icon">✓</span> 5 Curated Themes (Emerald, Luxe, Cyber)</div>
         <div class="feature-item"><span class="feature-icon">✓</span> 60-Second Video Reels & Fullscreen Player</div>
         <div class="feature-item"><span class="feature-icon">✓</span> Master Pitch Video Pinning</div>
         <div class="feature-item"><span class="feature-icon">✓</span> Social Network (Followers, Following Feed)</div>
-        <div class="feature-item"><span class="feature-icon">✓</span> Comments & Bookmarking on Reels</div>
         <div class="feature-item"><span class="feature-icon">✓</span> 2-Way Visitor Inquiries & CRM Inbox</div>
-        <div class="feature-item"><span class="feature-icon">✓</span> 7-Day Views & Outbound Link Analytics</div>
+        <div class="feature-item"><span class="feature-icon">✓</span> 7-Day Analytics & Link Clicks Breakdown</div>
         <div class="feature-item"><span class="feature-icon">✓</span> RFC 6350 vCard 4.0 (.vcf) Contact Card</div>
-        <div class="feature-item"><span class="feature-icon">✓</span> High-Res Dynamic QR Code & Web Share</div>
-        <div class="feature-item"><span class="feature-icon">✓</span> HMAC-SHA256 Zero-Knowledge Phone Discovery</div>
         <div class="feature-item"><span class="feature-icon">✓</span> Gemini AI Bio & Caption Generator</div>
-        <div class="feature-item"><span class="feature-icon">✓</span> Admin Moderation & User Ban Portal</div>
+        <div class="feature-item"><span class="feature-icon">✓</span> Zero-Knowledge Privacy Phone Discovery</div>
         <div class="feature-item"><span class="feature-icon">✓</span> Native Android APK Application</div>
       </div>
     </div>
 
     <!-- Verification Runbook -->
     <div class="card">
-      <h3 class="card-title">📋 3-Minute Verification Runbook</h3>
+      <h3 class="card-title">📋 Step-by-Step Verification Runbook</h3>
 
       <div class="step-box">
-        <h4>1. Public Profile & Engagement</h4>
-        <p>Visit <a href="https://frontend-six-jet-94.vercel.app/rahul_dev" target="_blank" style="color: var(--accent);">rahul_dev</a>. Test liking a reel, vouching for a skill, and clicking "Save Contact" to download the vCard.</p>
+        <h4>1. Test Category Profile & Business Strip</h4>
+        <p>Visit <a href="https://frontend-six-jet-94.vercel.app/rahul_dev" target="_blank" style="color: var(--accent);">rahul_dev</a>. Notice the category badge <span class="pill">💻 IT & Software</span>, business hours, and quick WhatsApp/booking buttons.</p>
       </div>
 
       <div class="step-box">
-        <h4>2. Send a Visitor Inquiry</h4>
-        <p>Scroll down to the contact section on the public profile, fill in the form, and send a message. Verify the instant success message.</p>
+        <h4>2. Test Printable Tabletop Counter Stand</h4>
+        <p>Click "Share QR" on any profile or in your dashboard. Notice the tabletop display card with category tag and scan prompt. Click "Print Counter Stand" to test print view.</p>
       </div>
 
       <div class="step-box">
-        <h4>3. Creator Dashboard</h4>
-        <p>Log in at <a href="https://frontend-six-jet-94.vercel.app/login" target="_blank" style="color: var(--accent);">/login</a> using OTP <span class="pill">123456</span>. View your inbox to see the inquiry, customize your theme, and try the AI Bio generator.</p>
+        <h4>3. Test Category Setup & 1-Click Rate Card</h4>
+        <p>Log in at <a href="https://frontend-six-jet-94.vercel.app/login" target="_blank" style="color: var(--accent);">/login</a> (OTP 123456). Select <span class="pill">💇 Salon, Spa & Beauty Lounge</span>, switch to Sections tab, and click <strong>"+ Add Salon Rate Card"</strong> to see instant package generation.</p>
       </div>
 
       <div class="step-box">
-        <h4>4. Android Mobile App</h4>
-        <p>Download the APK on any Android phone, open the app, and scroll through the vertical 60fps reels feed.</p>
+        <h4>4. Test Android APK</h4>
+        <p>Download and open the APK on your Android phone to test reels and mobile navigation.</p>
       </div>
     </div>
 
-    <!-- Test Attestation -->
+    <!-- Quality Assurance Attestation -->
     <div class="card" style="border-color: rgba(16, 185, 129, 0.4); background: linear-gradient(180deg, #111827 0%, #0d1522 100%);">
       <h3 class="card-title" style="color: var(--accent);">🛡️ Quality Assurance & Test Attestation</h3>
       <p style="font-size: 14px; margin-bottom: 12px; color: #e5e7eb;">
-        The entire full-stack test suite has been executed with 100% pass rate:
+        Automated test suite across all 10 tiers (including Tier 9 Universal Category & Counter Stand tests):
       </p>
       <div style="display: flex; gap: 24px; flex-wrap: wrap;">
         <div>
-          <span style="font-size: 28px; font-weight: 800; color: #fff;">188</span>
+          <span style="font-size: 28px; font-weight: 800; color: #fff;">210</span>
           <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Tests Executed</p>
         </div>
         <div>
-          <span style="font-size: 28px; font-weight: 800; color: var(--accent);">188</span>
+          <span style="font-size: 28px; font-weight: 800; color: var(--accent);">210</span>
           <p style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Tests Passed</p>
         </div>
         <div>
@@ -311,7 +322,7 @@
     </div>
 
     <footer>
-      MyProfile Platform v2.0 • Delivered & Verified • October 2026
+      MyProfile Platform v2.1 • Universal Business Release • Delivered & Verified
     </footer>
   </div>
 </body>

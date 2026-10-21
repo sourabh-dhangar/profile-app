@@ -71,6 +71,9 @@ const updateMyProfile = async (req, res, next) => {
       bio,
       city,
       profileType,
+      category,
+      subCategory,
+      businessDetails,
       socialLinks,
       contactDetails,
       theme,
@@ -101,6 +104,14 @@ const updateMyProfile = async (req, res, next) => {
     if (profileType !== undefined) profile.profileType = profileType;
     if (socialLinks !== undefined) profile.socialLinks = socialLinks;
     if (theme !== undefined) profile.theme = theme;
+    if (category !== undefined) profile.category = category;
+    if (subCategory !== undefined) profile.subCategory = subCategory;
+    if (businessDetails !== undefined) {
+      profile.businessDetails = {
+        ...((profile.businessDetails && profile.businessDetails.toObject) ? profile.businessDetails.toObject() : profile.businessDetails || {}),
+        ...businessDetails,
+      };
+    }
     if (req.body.photoUrl !== undefined) profile.photoUrl = req.body.photoUrl;
     if (req.body.verifiedBadge !== undefined) profile.verifiedBadge = req.body.verifiedBadge;
     if (contactDetails !== undefined) {
@@ -310,6 +321,9 @@ const getPublicProfile = async (req, res, next) => {
           contactDetails: sanitizedContact,
           followersCount: profile.followersCount || 0,
           followingCount: profile.followingCount || 0,
+          category: profile.category || 'IT & Software',
+          subCategory: profile.subCategory || '',
+          businessDetails: profile.businessDetails || {},
           verifiedBadge: profile.verifiedBadge || 'verified_pro',
           isVerifiedBadge: profile.isVerifiedBadge !== false,
           completionPercentage: profile.completionPercentage || 0,
@@ -345,6 +359,7 @@ const getProfileQR = async (req, res, next) => {
         username: profile.username,
         profileUrl: profileWebUrl,
         qrCode: qrDataUrl,
+        qrCodeDataUrl: qrDataUrl,
       },
     });
   } catch (error) {

@@ -4,11 +4,13 @@ const {
   searchByPhone,
   getDiscoverySettings,
   updateDiscoverySettings,
+  browseProfiles,
 } = require('../controllers/discoveryController');
 const { authenticate } = require('../middleware/auth');
 const { discoveryLimiter } = require('../middleware/rateLimiter');
 
 // Search endpoint with strict 5-per-minute rate limit and 404 on privacy/not-found
+router.get('/browse', browseProfiles);
 router.post('/search-by-phone', discoveryLimiter, searchByPhone);
 
 // Privacy settings for current user

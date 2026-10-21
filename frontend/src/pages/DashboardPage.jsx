@@ -78,6 +78,13 @@ const DashboardPage = () => {
     bio: '',
     city: '',
     profileType: 'Personal',
+    category: 'IT & Software',
+    subCategory: '',
+    timing: '',
+    address: '',
+    googleMapsUrl: '',
+    whatsappNumber: '',
+    bookingUrl: '',
     contactEmail: '',
     contactPhone: '',
     showEmail: false,
@@ -143,6 +150,13 @@ const DashboardPage = () => {
           bio: p.bio || '',
           city: p.city || '',
           profileType: p.profileType || 'Personal',
+          category: p.category || 'IT & Software',
+          subCategory: p.subCategory || '',
+          timing: p.businessDetails?.timing || '',
+          address: p.businessDetails?.address || '',
+          googleMapsUrl: p.businessDetails?.googleMapsUrl || '',
+          whatsappNumber: p.businessDetails?.whatsappNumber || '',
+          bookingUrl: p.businessDetails?.bookingUrl || '',
           contactEmail: p.contactDetails?.email || '',
           contactPhone: p.contactDetails?.phone || '',
           showEmail: !!p.contactDetails?.showEmail,
@@ -204,6 +218,15 @@ const DashboardPage = () => {
         bio: formData.bio,
         city: formData.city,
         profileType: formData.profileType,
+        category: formData.category,
+        subCategory: formData.subCategory,
+        businessDetails: {
+          timing: formData.timing,
+          address: formData.address,
+          googleMapsUrl: formData.googleMapsUrl,
+          whatsappNumber: formData.whatsappNumber,
+          bookingUrl: formData.bookingUrl,
+        },
         theme: formData.theme,
         contactDetails: {
           email: formData.contactEmail,
@@ -746,6 +769,116 @@ const DashboardPage = () => {
                       className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500"
                     />
                   </div>
+                  {/* Universal Business Category */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Business & Industry Category
+                    </label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-emerald-500/40 text-emerald-300 font-semibold text-xs focus:outline-none focus:border-emerald-400"
+                    >
+                      <option value="IT & Software">💻 IT & Software / Freelancer</option>
+                      <option value="Salon & Beauty">💇 Salon, Spa & Beauty Lounge</option>
+                      <option value="Fitness & Health">🏋️ Gym, Fitness & Personal Trainer</option>
+                      <option value="Doctor & Clinic">🩺 Doctor, Clinic & Healthcare</option>
+                      <option value="Restaurant & Food">🍕 Restaurant, Cafe & Bakery</option>
+                      <option value="Professional Services">⚖️ Lawyer, CA & Consultant</option>
+                      <option value="Education & Coaching">🎓 Teacher & Coaching Academy</option>
+                      <option value="Retail & Commerce">🛍️ Retail Store & Boutique</option>
+                      <option value="Content Creator & Artist">🎨 Content Creator & Digital Artist</option>
+                      <option value="Other Business">🏢 Other Business / Enterprise</option>
+                    </select>
+                  </div>
+
+                  {/* Sub-Category / Specialization Title */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Sub-Category / Specialization
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.subCategory}
+                      onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
+                      placeholder={
+                        formData.category === 'Salon & Beauty'
+                          ? 'e.g. Bridal Hair & Spa Lounge'
+                          : formData.category === 'IT & Software'
+                          ? 'e.g. Cloud Solutions & Full Stack Engineer'
+                          : formData.category === 'Doctor & Clinic'
+                          ? 'e.g. Consultant Dermatologist'
+                          : 'e.g. Main specialty or service'
+                      }
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Business Storefront & Location Details Strip */}
+                <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <span className="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
+                      <span>🏪</span>
+                      <span>Storefront, Timings & Quick Contact</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500">Visible on public profile & QR stand</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                        ⏰ Working Hours / Timings
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.timing}
+                        onChange={(e) => setFormData({ ...formData, timing: e.target.value })}
+                        placeholder="e.g. Mon - Sat: 10:00 AM - 8:30 PM"
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                        💬 WhatsApp Business Direct Chat
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.whatsappNumber}
+                        onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
+                        placeholder="e.g. +91 98765 43210"
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                        📍 Store / Office Physical Address
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        placeholder="e.g. Linking Road, Bandra West, Mumbai"
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                        📅 Direct Booking / Appointment URL
+                      </label>
+                      <input
+                        type="url"
+                        value={formData.bookingUrl}
+                        onChange={(e) => setFormData({ ...formData, bookingUrl: e.target.value })}
+                        placeholder="e.g. https://calendly.com/... or Google Form"
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                      />
+                    </div>
+                  </div>
+
                 </div>
 
                 {/* Bio Section with Prominent AI Helper */}

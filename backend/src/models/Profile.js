@@ -34,6 +34,37 @@ const ProfileSchema = new mongoose.Schema({
     enum: ['Personal', 'Creator', 'Student', 'Sportsperson', 'Teacher', 'Professional', 'Freelancer', 'ServiceProvider', 'SmallBusiness', 'Engineer', 'Designer'],
     default: 'Personal',
   },
+  category: {
+    type: String,
+    enum: [
+      'IT & Software',
+      'Salon & Beauty',
+      'Fitness & Health',
+      'Doctor & Clinic',
+      'Restaurant & Food',
+      'Professional Services',
+      'Education & Coaching',
+      'Retail & Commerce',
+      'Content Creator & Artist',
+      'Other Business',
+    ],
+    default: 'IT & Software',
+    index: true,
+  },
+  subCategory: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Sub-category cannot exceed 100 characters'],
+    default: '',
+  },
+  businessDetails: {
+    timing: { type: String, default: '' },
+    address: { type: String, default: '' },
+    googleMapsUrl: { type: String, default: '' },
+    whatsappNumber: { type: String, default: '' },
+    bookingUrl: { type: String, default: '' },
+  },
+
   bio: {
     type: String,
     maxlength: [500, 'Bio cannot exceed 500 characters'],

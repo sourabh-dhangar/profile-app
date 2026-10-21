@@ -136,8 +136,53 @@ const updateDiscoverySettings = async (req, res, next) => {
   }
 };
 
+
+/**
+ * Browse profiles by category, city, or keyword search
+ * GET /api/v1/discovery/browse?category=...&city=...&search=...
+ */
+const browseProfiles = async (req, res, next) => {
+  try {
+    const { category, search, city, limit = 20, page = 1 } = req.query;
+    const query = { status: 'published' };
+    if (category) {
+      query.category = category;
+    }
+    if (city) {
+      query.city = new RegExp(city, 'i');
+    }
+    if (search) {
+      query.$or = [
+        { name: new RegExp(search, 'i') },
+        { subCategory: new RegExp(search, 'i') },
+        { bio: new RegExp(search, 'i') },
+        { username: new RegExp(search, 'i') },
+      ];
+    }
+    const profiles = await Profile.find(query)
+      .select('name username photoUrl profileType category subCategory city theme verifiedBadge followersCount businessDetails')
+      .sort({ followersCount: -1, updatedAt: -1 })
+      .skip((Number(page) - 1) * Number(limit))
+      .limit(Number(limit));
+
+    const total = await Profile.countDocuments(query);
+    res.status(200).json({
+      success: true,
+      data: {
+        profiles,
+        total,
+        page: Number(page),
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   searchByPhone,
   getDiscoverySettings,
   updateDiscoverySettings,
+  browseProfiles,
 };

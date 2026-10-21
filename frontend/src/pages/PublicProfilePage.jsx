@@ -31,6 +31,20 @@ import {
 import InquiryModal from '../components/InquiryModal';
 import { useToast } from '../components/Toast';
 
+
+const CATEGORY_ICONS = {
+  'IT & Software': '💻',
+  'Salon & Beauty': '💇',
+  'Fitness & Health': '🏋️',
+  'Doctor & Clinic': '🩺',
+  'Restaurant & Food': '🍕',
+  'Professional Services': '⚖️',
+  'Education & Coaching': '🎓',
+  'Retail & Commerce': '🛍️',
+  'Content Creator & Artist': '🎨',
+  'Other Business': '🏢',
+};
+
 const THEMES = {
   'default': {
     wrapper: 'from-slate-900/30 to-slate-950/80',
@@ -278,6 +292,22 @@ const PublicProfilePage = () => {
               )}
             </p>
 
+            {/* Category & Sub-Category Badges */}
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-3">
+              {profile.category && (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center space-x-1 shadow-sm">
+                  <span>{CATEGORY_ICONS[profile.category] || '🏷️'}</span>
+                  <span>{profile.category}</span>
+                </span>
+              )}
+              {profile.subCategory && (
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700/60 shadow-sm">
+                  {profile.subCategory}
+                </span>
+              )}
+            </div>
+
+
             {profile.bio && (
               <p className="text-sm text-slate-300 leading-relaxed max-w-xl mb-6">
                 {profile.bio}
@@ -285,7 +315,56 @@ const PublicProfilePage = () => {
             )}
 
             {/* Quick Contact & Action Buttons */}
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 print-hide">
+            
+            {/* Business Storefront & Timings Strip */}
+            {(profile.businessDetails?.timing || profile.businessDetails?.address || profile.businessDetails?.whatsappNumber || profile.businessDetails?.bookingUrl) && (
+              <div className="mb-6 p-4 rounded-2xl bg-slate-900/80 border border-slate-800/80 flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs text-slate-300 shadow-inner">
+                {profile.businessDetails.timing && (
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-emerald-400 font-bold">⏰ Hours:</span>
+                    <span>{profile.businessDetails.timing}</span>
+                  </div>
+                )}
+                {profile.businessDetails.address && (
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-amber-400 font-bold">📍 Store:</span>
+                    <span>{profile.businessDetails.address}</span>
+                    {profile.businessDetails.googleMapsUrl && (
+                      <a
+                        href={profile.businessDetails.googleMapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-emerald-400 hover:underline inline-flex items-center ml-1 font-bold"
+                      >
+                        Map ↗
+                      </a>
+                    )}
+                  </div>
+                )}
+                {profile.businessDetails.whatsappNumber && (
+                  <a
+                    href={`https://wa.me/${profile.businessDetails.whatsappNumber.replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold inline-flex items-center space-x-1 shadow-sm transition-all"
+                  >
+                    <span>💬 WhatsApp</span>
+                  </a>
+                )}
+                {profile.businessDetails.bookingUrl && (
+                  <a
+                    href={profile.businessDetails.bookingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold inline-flex items-center space-x-1 shadow-sm transition-all"
+                  >
+                    <span>📅 Book / Order</span>
+                  </a>
+                )}
+              </div>
+            )}
+
+<div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 print-hide">
               {/* Direct Inquiry Modal Trigger */}
               <button
                 onClick={() => setInquiryModal(true)}
@@ -685,30 +764,69 @@ const PublicProfilePage = () => {
         );
       })()}
 
-      {/* QR Code Modal */}
+      
+      {/* QR Code & Printable Business Counter Stand Modal */}
       {qrModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm glass-panel p-8 rounded-3xl border border-slate-800 text-center space-y-5">
-            <h3 className="text-lg font-bold text-white">{profile.name}'s QR Code</h3>
-            {profile.qrCodeUrl && (
-              <img
-                src={profile.qrCodeUrl}
-                alt="QR Code"
-                className="w-60 h-60 mx-auto rounded-2xl p-3 bg-white shadow-2xl"
-              />
-            )}
-            <p className="text-xs font-mono text-emerald-400">
-              {window.location.origin}/{profile.username}
-            </p>
-            <button
-              onClick={() => setQrModal(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-800 text-white text-xs font-semibold"
-            >
-              Close
-            </button>
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-sm glass-panel p-6 rounded-3xl border border-slate-800 text-center space-y-4 my-auto">
+            {/* Printable Counter Stand Card */}
+            <div className="bg-white text-slate-900 p-6 rounded-2xl shadow-2xl border-4 border-slate-900 mx-auto text-center">
+              <div className="inline-block px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 border border-emerald-300 mb-2">
+                {CATEGORY_ICONS[profile.category] || '🏷️'} {profile.category || 'Digital Identity'}
+              </div>
+              <h3 className="text-xl font-black text-slate-950 leading-tight">
+                {profile.name}
+              </h3>
+              {profile.subCategory && (
+                <p className="text-xs font-semibold text-slate-600 mt-0.5 mb-3">
+                  {profile.subCategory}
+                </p>
+              )}
+
+              {profile.qrCodeUrl && (
+                <div className="p-3 bg-white border-2 border-slate-200 rounded-2xl inline-block shadow-inner mb-3">
+                  <img
+                    src={profile.qrCodeUrl}
+                    alt="Profile QR Code"
+                    className="w-48 h-48 mx-auto"
+                  />
+                </div>
+              )}
+
+              <p className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                📱 Scan to View Services & Contact
+              </p>
+              <p className="text-[11px] text-slate-600 font-mono mt-0.5">
+                {window.location.origin}/{profile.username}
+              </p>
+
+              {profile.businessDetails?.timing && (
+                <p className="text-[10px] text-slate-500 font-medium mt-2 pt-2 border-t border-slate-200">
+                  ⏰ {profile.businessDetails.timing}
+                </p>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center gap-2 pt-1 print-hide">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center space-x-1.5 shadow-md"
+              >
+                <span>🖨️ Print Counter Stand</span>
+              </button>
+              <button
+                onClick={() => setQrModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
+
 
       {/* Report Modal */}
       {reportModal && (
