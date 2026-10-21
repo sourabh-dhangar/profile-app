@@ -36,6 +36,7 @@ import {
   ShieldAlert,
   Play,
   Heart,
+  Download,
 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import MobileDeviceFrame from '../components/MobileDeviceFrame';
@@ -203,6 +204,32 @@ const DashboardPage = () => {
     } catch (err) {
       toast.error('Failed to update inquiry status');
     }
+  };
+
+  const handleExportInquiriesCSV = () => {
+    if (!inquiries || inquiries.length === 0) {
+      toast.error('No inquiries available to export');
+      return;
+    }
+    const headers = ['Date', 'Sender Name', 'Sender Email', 'Sender Phone', 'Subject', 'Status', 'Message'];
+    const rows = inquiries.map((inq) => [
+      `"${new Date(inq.createdAt || Date.now()).toLocaleDateString()}"`,
+      `"${(inq.senderName || '').replace(/"/g, '""')}"`,
+      `"${(inq.senderEmail || '').replace(/"/g, '""')}"`,
+      `"${(inq.senderPhone || '').replace(/"/g, '""')}"`,
+      `"${(inq.subject || 'General Inquiry').replace(/"/g, '""')}"`,
+      `"${inq.status || 'unread'}"`,
+      `"${(inq.message || '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `leads_export_${profile?.username || 'business'}_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Leads CSV exported successfully!');
   };
 
   const handleProfileSubmit = async (e) => {
@@ -1218,27 +1245,41 @@ const DashboardPage = () => {
                   <p className="text-xs text-slate-400">Visitor messages and project leads submitted from your profile</p>
                 </div>
 
-                <div className="flex items-center space-x-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-xs">
-                  {[
-                    { id: 'all', label: 'All', count: inquiries.filter((i) => i.status !== 'archived').length },
-                    { id: 'unread', label: 'Unread', count: inquiries.filter((i) => i.status === 'unread').length },
-                    { id: 'read', label: 'Read', count: inquiries.filter((i) => i.status === 'read').length },
-                    { id: 'archived', label: 'Archived', count: inquiries.filter((i) => i.status === 'archived').length },
-                  ].map((f) => (
+                <div className="flex items-center space-x-2 flex-wrap gap-2">
+                  <div className="flex items-center space-x-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-xs">
+                    {[
+                      { id: 'all', label: 'All', count: inquiries.filter((i) => i.status !== 'archived').length },
+                      { id: 'unread', label: 'Unread', count: inquiries.filter((i) => i.status === 'unread').length },
+                      { id: 'read', label: 'Read', count: inquiries.filter((i) => i.status === 'read').length },
+                      { id: 'archived', label: 'Archived', count: inquiries.filter((i) => i.status === 'archived').length },
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setInquiryFilter(f.id)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1 ${
+                          inquiryFilter === f.id
+                            ? 'bg-emerald-500 text-slate-950 font-bold shadow'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span>{f.label}</span>
+                        <span className="text-[10px] font-mono">({f.count})</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {inquiries.length > 0 && (
                     <button
-                      key={f.id}
                       type="button"
-                      onClick={() => setInquiryFilter(f.id)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1 ${
-                        inquiryFilter === f.id
-                          ? 'bg-emerald-500 text-slate-950 font-bold shadow'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
+                      onClick={handleExportInquiriesCSV}
+                      className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all flex items-center space-x-1.5 shadow-sm"
+                      title="Download Leads as CSV / Excel"
                     >
-                      <span>{f.label}</span>
-                      <span className="text-[10px] font-mono">({f.count})</span>
+                      <Download className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Export CSV</span>
                     </button>
-                  ))}
+                  )}
                 </div>
               </div>
 
