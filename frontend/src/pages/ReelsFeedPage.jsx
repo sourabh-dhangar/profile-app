@@ -268,7 +268,7 @@ const ReelsFeedPage = () => {
                   className="flex items-center space-x-2.5 group bg-black/40 hover:bg-black/60 p-1.5 pr-3 rounded-full backdrop-blur-md border border-white/10 transition-all w-fit max-w-full"
                 >
                   <img
-                    src={currentReel.profileId.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'}
+                    src={currentReel.profileId.photoUrl && !currentReel.profileId.photoUrl.includes('photo-1534528741775') ? currentReel.profileId.photoUrl : `https://ui-avatars.com/api/?name=${encodeURIComponent(currentReel.profileId.name || 'User')}&background=1e293b&color=10b981&bold=true&size=256`}
                     alt={currentReel.profileId.name}
                     className="w-8 h-8 rounded-full object-cover ring-2 ring-emerald-500 flex-shrink-0"
                   />

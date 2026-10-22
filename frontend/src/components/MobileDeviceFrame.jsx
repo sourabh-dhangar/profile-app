@@ -59,7 +59,7 @@ const MobileDeviceFrame = ({ profile, sections = [] }) => {
           <div className="text-center pt-2 pb-4">
             <div className="relative inline-block mx-auto mb-3">
               <img
-                src={profile?.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'}
+                src={profile?.photoUrl || 'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256'}
                 alt={profile?.name || 'Creator'}
                 className="w-20 h-20 rounded-full object-cover border-2 shadow-lg"
                 style={{ borderColor: currentTheme.accent }}

@@ -80,7 +80,7 @@ export default function MyProfileDashboardScreen({
     profileType: 'Creator',
     bio: 'Full Stack Engineer & Content Creator building next-generation mobile experiences.',
     city: 'Bengaluru, India',
-    photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+    photoUrl: 'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
     completionPercentage: 85,
     status: 'published',
   };
@@ -179,7 +179,7 @@ export default function MyProfileDashboardScreen({
               source={{
                 uri:
                   profile.photoUrl ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+                  'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
               }}
               style={styles.avatar}
             />

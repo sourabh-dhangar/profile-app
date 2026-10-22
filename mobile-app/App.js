@@ -57,7 +57,7 @@ const DEFAULT_PROFILE_DATA = {
     profileType: 'Creator',
     bio: 'Full Stack Engineer & Content Creator building next-generation mobile experiences.',
     city: 'Bengaluru, India',
-    photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+    photoUrl: 'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
     theme: 'default',
     completionPercentage: 100,
   },
@@ -102,7 +102,7 @@ const DEFAULT_REELS = [
     profileId: {
       name: 'Rahul Sharma',
       username: 'rahul_dev',
-      photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+      photoUrl: 'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
     },
   },
   {
@@ -340,7 +340,7 @@ function MainApp() {
             bio: 'Full Stack Engineer & Content Creator building next-generation mobile experiences.',
             city: 'Bengaluru, India',
             photoUrl:
-              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+              'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
             theme: 'default',
             completionPercentage: 100,
           },
@@ -387,7 +387,7 @@ function MainApp() {
           bio: 'Full Stack Engineer & Content Creator building next-generation mobile experiences.',
           city: 'Bengaluru, India',
           photoUrl:
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+            'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
           theme: 'default',
           completionPercentage: 100,
         },
@@ -457,7 +457,7 @@ function MainApp() {
                 name: 'Rahul Sharma',
                 username: 'rahul_dev',
                 photoUrl:
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+                  'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
               },
             },
             {
@@ -509,7 +509,7 @@ function MainApp() {
               name: 'Rahul Sharma',
               username: 'rahul_dev',
               photoUrl:
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+                'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
             },
           },
         ]);
@@ -626,7 +626,7 @@ function MainApp() {
           profileType: 'Creator',
           city: 'Bengaluru, India',
           photoUrl:
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+            'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
         });
         showToast('Demo profile matched!', 'success');
       } else {

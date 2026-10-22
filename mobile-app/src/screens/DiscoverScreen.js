@@ -126,8 +126,9 @@ export default function DiscoverScreen({
               <Image
                 source={{
                   uri:
-                    discoverResult.photoUrl ||
-                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+                    discoverResult.photoUrl && !discoverResult.photoUrl.includes('photo-1534528741775')
+                      ? discoverResult.photoUrl
+                      : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(discoverResult.name || 'User') + '&background=1e293b&color=10b981&bold=true&size=256',
                 }}
                 style={styles.resultAvatar}
               />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
+import { getProfileAvatar } from '../utils/avatar';
 import {
   Search,
   ShieldCheck,
@@ -427,7 +428,7 @@ const DiscoveryPage = () => {
                             <div className="flex items-end justify-between">
                               <div className="relative">
                                 <img
-                                  src={p.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'}
+                                  src={getProfileAvatar(p.photoUrl, p.name)}
                                   alt={p.name}
                                   className="w-16 h-16 rounded-2xl object-cover ring-4 ring-slate-900 border border-slate-700/80 shadow-md group-hover:scale-105 transition-transform"
                                 />
@@ -672,7 +673,7 @@ const DiscoveryPage = () => {
               <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-emerald-500/40 shadow-2xl animate-fade-in flex flex-col sm:flex-row items-center justify-between gap-6">
                 <div className="flex items-center space-x-5">
                   <img
-                    src={phoneResult.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'}
+                    src={getProfileAvatar(phoneResult.photoUrl, phoneResult.name)}
                     alt={phoneResult.name}
                     className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-4 ring-emerald-500/30"
                   />

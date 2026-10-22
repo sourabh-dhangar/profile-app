@@ -101,7 +101,7 @@ const AVATAR_PRESETS = [
     id: 'dev-1',
     label: 'Full-Stack Dev',
     icon: '👨‍💻',
-    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+    url: 'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
   },
   {
     id: 'des-1',
@@ -797,7 +797,7 @@ export default function ProfileScreen({
             source={{
               uri:
                 profile.photoUrl ||
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+                'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
             }}
             style={[styles.avatar, { borderColor: theme.primary }]}
           />
@@ -2024,7 +2024,7 @@ export default function ProfileScreen({
                       source={{
                         uri:
                           editForm.photoUrl ||
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+                          'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
                       }}
                       style={styles.avatarPreviewImage}
                     />
@@ -2531,7 +2531,7 @@ export default function ProfileScreen({
                   source={{
                     uri:
                       profile.photoUrl ||
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+                      'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
                   }}
                   style={[styles.reelPlayerAvatar, { borderColor: theme.primary }]}
                 />
@@ -3340,7 +3340,7 @@ export default function ProfileScreen({
                   const actorName = actor?.name || 'Someone';
                   const actorAvatar =
                     actor?.photoUrl ||
-                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400';
+                    'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256';
                   const iconByType =
                     {
                       like: '❤️',

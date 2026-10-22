@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/client';
+import { getProfileAvatar } from '../utils/avatar';
 import {
   Sparkles,
   MapPin,
@@ -266,7 +267,7 @@ const PublicProfilePage = () => {
 
         <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-6 relative z-10">
           <img
-            src={profile.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'}
+            src={getProfileAvatar(profile.photoUrl, profile.name)}
             alt={profile.name}
             className={`w-28 h-28 sm:w-32 sm:h-32 rounded-3xl object-cover ring-4 ${currentTheme.ring}`}
           />
@@ -631,7 +632,7 @@ const PublicProfilePage = () => {
               <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20 pointer-events-auto">
                 <div className="flex items-center space-x-2.5 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
                   <img
-                    src={profile.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'}
+                    src={getProfileAvatar(profile.photoUrl, profile.name)}
                     alt={profile.name}
                     className="w-6 h-6 rounded-full object-cover border border-emerald-400"
                   />

@@ -30,7 +30,7 @@ const LandingPage = () => {
       username: 'rahul_dev',
       title: 'Full Stack Engineer',
       city: 'Bengaluru',
-      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      image: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80',
       badge: 'Professional',
       skills: ['React', 'Node.js', 'System Design']
     },
