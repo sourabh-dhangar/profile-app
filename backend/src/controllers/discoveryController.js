@@ -160,7 +160,7 @@ const browseProfiles = async (req, res, next) => {
       ];
     }
     const profiles = await Profile.find(query)
-      .select('name username photoUrl profileType category subCategory city theme verifiedBadge followersCount businessDetails')
+      .select('name username photoUrl profileType category subCategory city theme verifiedBadge followersCount businessDetails bio contactDetails completionPercentage')
       .sort({ followersCount: -1, updatedAt: -1 })
       .skip((Number(page) - 1) * Number(limit))
       .limit(Number(limit));
