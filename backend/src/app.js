@@ -49,9 +49,9 @@ app.use('/api', generalLimiter);
 
 // Root landing & gateway status endpoint
 app.get('/', (req, res) => {
-  const acceptsHtml = req.accepts(['json', 'html']) === 'html';
-  if (acceptsHtml) {
-    return res.status(200).send(`<!DOCTYPE html>
+  const isPureJson = req.headers.accept && req.headers.accept.includes('application/json') && !req.headers.accept.includes('text/html');
+  if (!isPureJson) {
+      return res.status(200).send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
