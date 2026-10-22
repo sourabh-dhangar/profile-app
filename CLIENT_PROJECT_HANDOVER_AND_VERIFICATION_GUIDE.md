@@ -18,9 +18,9 @@ Everything is live, deployed on serverless infrastructure, and ready for immedia
 | **Backend API Gateway** | Vercel Serverless | **[https://backend-eight-black-60.vercel.app](https://backend-eight-black-60.vercel.app)** | 🟢 Live |
 | **API Health Check** | REST / Serverless | **[https://backend-eight-black-60.vercel.app/health](https://backend-eight-black-60.vercel.app/health)** | 🟢 200 OK |
 | **Category Discovery API** | REST / Serverless | **[https://backend-eight-black-60.vercel.app/api/v1/discovery/browse](https://backend-eight-black-60.vercel.app/api/v1/discovery/browse)** | 🟢 200 OK |
-| **Android APK Direct Download** | Android (Arm64/x86_64) | **[Download Android APK (Direct Link)](https://expo.dev/artifacts/eas/fIFxZfwGE3y5e3xcfFmZ1ICMr5qwJw_BD8HSqIVpqHU.apk)** | 🟢 Available |
+| **Android APK Direct Download** | Android (Arm64/x86_64) | **[Download New Android APK (v2.1 Direct)](https://expo.dev/artifacts/eas/Ydv3QGoeh8xi2CQW9yqotL43IfyQANSX1w3TkskH0Ws.apk)** | 🟢 Fresh Build |
 | **Expo EAS Project Dashboard** | Expo Cloud | **[https://expo.dev/accounts/sourabh-dhangar/projects/myprofile](https://expo.dev/accounts/sourabh-dhangar/projects/myprofile)** | 🟢 Active |
-| **Expo EAS Build Details** | EAS Cloud Build | **[EAS Build Page](https://expo.dev/accounts/sourabh-dhangar/projects/myprofile/builds/629b15c2-0293-4171-995f-d094248f5418)** | 🟢 Built |
+| **Expo EAS Build Details** | EAS Cloud Build | **[EAS Build Page (c1f882a4)](https://expo.dev/accounts/sourabh-dhangar/projects/myprofile/builds/c1f882a4-06cc-442c-a7cf-d8da97088050)** | 🟢 Finished |
 | **GitHub Source Code Repository** | GitHub Cloud | **[https://github.com/sourabh-dhangar/profile-app](https://github.com/sourabh-dhangar/profile-app)** | 🟢 Synced |
 
 ---
