@@ -3,7 +3,7 @@ export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   (typeof window !== 'undefined' && window.location?.hostname === 'localhost'
     ? 'http://localhost:5000/api/v1'
-    : 'https://backend-sourabh-kuamr-dhangars-projects.vercel.app/api/v1');
+    : 'https://myprofile-official-api.vercel.app/api/v1');
 
 export const fetchPublicProfile = async (username) => {
   const res = await fetch(`${API_BASE_URL}/profiles/${username}`);

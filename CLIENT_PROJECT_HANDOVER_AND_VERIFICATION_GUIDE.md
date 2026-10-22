@@ -14,10 +14,10 @@ Everything is live, deployed on serverless infrastructure, and ready for immedia
 
 | Component | Target Platform | Live URL / Access Link | Status |
 | :--- | :--- | :--- | :--- |
-| **Web Application (Frontend)** | Vercel Edge / React 18 | **[https://frontend-six-jet-94.vercel.app](https://frontend-six-jet-94.vercel.app)** | 🟢 Live |
-| **Backend API Gateway** | Vercel Serverless | **[https://backend-eight-black-60.vercel.app](https://backend-eight-black-60.vercel.app)** | 🟢 Live |
-| **API Health Check** | REST / Serverless | **[https://backend-eight-black-60.vercel.app/health](https://backend-eight-black-60.vercel.app/health)** | 🟢 200 OK |
-| **Category Discovery API** | REST / Serverless | **[https://backend-eight-black-60.vercel.app/api/v1/discovery/browse](https://backend-eight-black-60.vercel.app/api/v1/discovery/browse)** | 🟢 200 OK |
+| **Web Application (Frontend)** | Vercel Edge / React 18 | **[https://myprofile-official-web.vercel.app](https://myprofile-official-web.vercel.app)** | 🟢 Live |
+| **Backend API Gateway** | Vercel Serverless | **[https://myprofile-official-api.vercel.app](https://myprofile-official-api.vercel.app)** | 🟢 Live |
+| **API Health Check** | REST / Serverless | **[https://myprofile-official-api.vercel.app/health](https://myprofile-official-api.vercel.app/health)** | 🟢 200 OK |
+| **Category Discovery API** | REST / Serverless | **[https://myprofile-official-api.vercel.app/api/v1/discovery/browse](https://myprofile-official-api.vercel.app/api/v1/discovery/browse)** | 🟢 200 OK |
 | **Android APK Direct Download** | Android (Arm64/x86_64) | **[Download New Android APK (v2.1 Direct)](https://expo.dev/artifacts/eas/Ydv3QGoeh8xi2CQW9yqotL43IfyQANSX1w3TkskH0Ws.apk)** | 🟢 Fresh Build |
 | **Expo EAS Project Dashboard** | Expo Cloud | **[https://expo.dev/accounts/sourabh-dhangar/projects/myprofile](https://expo.dev/accounts/sourabh-dhangar/projects/myprofile)** | 🟢 Active |
 | **Expo EAS Build Details** | EAS Cloud Build | **[EAS Build Page (c1f882a4)](https://expo.dev/accounts/sourabh-dhangar/projects/myprofile/builds/c1f882a4-06cc-442c-a7cf-d8da97088050)** | 🟢 Finished |
@@ -32,8 +32,8 @@ The platform features a secure, passwordless mobile OTP authentication system:
 - **Any Mobile Number:** e.g., `+91 98765 43210` or any 10-digit number.
 - **Universal Dev OTP Bypass:** `123456` *(works on all numbers for instant testing without waiting for SMS)*.
 - **Pre-Seeded Demo Profiles:**
-  - `https://frontend-six-jet-94.vercel.app/rahul_dev` (IT & Software — Senior Full Stack & Cloud Architect)
-  - `https://frontend-six-jet-94.vercel.app/ananya_art` (Content Creator & Artist — Digital Illustrator & UI Designer)
+  - `https://myprofile-official-web.vercel.app/rahul_dev` (IT & Software — Senior Full Stack & Cloud Architect)
+  - `https://myprofile-official-web.vercel.app/ananya_art` (Content Creator & Artist — Digital Illustrator & UI Designer)
 - **Admin Testing Account:** Mobile `+91 99999 99999`, OTP `123456` (Grants access to `/admin` panel).
 
 ---

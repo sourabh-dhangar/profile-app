@@ -101,8 +101,8 @@ app.get('/', (req, res) => {
     </div>
 
     <div class="btn-group">
-      <a href="https://frontend-six-jet-94.vercel.app" class="btn btn-primary">🌐 Open Web Application (Frontend)</a>
-      <a href="https://expo.dev/artifacts/eas/fIFxZfwGE3y5e3xcfFmZ1ICMr5qwJw_BD8HSqIVpqHU.apk" class="btn btn-secondary">📱 Download Android APK</a>
+      <a href="https://myprofile-official-web.vercel.app" class="btn btn-primary">🌐 Open Web Application (Frontend)</a>
+      <a href="https://expo.dev/artifacts/eas/Ydv3QGoeh8xi2CQW9yqotL43IfyQANSX1w3TkskH0Ws.apk" class="btn btn-secondary">📱 Download Android APK</a>
       <a href="/api/v1/reels/feed" class="btn btn-secondary">🎥 View Public Reels Feed JSON</a>
     </div>
 
@@ -126,8 +126,8 @@ app.get('/', (req, res) => {
     version: '2.0.0',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    frontendUrl: 'https://frontend-six-jet-94.vercel.app',
-    apkUrl: 'https://expo.dev/artifacts/eas/fIFxZfwGE3y5e3xcfFmZ1ICMr5qwJw_BD8HSqIVpqHU.apk',
+    frontendUrl: 'https://myprofile-official-web.vercel.app',
+    apkUrl: 'https://expo.dev/artifacts/eas/Ydv3QGoeh8xi2CQW9yqotL43IfyQANSX1w3TkskH0Ws.apk',
     endpoints: {
       health: '/health',
       auth: '/api/v1/auth',
