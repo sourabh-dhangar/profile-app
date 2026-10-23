@@ -54,13 +54,13 @@ const Footer = () => {
             <ul className="space-y-2 text-xs text-slate-400">
               <li>
                 <a
-                  href="https://expo.dev/artifacts/eas/Ydv3QGoeh8xi2CQW9yqotL43IfyQANSX1w3TkskH0Ws.apk"
+                  href="https://expo.dev/artifacts/eas/HGuyumyw8sYrP43V-wsN8BjrZrVpZurcNlqPCSr96ro.apk"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center space-x-1.5 text-emerald-300 font-bold hover:text-emerald-200 transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Download Android APK (v1.0.0)</span>
+                  <span>Download Android APK (Latest v2.2)</span>
                 </a>
               </li>
               <li>

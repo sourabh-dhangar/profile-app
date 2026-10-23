@@ -90,7 +90,7 @@ const Navbar = () => {
 
             {/* Direct Mobile App APK Download CTA */}
             <a
-              href="https://expo.dev/artifacts/eas/Ydv3QGoeh8xi2CQW9yqotL43IfyQANSX1w3TkskH0Ws.apk"
+              href="https://expo.dev/artifacts/eas/HGuyumyw8sYrP43V-wsN8BjrZrVpZurcNlqPCSr96ro.apk"
               target="_blank"
               rel="noopener noreferrer"
               className="relative flex items-center space-x-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition-all shadow-sm shadow-emerald-500/10 group"
