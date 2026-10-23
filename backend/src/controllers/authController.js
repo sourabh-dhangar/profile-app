@@ -76,7 +76,16 @@ const requestOtp = async (req, res, next) => {
  */
 const verifyOtp = async (req, res, next) => {
   try {
-    const { mobile, otp, countryCode = '+91' } = req.body;
+    const {
+      mobile,
+      otp,
+      countryCode = '+91',
+      name,
+      email,
+      bio,
+      profileType,
+      category,
+    } = req.body;
     if (!mobile || !otp) {
       return res.status(400).json({
         success: false,
@@ -126,13 +135,54 @@ const verifyOtp = async (req, res, next) => {
     // Verification successful
     user.isVerified = true;
     user.otp = undefined; // clear OTP
+    if (name) user.name = name;
+    if (email) user.email = email;
     await user.save();
 
     // Check if profile exists, if not create default isolated published profile
     let profile = await Profile.findOne({ userId: user._id });
+    const resolvedName = name?.trim() || 'New Creator';
+    const resolvedBio = bio?.trim() || 'Digital Creator building interactive experiences and modern solutions.';
+    const validProfileTypes = [
+      'Personal', 'Creator', 'Student', 'Sportsperson', 'Teacher',
+      'Professional', 'Freelancer', 'ServiceProvider', 'SmallBusiness',
+      'Engineer', 'Designer', 'StoreOwner', 'Businessman'
+    ];
+    const validCategories = [
+      'IT & Software', 'Salon & Beauty', 'Fitness & Health', 'Doctor & Clinic',
+      'Restaurant & Food', 'Professional Services', 'Education & Coaching',
+      'Retail & Commerce', 'Grocery & Supermarket', 'Fashion & Apparel',
+      'Electronics & Mobile', 'Automobile & Garage', 'Content Creator & Artist', 'Other Business'
+    ];
+
+    let resolvedProfileType = 'Creator';
+    if (profileType && validProfileTypes.includes(profileType)) {
+      resolvedProfileType = profileType;
+    } else if (category === 'IT & Software' || profileType === 'IT & Software') {
+      resolvedProfileType = 'Engineer';
+    } else if (category === 'Designer' || profileType === 'Designer') {
+      resolvedProfileType = 'Designer';
+    } else if (category === 'Professional' || profileType === 'Professional') {
+      resolvedProfileType = 'Professional';
+    } else if (category === 'SmallBusiness' || category === 'Business & Storefront') {
+      resolvedProfileType = 'SmallBusiness';
+    }
+
+    let resolvedCategory = 'IT & Software';
+    if (category && validCategories.includes(category)) {
+      resolvedCategory = category;
+    } else if (resolvedProfileType === 'Designer' || resolvedProfileType === 'Creator') {
+      resolvedCategory = 'Content Creator & Artist';
+    } else if (resolvedProfileType === 'Professional') {
+      resolvedCategory = 'Professional Services';
+    } else if (resolvedProfileType === 'SmallBusiness') {
+      resolvedCategory = 'Retail & Commerce';
+    }
+
     if (!profile) {
-      // Generate a unique fallback username based on timestamp & random string
-      const defaultSlug = `user_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 5)}`;
+      // Generate a unique fallback username based on name or timestamp
+      const sanitizedName = resolvedName.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 14);
+      const defaultSlug = `${sanitizedName || 'user'}_${Math.random().toString(36).substring(2, 6)}`;
       const profileWebUrl = config.frontendUrl ? `${config.frontendUrl}/p/${defaultSlug}` : `http://localhost:8081/p/${defaultSlug}`;
       let qrCodeUrl = '';
       try {
@@ -143,21 +193,23 @@ const verifyOtp = async (req, res, next) => {
 
       profile = new Profile({
         userId: user._id,
-        name: 'New Creator',
+        name: resolvedName,
         username: defaultSlug,
-        profileType: 'Creator',
+        profileType: resolvedProfileType,
+        category: resolvedCategory,
         status: 'published',
-        bio: 'Digital Creator building interactive experiences and modern solutions.',
+        bio: resolvedBio,
         city: 'India',
         theme: 'default',
-        completionPercentage: 80,
+        completionPercentage: 85,
         qrCodeUrl,
         contactDetails: {
           phone: normalized,
           whatsapp: normalized,
-          showPhone: false,
+          email: email?.trim() || '',
+          showPhone: true,
           showWhatsapp: true,
-          showEmail: false,
+          showEmail: Boolean(email),
         },
         socialLinks: [
           { platform: 'website', url: 'https://example.com' },
@@ -175,7 +227,7 @@ const verifyOtp = async (req, res, next) => {
             profileId: profile._id,
             type: 'about',
             title: 'About Me',
-            content: { text: 'Welcome to my digital profile! I share my professional work, skills, and projects here.' },
+            content: { text: resolvedBio },
             order: 0,
             visibility: 'public',
           },
@@ -225,6 +277,31 @@ const verifyOtp = async (req, res, next) => {
         });
       } catch (lookupErr) {
         // Ignore duplicate if already registered
+      }
+    } else {
+      // If profile exists and user provided new profile details on signup
+      let updated = false;
+      if (name && profile.name !== resolvedName) {
+        profile.name = resolvedName;
+        updated = true;
+      }
+      if (bio && profile.bio !== resolvedBio) {
+        profile.bio = resolvedBio;
+        updated = true;
+      }
+      if (profileType || category) {
+        profile.profileType = resolvedProfileType;
+        profile.category = resolvedCategory;
+        updated = true;
+      }
+      if (email) {
+        profile.contactDetails.email = email.trim();
+        profile.contactDetails.showEmail = true;
+        updated = true;
+      }
+      if (updated) {
+        profile.calculateCompletion();
+        await profile.save();
       }
     }
 

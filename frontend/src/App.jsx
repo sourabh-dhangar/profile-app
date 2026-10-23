@@ -11,6 +11,7 @@ import PublicProfilePage from './pages/PublicProfilePage';
 import ReelsFeedPage from './pages/ReelsFeedPage';
 import DiscoveryPage from './pages/DiscoveryPage';
 import AdminPage from './pages/AdminPage';
+import MessagesPage from './pages/MessagesPage';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -29,47 +30,66 @@ const AdminRoute = ({ children }) => {
 };
 
 import { ToastProvider } from './components/Toast';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <BrowserRouter>
-          <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-            <Navbar />
-            <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <DashboardPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/p/:username" element={<PublicProfilePage />} />
-              <Route path="/reels" element={<ReelsFeedPage />} />
-              <Route path="/discover" element={<DiscoveryPage />} />
-              <Route
-                path="/admin"
-                element={
-                  <AdminRoute>
-                    <AdminPage />
-                  </AdminRoute>
-                }
-              />
-              {/* Direct /:username routing for public profiles */}
-              <Route path="/:username" element={<PublicProfilePage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
-          <Footer />
-        </div>
-      </BrowserRouter>
-      </ToastProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+              <Navbar />
+              <main className="flex-1">
+                <Routes>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <DashboardPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/messages"
+                    element={
+                      <ProtectedRoute>
+                        <MessagesPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/messages/:targetUsername"
+                    element={
+                      <ProtectedRoute>
+                        <MessagesPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/p/:username" element={<PublicProfilePage />} />
+                  <Route path="/reels" element={<ReelsFeedPage />} />
+                  <Route path="/discover" element={<DiscoveryPage />} />
+                  <Route
+                    path="/admin"
+                    element={
+                      <AdminRoute>
+                        <AdminPage />
+                      </AdminRoute>
+                    }
+                  />
+                  {/* Direct /:username routing for public profiles */}
+                  <Route path="/:username" element={<PublicProfilePage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </main>
+              <Footer />
+            </div>
+          </BrowserRouter>
+        </ToastProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

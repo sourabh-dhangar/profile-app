@@ -501,7 +501,7 @@ export default function ReelsScreen({
             <View style={styles.actionBtn}>
               <Text style={styles.actionIcon}>👁️</Text>
               <Text style={styles.actionCount}>
-                {currentReel.viewsCount || 240}
+                {currentReel.viewsCount !== undefined ? currentReel.viewsCount : 0}
               </Text>
             </View>
 

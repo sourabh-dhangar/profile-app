@@ -9,7 +9,7 @@ const SectionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['about', 'experience', 'education', 'skills', 'services', 'achievements', 'photos', 'portfolio', 'awards', 'videos'],
+    enum: ['about', 'experience', 'education', 'skills', 'services', 'achievements', 'photos', 'portfolio', 'awards', 'videos', 'products', 'rate_card', 'menu', 'faq', 'business_info'],
     required: [true, 'Section type is required'],
   },
   title: {

@@ -28,6 +28,14 @@ import {
   X,
   ChevronUp,
   ChevronDown,
+  Zap,
+  Calendar,
+  Github,
+  Linkedin,
+  Instagram,
+  Youtube,
+  Twitter,
+  Facebook,
 } from 'lucide-react';
 import InquiryModal from '../components/InquiryModal';
 import BookingModal from '../components/BookingModal';
@@ -415,7 +423,15 @@ const PublicProfilePage = () => {
             )}
 
 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 print-hide">
-              
+              {/* Direct 1-on-1 Chat */}
+              <Link
+                to={`/messages/${profile.username}`}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-teal-500/20 flex items-center space-x-1.5 transition-all transform active:scale-95"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>💬 Chat</span>
+              </Link>
+
               {/* Direct Appointment Booking Modal Trigger */}
               <button
                 onClick={() => setBookingModal(true)}
@@ -576,7 +592,7 @@ const PublicProfilePage = () => {
                         key={idx}
                         className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-medium text-slate-200"
                       >
-                        {item}
+                        {typeof item === 'string' ? item : (item?.title || item?.name || item?.role || String(item))}
                       </span>
                     ))}
                   </div>
@@ -584,10 +600,34 @@ const PublicProfilePage = () => {
                   <div className="space-y-4">
                     {section.content?.items?.map((exp, idx) => (
                       <div key={idx} className="border-l-2 border-emerald-500/30 pl-4 space-y-1">
-                        <p className="text-sm font-bold text-white">{exp.role}</p>
-                        <p className="text-xs text-slate-400">{exp.company} • {exp.period}</p>
-                        {exp.description && (
+                        <p className="text-sm font-bold text-white">{typeof exp === 'object' ? exp.role : exp}</p>
+                        <p className="text-xs text-slate-400">{typeof exp === 'object' ? `${exp.company || ''} • ${exp.period || ''}` : ''}</p>
+                        {typeof exp === 'object' && exp.description && (
                           <p className="text-xs text-slate-300 pt-1">{exp.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : section.type === 'portfolio' ? (
+                  <div className="space-y-3 pt-1">
+                    {section.content?.items?.map((proj, idx) => (
+                      <div key={idx} className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-bold text-white">{typeof proj === 'object' ? proj.title : proj}</p>
+                          {typeof proj === 'object' && proj.link && (
+                            <a
+                              href={proj.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center space-x-1"
+                            >
+                              <span>Visit</span>
+                              <ExternalLink className="w-3 h-3 ml-0.5" />
+                            </a>
+                          )}
+                        </div>
+                        {typeof proj === 'object' && proj.description && (
+                          <p className="text-xs text-slate-300">{proj.description}</p>
                         )}
                       </div>
                     ))}
@@ -943,13 +983,22 @@ const PublicProfilePage = () => {
 
       {/* Sticky Mobile Action Rail */}
       <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-2xl border-t border-slate-800/80 px-4 py-3 shadow-[0_-10px_25px_rgba(0,0,0,0.7)] flex items-center justify-between gap-2 print-hide">
+        {/* Direct Chat CTA */}
+        <Link
+          to={`/messages/${profile.username}`}
+          className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 text-slate-950 font-black text-xs shadow-lg flex items-center justify-center space-x-1.5 active:scale-95 transition-transform"
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Chat</span>
+        </Link>
+
         {/* Get in Touch CTA */}
         <button
           onClick={() => setInquiryModal(true)}
           className={`flex-1 py-2.5 rounded-xl ${currentTheme.accentBg} font-black text-xs shadow-lg flex items-center justify-center space-x-1.5 active:scale-95 transition-transform`}
         >
           <MessageSquare className="w-4 h-4" />
-          <span>Get in Touch</span>
+          <span>Inquiry</span>
         </button>
 
         {/* Save Contact vCard */}

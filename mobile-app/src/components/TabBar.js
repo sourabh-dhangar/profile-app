@@ -2,23 +2,29 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { COLORS } from '../theme';
 
-const BASE_TABS = [
-  { id: 'profile', label: 'Profile', icon: '👤', glyph: '●' },
-  { id: 'reels', label: 'Reels', icon: '🎬', glyph: '●' },
-  { id: 'discover', label: 'Discover', icon: '🔍', glyph: '●' },
-  { id: 'login', label: 'Sign In', icon: '🔐', glyph: '●' },
-];
-
-export default function TabBar({ activeTab, onTabPress, unreadReels = 0, isAdmin = false }) {
-  const tabs = [
-    { id: 'profile', label: 'Profile', icon: '👤', glyph: '●' },
-    { id: 'reels', label: 'Reels', icon: '🎬', glyph: '●' },
-    { id: 'discover', label: 'Discover', icon: '🔍', glyph: '●' },
-    ...(isAdmin || activeTab === 'admin'
-      ? [{ id: 'admin', label: 'Admin', icon: '👑', glyph: '●' }]
-      : []),
-    { id: 'login', label: 'Sign In', icon: '🔐', glyph: '●' },
-  ];
+export default function TabBar({
+  activeTab,
+  onTabPress,
+  unreadReels = 0,
+  isAdmin = false,
+  isAuthenticated = false,
+}) {
+  const tabs = isAuthenticated
+    ? [
+        { id: 'profile', label: 'My Profile', icon: '👤', glyph: '●' },
+        { id: 'reels', label: 'Reels', icon: '🎬', glyph: '●' },
+        { id: 'discover', label: 'Discover', icon: '🔍', glyph: '●' },
+        ...(isAdmin || activeTab === 'admin'
+          ? [{ id: 'admin', label: 'Admin', icon: '👑', glyph: '●' }]
+          : []),
+        { id: 'login', label: 'Account', icon: '⚙️', glyph: '●' },
+      ]
+    : [
+        { id: 'login', label: 'Sign Up / In', icon: '✨', glyph: '●' },
+        { id: 'profile', label: 'Profile', icon: '🔒', glyph: '●', isLocked: true },
+        { id: 'reels', label: 'Reels', icon: '🔒', glyph: '●', isLocked: true },
+        { id: 'discover', label: 'Discover', icon: '🔍', glyph: '●' },
+      ];
 
   return (
     <View style={styles.dockWrapper}>
@@ -28,20 +34,36 @@ export default function TabBar({ activeTab, onTabPress, unreadReels = 0, isAdmin
           return (
             <TouchableOpacity
               key={tab.id}
-              style={[styles.tabButton, isActive && styles.tabButtonActive]}
+              style={[
+                styles.tabButton,
+                isActive && styles.tabButtonActive,
+                tab.isLocked && styles.tabButtonLocked,
+              ]}
               onPress={() => onTabPress(tab.id)}
               activeOpacity={0.7}
             >
               <View style={styles.iconContainer}>
-                <Text style={[styles.tabIcon, isActive && styles.tabIconActive]}>
+                <Text
+                  style={[
+                    styles.tabIcon,
+                    isActive && styles.tabIconActive,
+                    tab.isLocked && styles.tabIconLocked,
+                  ]}
+                >
                   {tab.icon}
                 </Text>
-                {tab.id === 'reels' && unreadReels > 0 && (
+                {tab.id === 'reels' && unreadReels > 0 && isAuthenticated && (
                   <View style={styles.badgeDot} />
                 )}
               </View>
 
-              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+              <Text
+                style={[
+                  styles.tabLabel,
+                  isActive && styles.tabLabelActive,
+                  tab.isLocked && styles.tabLabelLocked,
+                ]}
+              >
                 {tab.label}
               </Text>
 
@@ -92,6 +114,9 @@ const styles = StyleSheet.create({
   tabButtonActive: {
     backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
+  tabButtonLocked: {
+    opacity: 0.6,
+  },
   iconContainer: {
     position: 'relative',
     alignItems: 'center',
@@ -104,6 +129,10 @@ const styles = StyleSheet.create({
   tabIconActive: {
     opacity: 1,
     transform: [{ scale: 1.1 }],
+  },
+  tabIconLocked: {
+    fontSize: 18,
+    opacity: 0.45,
   },
   badgeDot: {
     position: 'absolute',
@@ -123,6 +152,9 @@ const styles = StyleSheet.create({
   tabLabelActive: {
     color: '#34d399',
     fontWeight: '800',
+  },
+  tabLabelLocked: {
+    color: '#475569',
   },
   activePillIndicator: {
     width: 14,

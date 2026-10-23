@@ -31,7 +31,7 @@ const ProfileSchema = new mongoose.Schema({
   },
   profileType: {
     type: String,
-    enum: ['Personal', 'Creator', 'Student', 'Sportsperson', 'Teacher', 'Professional', 'Freelancer', 'ServiceProvider', 'SmallBusiness', 'Engineer', 'Designer'],
+    enum: ['Personal', 'Creator', 'Student', 'Sportsperson', 'Teacher', 'Professional', 'Freelancer', 'ServiceProvider', 'SmallBusiness', 'Engineer', 'Designer', 'StoreOwner', 'Businessman'],
     default: 'Personal',
   },
   category: {
@@ -45,6 +45,10 @@ const ProfileSchema = new mongoose.Schema({
       'Professional Services',
       'Education & Coaching',
       'Retail & Commerce',
+      'Grocery & Supermarket',
+      'Fashion & Apparel',
+      'Electronics & Mobile',
+      'Automobile & Garage',
       'Content Creator & Artist',
       'Other Business',
     ],
@@ -58,11 +62,15 @@ const ProfileSchema = new mongoose.Schema({
     default: '',
   },
   businessDetails: {
+    businessName: { type: String, default: '' },
+    tagline: { type: String, default: '' },
     timing: { type: String, default: '' },
     address: { type: String, default: '' },
     googleMapsUrl: { type: String, default: '' },
     whatsappNumber: { type: String, default: '' },
     bookingUrl: { type: String, default: '' },
+    upiId: { type: String, default: '' },
+    gstNumber: { type: String, default: '' },
   },
 
   bio: {

@@ -17,6 +17,7 @@ const reportRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
 const notificationRoutes = require('./routes/notifications');
 const aiRoutes = require('./routes/ai');
+const chatRoutes = require('./routes/chat');
 
 const app = express();
 
@@ -160,6 +161,7 @@ app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/chat', chatRoutes);
 
 // 404 handler for unknown routes
 app.use('*', (req, res) => {

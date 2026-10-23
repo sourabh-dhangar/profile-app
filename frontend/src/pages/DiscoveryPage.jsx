@@ -12,6 +12,7 @@ import {
   Clock,
   MapPin,
   MessageCircle,
+  MessageSquare,
   Sparkles,
   Building2,
   Scissors,
@@ -507,6 +508,15 @@ const DiscoveryPage = () => {
                             >
                               <span>View Profile & QR</span>
                               <ExternalLink className="w-3.5 h-3.5" />
+                            </Link>
+
+                            {/* Direct 1-on-1 Chat on MyProfile */}
+                            <Link
+                              to={`/messages/${p.username}`}
+                              title={`Direct Chat with ${p.name}`}
+                              className="p-2.5 rounded-xl bg-teal-950/70 hover:bg-teal-900/80 text-teal-300 border border-teal-500/30 transition-all hover:scale-105"
+                            >
+                              <MessageSquare className="w-4 h-4" />
                             </Link>
 
                             {p.businessDetails?.whatsappNumber ? (

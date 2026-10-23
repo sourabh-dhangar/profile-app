@@ -39,11 +39,15 @@ async function runTier9Tests() {
       city: 'Mumbai',
       theme: 'sunset-gradient',
       businessDetails: {
+        businessName: 'Royal Glow Unisex Salon & Bridal Studio',
+        tagline: 'Premium Hair & Skin Styling',
         timing: 'Tue - Sun: 10:00 AM - 8:30 PM (Mondays Closed)',
         address: 'Linking Road, Bandra West, Mumbai, Maharashtra 400050',
         googleMapsUrl: 'https://maps.google.com/?q=Bandra+West+Mumbai',
         whatsappNumber: '+919833344455',
         bookingUrl: 'https://calendly.com/priya-salon/appointment',
+        upiId: 'royalglow@okhdfcbank',
+        gstNumber: '27AAAAA0000A1Z5',
       },
       contactDetails: {
         phone: salonPhone,
@@ -56,6 +60,9 @@ async function runTier9Tests() {
     assert(salonUpdateRes.status === 200, 'Salon Business Profile updated successfully (200 OK)');
     assert(salonUpdateRes.data.data.category === 'Salon & Beauty', 'Profile category is accurately set to "Salon & Beauty"');
     assert(salonUpdateRes.data.data.subCategory === 'Luxury Hair & Bridal Studio', 'Profile subCategory is set to "Luxury Hair & Bridal Studio"');
+    assert(salonUpdateRes.data.data.businessDetails?.businessName === 'Royal Glow Unisex Salon & Bridal Studio', 'Store/business name accurately stored');
+    assert(salonUpdateRes.data.data.businessDetails?.upiId === 'royalglow@okhdfcbank', 'UPI payment ID accurately stored');
+    assert(salonUpdateRes.data.data.businessDetails?.gstNumber === '27AAAAA0000A1Z5', 'GSTIN accurately stored');
     assert(salonUpdateRes.data.data.businessDetails?.timing.includes('10:00 AM'), 'Business hours / timing accurately stored');
     assert(salonUpdateRes.data.data.businessDetails?.bookingUrl.includes('calendly'), 'Direct booking URL accurately stored');
 
@@ -75,6 +82,21 @@ async function runTier9Tests() {
       visibility: 'public',
     });
     assert(addSectionRes.status === 201, 'Salon Rate Card / Services section created (201 Created)');
+
+    // Add Products Section for Salon / Store
+    const addProductSecRes = await salonClient.post('/api/v1/sections', {
+      type: 'products',
+      title: 'Salon Hair Care Products',
+      content: {
+        items: [
+          'Argan Oil Serum | ₹850 | Pure moroccan organic serum',
+          'Keratin Repair Shampoo | ₹650 | Sulfate-free 300ml bottle',
+        ],
+      },
+      order: 1,
+      visibility: 'public',
+    });
+    assert(addProductSecRes.status === 201, 'Products catalog section created (201 Created)');
 
     // Publish Salon Profile
     const salonPublish = await salonClient.post('/api/v1/profiles/me/publish');
@@ -118,9 +140,11 @@ async function runTier9Tests() {
     const publicSalon = await publicClient.get(`/api/v1/profiles/${salonSlug}`);
     assert(publicSalon.status === 200, 'Public can view Salon profile (200 OK)');
     assert(publicSalon.data.data.profile.category === 'Salon & Beauty', 'Public payload exposes Salon & Beauty category');
+    assert(publicSalon.data.data.profile.businessDetails?.businessName === 'Royal Glow Unisex Salon & Bridal Studio', 'Public payload exposes business/shop name');
+    assert(publicSalon.data.data.profile.businessDetails?.upiId === 'royalglow@okhdfcbank', 'Public payload exposes UPI payment ID');
     assert(publicSalon.data.data.profile.businessDetails?.address.includes('Bandra'), 'Public payload exposes business address');
     assert(publicSalon.data.data.profile.businessDetails?.whatsappNumber === '+919833344455', 'Public payload exposes WhatsApp contact');
-    assert(publicSalon.data.data.sections.length >= 1, 'Public payload contains Services / Rate Card sections');
+    assert(publicSalon.data.data.sections.length >= 2, 'Public payload contains both Services & Products sections');
 
     // 4. Public QR Code Verification for Counter Displays
     const qrRes = await publicClient.get(`/api/v1/profiles/${salonSlug}/qr`);

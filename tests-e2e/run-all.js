@@ -11,6 +11,7 @@ const runTier7ExpandedTests = require('./tier7-expanded-api-tests');
 const runTier8CreatorTests = require('./tier8-creator-expansion-tests');
 const { runTier8Tests: runTier8MobileTests } = require('./tier8-mobile-feature-expansion.test');
 const runTier9Tests = require('./tier9-universal-business-category-tests');
+const runTier10Tests = require('./tier10-chat-and-messaging-tests');
 
 async function checkServerRunning() {
   return new Promise((resolve) => {
@@ -61,6 +62,7 @@ async function runAll() {
     const t8c = await runTier8CreatorTests();
     const t8m = await runTier8MobileTests();
     const t9 = await runTier9Tests();
+    const t10 = await runTier10Tests();
 
     const totalPassed =
       t1.passed +
@@ -73,7 +75,8 @@ async function runAll() {
       t7e.passed +
       t8c.passed +
       t8m.passed +
-      t9.passed;
+      t9.passed +
+      t10.passed;
 
     const totalFailed =
       t1.failed +
@@ -86,7 +89,8 @@ async function runAll() {
       t7e.failed +
       t8c.failed +
       t8m.failed +
-      t9.failed;
+      t9.failed +
+      t10.failed;
 
     const duration = ((Date.now() - start) / 1000).toFixed(2);
 

@@ -35,10 +35,22 @@ const getMyProfile = async (req, res, next) => {
     const reels = await Reel.find({ profileId: profile._id, status: 'active' }).sort({ isPinned: -1, createdAt: -1 });
     const reelsCount = reels.length;
 
+    // Ensure profile has qrCodeUrl generated
+    if (!profile.qrCodeUrl) {
+      const profileWebUrl = `${config.frontendUrl || 'http://localhost:8081'}/p/${profile.username}`;
+      try {
+        profile.qrCodeUrl = await generateQRCodeDataURL(profileWebUrl);
+        await profile.save();
+      } catch (err) {}
+    }
+
+    const profileObj = profile.toObject ? profile.toObject() : { ...profile };
+    profileObj.qrCodeDataUrl = profile.qrCodeUrl;
+
     res.status(200).json({
       success: true,
       data: {
-        profile,
+        profile: profileObj,
         sections,
         reels,
         stats: {
@@ -319,6 +331,7 @@ const getPublicProfile = async (req, res, next) => {
           socialLinks: profile.socialLinks,
           testimonials: profile.testimonials || [],
           qrCodeUrl: profile.qrCodeUrl,
+          qrCodeDataUrl: profile.qrCodeUrl,
           contactDetails: sanitizedContact,
           followersCount: profile.followersCount || 0,
           followingCount: profile.followingCount || 0,

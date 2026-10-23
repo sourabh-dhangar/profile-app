@@ -13,20 +13,25 @@ import {
   TextInput,
 } from 'react-native';
 import { COLORS, THEME_ACCENTS } from '../theme';
-import { getVCardUrl } from '../services/api';
+import { getVCardUrl, fetchProfileQR, getQRCodeUrl } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
 const SECTION_ICONS = {
-  about: '👤',
-  experience: '💼',
+  about: '📖',
+  experience: '🏢',
   education: '🎓',
-  skills: '⚡',
-  services: '🛠️',
+  skills: '⭐',
+  services: '💇',
+  products: '🛍️',
+  rate_card: '📋',
+  menu: '🍽️',
   portfolio: '🚀',
   achievements: '🏆',
   contact: '📞',
   social: '🌐',
+  faq: '❓',
+  business_info: 'ℹ️',
 };
 
 const SOCIAL_PLATFORMS = [
@@ -48,21 +53,43 @@ const THEME_OPTIONS = [
 
 const PROFILE_TYPES = [
   'Creator',
+  'SmallBusiness',
+  'StoreOwner',
+  'Businessman',
+  'ServiceProvider',
   'Professional',
   'Freelancer',
   'Engineer',
-  'Student',
   'Designer',
-  'ServiceProvider',
+  'Student',
+];
+
+const BUSINESS_CATEGORIES = [
+  { id: 'Salon & Beauty', label: '💇 Salon & Beauty' },
+  { id: 'Retail & Commerce', label: '🏪 Retail & Store' },
+  { id: 'Grocery & Supermarket', label: '🛒 Grocery & Mart' },
+  { id: 'Restaurant & Food', label: '🍽️ Food & Dining' },
+  { id: 'Doctor & Clinic', label: '🩺 Doctor & Clinic' },
+  { id: 'Fitness & Health', label: '💪 Gym & Fitness' },
+  { id: 'Fashion & Apparel', label: '👗 Fashion & Clothing' },
+  { id: 'Electronics & Mobile', label: '📱 Mobile & Electronics' },
+  { id: 'Automobile & Garage', label: '🚗 Auto & Garage' },
+  { id: 'IT & Software', label: '💻 IT & Tech' },
+  { id: 'Professional Services', label: '💼 Professional Services' },
+  { id: 'Content Creator & Artist', label: '🎬 Creator & Artist' },
+  { id: 'Other Business', label: '🏢 Other Business' },
 ];
 
 const SECTION_TYPES = [
-  { type: 'skills', label: 'Skills & Stack', icon: '⚡' },
-  { type: 'experience', label: 'Experience', icon: '💼' },
+  { type: 'services', label: 'Services & Rates', icon: '💇' },
+  { type: 'products', label: 'Products & Store Catalog', icon: '🛍️' },
+  { type: 'rate_card', label: 'Rate Card / Packages', icon: '📋' },
+  { type: 'menu', label: 'Food / Drink Menu', icon: '🍽️' },
+  { type: 'skills', label: 'Highlights & Offerings', icon: '⭐' },
   { type: 'portfolio', label: 'Portfolio & Projects', icon: '🚀' },
-  { type: 'services', label: 'Services', icon: '🛠️' },
-  { type: 'education', label: 'Education', icon: '🎓' },
-  { type: 'about', label: 'About / Story', icon: '👤' },
+  { type: 'experience', label: 'Milestones & History', icon: '🏢' },
+  { type: 'education', label: 'Certifications & Licenses', icon: '📜' },
+  { type: 'about', label: 'About Business / Story', icon: '📖' },
 ];
 
 const REEL_PRESETS = [
@@ -187,6 +214,40 @@ export default function ProfileScreen({
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [fetchedQrCode, setFetchedQrCode] = useState(null);
+  const [loadingQrCode, setLoadingQrCode] = useState(false);
+
+  // Load official backend QR or fallback
+  React.useEffect(() => {
+    if (profile?.username) {
+      if (profile.qrCodeDataUrl || profile.qrCodeUrl) {
+        setFetchedQrCode(profile.qrCodeDataUrl || profile.qrCodeUrl);
+      } else {
+        setLoadingQrCode(true);
+        fetchProfileQR(profile.username)
+          .then((res) => {
+            if (res?.success && (res.data?.qrCodeDataUrl || res.data?.qrCode)) {
+              setFetchedQrCode(res.data.qrCodeDataUrl || res.data.qrCode);
+            }
+          })
+          .catch((err) => console.log('QR code fetch note:', err.message))
+          .finally(() => setLoadingQrCode(false));
+      }
+    }
+  }, [profile?.username, profile?.qrCodeDataUrl, profile?.qrCodeUrl]);
+
+  const profileDirectUrl =
+    typeof window !== 'undefined' && window.location?.origin
+      ? `${window.location.origin}/p/${profile.username || 'user'}`
+      : `http://localhost:8081/p/${profile.username || 'user'}`;
+
+  const resilientQrUrl =
+    fetchedQrCode ||
+    profile.qrCodeDataUrl ||
+    profile.qrCodeUrl ||
+    `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(
+      profileDirectUrl
+    )}&bgcolor=ffffff&color=020617&margin=8`;
   const [isNotificationsModalVisible, setIsNotificationsModalVisible] = useState(false);
   const [notifFilter, setNotifFilter] = useState('all'); // 'all' | 'likes' | 'inquiries' | 'vouches'
 
@@ -266,6 +327,8 @@ export default function ProfileScreen({
     name: '',
     username: '',
     profileType: 'Creator',
+    category: 'IT & Software',
+    subCategory: '',
     verifiedBadge: 'verified_pro',
     city: '',
     bio: '',
@@ -277,6 +340,15 @@ export default function ProfileScreen({
     linkedin: '',
     twitter: '',
     website: '',
+    businessName: '',
+    tagline: '',
+    timing: '',
+    address: '',
+    googleMapsUrl: '',
+    whatsappNumber: '',
+    bookingUrl: '',
+    upiId: '',
+    gstNumber: '',
   });
 
   if (loading) {
@@ -328,6 +400,8 @@ export default function ProfileScreen({
       name: profile.name || '',
       username: profile.username || '',
       profileType: profile.profileType || 'Creator',
+      category: profile.category || 'IT & Software',
+      subCategory: profile.subCategory || '',
       verifiedBadge: profile.verifiedBadge || 'verified_pro',
       city: profile.city || '',
       bio: profile.bio || '',
@@ -339,6 +413,15 @@ export default function ProfileScreen({
       linkedin: profile.socialLinks?.find((s) => s.platform === 'linkedin')?.url || '',
       twitter: profile.socialLinks?.find((s) => s.platform === 'twitter')?.url || '',
       website: profile.socialLinks?.find((s) => s.platform === 'website')?.url || '',
+      businessName: profile.businessDetails?.businessName || '',
+      tagline: profile.businessDetails?.tagline || '',
+      timing: profile.businessDetails?.timing || '',
+      address: profile.businessDetails?.address || '',
+      googleMapsUrl: profile.businessDetails?.googleMapsUrl || '',
+      whatsappNumber: profile.businessDetails?.whatsappNumber || '',
+      bookingUrl: profile.businessDetails?.bookingUrl || '',
+      upiId: profile.businessDetails?.upiId || '',
+      gstNumber: profile.businessDetails?.gstNumber || '',
     });
     setIsEditingProfile(true);
   };
@@ -362,6 +445,8 @@ export default function ProfileScreen({
         username: editForm.username,
         photoUrl: editForm.photoUrl ? editForm.photoUrl.trim() : undefined,
         profileType: editForm.profileType,
+        category: editForm.category,
+        subCategory: editForm.subCategory,
         verifiedBadge: editForm.verifiedBadge || 'verified_pro',
         isVerifiedBadge: editForm.verifiedBadge !== 'none',
         city: editForm.city,
@@ -375,6 +460,17 @@ export default function ProfileScreen({
           showWhatsapp: Boolean(editForm.whatsapp),
           showPhone: Boolean(editForm.phone),
           showEmail: Boolean(editForm.email),
+        },
+        businessDetails: {
+          businessName: editForm.businessName,
+          tagline: editForm.tagline,
+          timing: editForm.timing,
+          address: editForm.address,
+          googleMapsUrl: editForm.googleMapsUrl,
+          whatsappNumber: editForm.whatsappNumber || editForm.whatsapp,
+          bookingUrl: editForm.bookingUrl,
+          upiId: editForm.upiId,
+          gstNumber: editForm.gstNumber,
         },
       };
 
@@ -467,12 +563,23 @@ export default function ProfileScreen({
     let itemsStr = '';
     if (Array.isArray(sec.content?.items)) {
       itemsStr = sec.content.items
-        .map((item) =>
-          typeof item === 'object' && item !== null
-            ? item.title || item.role || item.name || JSON.stringify(item)
-            : item
-        )
-        .join(', ');
+        .map((item) => {
+          if (typeof item === 'object' && item !== null) {
+            if (item.price || item.cost || item.rate) {
+              return [item.title || item.name, item.price || item.cost || item.rate, item.description || item.desc]
+                .filter(Boolean)
+                .join(' | ');
+            }
+            if (item.company || item.period) {
+              return [item.title || item.role, item.company, item.period, item.description]
+                .filter(Boolean)
+                .join(' | ');
+            }
+            return item.title || item.role || item.name || JSON.stringify(item);
+          }
+          return item;
+        })
+        .join(sec.type === 'skills' ? ', ' : '\n');
     }
     setSectionForm({
       type: sec.type || 'skills',
@@ -491,7 +598,30 @@ export default function ProfileScreen({
     setSavingSection(true);
     try {
       let content = {};
-      if (['skills', 'services'].includes(sectionForm.type)) {
+      if (['services', 'products', 'rate_card', 'menu'].includes(sectionForm.type)) {
+        let items = [];
+        if (sectionForm.itemsText.includes('\n') || sectionForm.itemsText.includes('|')) {
+          items = sectionForm.itemsText
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => {
+              const parts = line.split('|').map((p) => p.trim());
+              return {
+                title: parts[0] || line,
+                price: parts[1] || '',
+                description: parts[2] || '',
+              };
+            });
+        } else {
+          items = sectionForm.itemsText
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((s) => ({ title: s }));
+        }
+        content = { items };
+      } else if (['skills'].includes(sectionForm.type)) {
         const items = sectionForm.itemsText
           .split(',')
           .map((s) => s.trim())
@@ -708,12 +838,30 @@ export default function ProfileScreen({
       {/* 3. Owner Status & Management Strip */}
       {isOwner && (
         <View style={styles.ownerControlStrip}>
-          <View style={styles.ownerStatusRow}>
-            <View style={styles.ownerDot} />
-            <Text style={styles.ownerStatusText}>
-              MY VERIFIED ID ({currentUser.user?.mobile || 'Active'})
-            </Text>
+          {/* Top Row: Verification Badge & Edit ID */}
+          <View style={styles.ownerHeaderRow}>
+            <View style={styles.ownerStatusRow}>
+              <View style={styles.ownerDot} />
+              <Text style={styles.ownerStatusText} numberOfLines={1}>
+                MY VERIFIED ID ({currentUser?.user?.mobile || 'Active'})
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.ownerEditBtn,
+                { borderColor: theme.badgeBorder, backgroundColor: theme.badgeBg },
+              ]}
+              onPress={openEditModal}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.ownerEditBtnText, { color: theme.primary }]}>
+                ✏️ Edit ID
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Bottom Row: Quick Action Hubs */}
           <View style={styles.ownerActionButtonsRow}>
             {/* Activity & Notifications Hub Button */}
             <TouchableOpacity
@@ -733,6 +881,7 @@ export default function ProfileScreen({
                   styles.ownerInquiriesText,
                   unreadNotificationsCount > 0 && { color: '#38bdf8', fontWeight: '800' },
                 ]}
+                numberOfLines={1}
               >
                 Activity {unreadNotificationsCount > 0 ? `(${unreadNotificationsCount})` : ''}
               </Text>
@@ -755,30 +904,11 @@ export default function ProfileScreen({
                   styles.ownerInquiriesText,
                   unreadInquiriesCount > 0 && { color: '#fbbf24', fontWeight: '800' },
                 ]}
+                numberOfLines={1}
               >
                 Inquiries {unreadInquiriesCount > 0 ? `(${unreadInquiriesCount})` : ''}
               </Text>
               {unreadInquiriesCount > 0 && <View style={styles.unreadDotBadge} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.ownerEditBtn,
-                { borderColor: theme.badgeBorder, backgroundColor: theme.badgeBg },
-              ]}
-              onPress={openEditModal}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.ownerEditBtnText, { color: theme.text }]}>
-                ✏️ Edit ID
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.ownerSignOutBtn}
-              onPress={onLogout}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.ownerSignOutText}>Sign Out</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -866,16 +996,44 @@ export default function ProfileScreen({
 
         {/* Storefront & Business Details Strip */}
         {profile.businessDetails &&
-          (profile.businessDetails.timing ||
+          (profile.businessDetails.businessName ||
+            profile.businessDetails.timing ||
             profile.businessDetails.address ||
             profile.businessDetails.whatsappNumber ||
-            profile.businessDetails.bookingUrl) && (
+            profile.businessDetails.bookingUrl ||
+            profile.businessDetails.upiId ||
+            profile.businessDetails.gstNumber) && (
             <View style={styles.storefrontCard}>
               <View style={styles.storefrontHeader}>
-                <Text style={styles.storefrontHeaderIcon}>🏪</Text>
-                <Text style={styles.storefrontHeaderTitle}>Business & Storefront</Text>
+                <View style={styles.storefrontTitleCol}>
+                  <View style={styles.storefrontTitleRow}>
+                    <Text style={styles.storefrontHeaderIcon}>🏪</Text>
+                    <Text style={styles.storefrontHeaderTitle}>
+                      {profile.businessDetails.businessName || 'Business & Storefront'}
+                    </Text>
+                  </View>
+                  {profile.businessDetails.tagline ? (
+                    <Text style={styles.storefrontTagline}>{profile.businessDetails.tagline}</Text>
+                  ) : null}
+                </View>
+
+                {profile.category && (
+                  <View style={[styles.storefrontCategoryBadge, { backgroundColor: theme.badgeBg, borderColor: theme.badgeBorder }]}>
+                    <Text style={[styles.storefrontCategoryText, { color: theme.primary }]}>
+                      {profile.category}
+                    </Text>
+                  </View>
+                )}
               </View>
 
+              {/* Sub-Category or Specialization */}
+              {profile.subCategory ? (
+                <View style={styles.storefrontSubCatRow}>
+                  <Text style={styles.storefrontSubCatText}>🏷️ {profile.subCategory}</Text>
+                </View>
+              ) : null}
+
+              {/* Business Timings */}
               {profile.businessDetails.timing ? (
                 <View style={styles.storefrontRow}>
                   <Text style={styles.storefrontIcon}>⏰</Text>
@@ -883,6 +1041,7 @@ export default function ProfileScreen({
                 </View>
               ) : null}
 
+              {/* Physical Address + Maps */}
               {profile.businessDetails.address ? (
                 <TouchableOpacity
                   style={styles.storefrontRow}
@@ -896,19 +1055,41 @@ export default function ProfileScreen({
                   <Text style={styles.storefrontIcon}>📍</Text>
                   <Text style={[styles.storefrontText, profile.businessDetails.googleMapsUrl && styles.storefrontLinkText]}>
                     {profile.businessDetails.address}
-                    {profile.businessDetails.googleMapsUrl ? " (Open Map ↗)" : ""}
+                    {profile.businessDetails.googleMapsUrl ? ' (Open Map ↗)' : ''}
                   </Text>
                 </TouchableOpacity>
               ) : null}
 
+              {/* UPI Instant Payment & GST Trust Badges */}
+              {(profile.businessDetails.upiId || profile.businessDetails.gstNumber) && (
+                <View style={styles.storefrontTrustRow}>
+                  {profile.businessDetails.upiId ? (
+                    <TouchableOpacity
+                      style={styles.upiBadge}
+                      onPress={() => onShowToast(`UPI ID: ${profile.businessDetails.upiId} copied!`, 'success')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.upiBadgeText}>⚡ UPI: {profile.businessDetails.upiId}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {profile.businessDetails.gstNumber ? (
+                    <View style={styles.gstBadge}>
+                      <Text style={styles.gstBadgeText}>🛡️ GST: {profile.businessDetails.gstNumber}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              )}
+
+              {/* Action Buttons: WhatsApp Chat, Book / Catalog, Call Store */}
               <View style={styles.storefrontActionsRow}>
                 {profile.businessDetails.whatsappNumber ? (
                   <TouchableOpacity
                     style={styles.whatsappActionBtn}
                     onPress={() => {
-                      const cleanPhone = profile.businessDetails.whatsappNumber.replace(/[^0-9]/g, "");
-                      Linking.openURL("https://wa.me/" + cleanPhone + "?text=Hi%20" + encodeURIComponent(profile.name) + ",%20I%20found%20your%20profile%20on%20MyProfile!");
+                      const cleanPhone = profile.businessDetails.whatsappNumber.replace(/[^0-9]/g, '');
+                      Linking.openURL('https://wa.me/' + cleanPhone + '?text=Hi%20' + encodeURIComponent(profile.businessDetails.businessName || profile.name) + ',%20I%20found%20your%20business%20on%20MyProfile!');
                     }}
+                    activeOpacity={0.8}
                   >
                     <Text style={styles.whatsappActionText}>💬 WhatsApp Chat</Text>
                   </TouchableOpacity>
@@ -916,10 +1097,24 @@ export default function ProfileScreen({
 
                 {profile.businessDetails.bookingUrl ? (
                   <TouchableOpacity
-                    style={styles.bookingActionBtn}
+                    style={[styles.bookingActionBtn, { backgroundColor: theme.primary }]}
                     onPress={() => Linking.openURL(profile.businessDetails.bookingUrl)}
+                    activeOpacity={0.8}
                   >
-                    <Text style={styles.bookingActionText}>📅 Book Now</Text>
+                    <Text style={styles.bookingActionText}>📅 Book / Catalog</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {(profile.contactDetails?.phone || profile.businessDetails?.whatsappNumber) ? (
+                  <TouchableOpacity
+                    style={styles.callStoreActionBtn}
+                    onPress={() => {
+                      const tel = profile.contactDetails?.phone || profile.businessDetails?.whatsappNumber;
+                      Linking.openURL(`tel:${tel}`);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.callStoreActionText}>📞 Call Store</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -962,7 +1157,13 @@ export default function ProfileScreen({
 
           <View style={styles.metricItem}>
             <Text style={styles.metricValue}>
-              {analyticsData?.totalProfileViews ? `${analyticsData.totalProfileViews}` : '1.4K'}
+              {typeof analyticsData?.totalProfileViews === 'number'
+                ? analyticsData.totalProfileViews.toLocaleString()
+                : typeof profileData?.stats?.viewsCount === 'number'
+                ? profileData.stats.viewsCount.toLocaleString()
+                : typeof profile?.stats?.viewsCount === 'number'
+                ? profile.stats.viewsCount.toLocaleString()
+                : '0'}
             </Text>
             <Text style={styles.metricLabel}>VIEWS</Text>
           </View>
@@ -1046,6 +1247,52 @@ export default function ProfileScreen({
           >
             <Text style={styles.secondaryActionIcon}>📱</Text>
             <Text style={styles.secondaryActionText}>QR Code</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Instant Digital Identity & Storefront QR Stand */}
+        <View style={styles.profileQrStandCard}>
+          <View style={styles.profileQrStandLeft}>
+            <View style={[styles.qrStandBadge, { backgroundColor: theme.badgeBg, borderColor: theme.badgeBorder }]}>
+              <Text style={[styles.qrStandBadgeText, { color: theme.primary }]}>
+                ⚡ INSTANT PROFILE & STORE QR
+              </Text>
+            </View>
+            <Text style={styles.qrStandTitle}>Scan to View Profile & Catalog</Text>
+            <Text style={styles.qrStandSub}>
+              Point any smartphone camera to view services, products & contact directly
+            </Text>
+            <View style={styles.qrStandActionRow}>
+              <TouchableOpacity
+                style={[styles.qrStandBtn, { backgroundColor: theme.primary }]}
+                onPress={() => setShowQrModal(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.qrStandBtnText}>🔍 Enlarge QR</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.qrStandShareBtn}
+                onPress={handleShare}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.qrStandShareText}>🔗 Copy Link</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.profileQrStandThumbWrapper}
+            onPress={() => setShowQrModal(true)}
+            activeOpacity={0.9}
+          >
+            <Image
+              source={{ uri: resilientQrUrl }}
+              style={styles.profileQrStandThumb}
+              resizeMode="contain"
+            />
+            <View style={styles.qrThumbTapBadge}>
+              <Text style={styles.qrThumbTapText}>Tap ↗</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -1170,9 +1417,7 @@ export default function ProfileScreen({
                 <Text style={styles.analyticsTileLabel}>PROFILE VIEWS</Text>
               </View>
               <Text style={[styles.analyticsTileValue, { color: theme.text }]}>
-                {analyticsData?.totalViews !== undefined
-                  ? analyticsData.totalViews.toLocaleString()
-                  : '1,420'}
+                {(analyticsData?.totalViews ?? profileData?.stats?.viewsCount ?? profile?.stats?.viewsCount ?? 0).toLocaleString()}
               </Text>
               <Text style={styles.analyticsTileSub}>All-time visits</Text>
             </View>
@@ -1184,9 +1429,7 @@ export default function ProfileScreen({
                 <Text style={styles.analyticsTileLabel}>LINK CLICKS</Text>
               </View>
               <Text style={[styles.analyticsTileValue, { color: '#60a5fa' }]}>
-                {analyticsData?.totalClicks !== undefined
-                  ? analyticsData.totalClicks.toLocaleString()
-                  : '38'}
+                {(analyticsData?.totalClicks ?? 0).toLocaleString()}
               </Text>
               <Text style={styles.analyticsTileSub}>Outbound leads</Text>
             </View>
@@ -1198,7 +1441,7 @@ export default function ProfileScreen({
                 <Text style={styles.analyticsTileLabel}>REEL VIEWS</Text>
               </View>
               <Text style={[styles.analyticsTileValue, { color: '#f59e0b' }]}>
-                {reels.reduce((sum, r) => sum + (r.viewsCount || 0), 0) || '2.8K'}
+                {reels.reduce((sum, r) => sum + (r.viewsCount || 0), 0).toLocaleString()}
               </Text>
               <Text style={styles.analyticsTileSub}>Video impressions</Text>
             </View>
@@ -1210,7 +1453,7 @@ export default function ProfileScreen({
                 <Text style={styles.analyticsTileLabel}>REEL LIKES</Text>
               </View>
               <Text style={[styles.analyticsTileValue, { color: '#f43f5e' }]}>
-                {reels.reduce((sum, r) => sum + (r.likesCount || 0), 0) || '420'}
+                {reels.reduce((sum, r) => sum + (r.likesCount || 0), 0).toLocaleString()}
               </Text>
               <Text style={styles.analyticsTileSub}>Audience reactions</Text>
             </View>
@@ -1221,7 +1464,7 @@ export default function ProfileScreen({
             <View style={styles.trendHeaderRow}>
               <Text style={styles.trendTitle}>📈 7-Day Visitor Trend</Text>
               <Text style={styles.trendTotalBadge}>
-                {analyticsData?.dailyViews
+                {analyticsData?.dailyViews && analyticsData.dailyViews.length > 0
                   ? `${analyticsData.dailyViews.reduce((acc, d) => acc + (d.views || d.count || 0), 0)} views this week`
                   : 'Weekly Activity'}
               </Text>
@@ -1231,20 +1474,20 @@ export default function ProfileScreen({
               {(() => {
                 const days = analyticsData?.dailyViews && analyticsData.dailyViews.length > 0
                   ? analyticsData.dailyViews
-                  : [
-                      { date: '2026-10-08', views: 24, count: 24 },
-                      { date: '2026-10-09', views: 36, count: 36 },
-                      { date: '2026-10-10', views: 48, count: 48 },
-                      { date: '2026-10-11', views: 32, count: 32 },
-                      { date: '2026-10-12', views: 58, count: 58 },
-                      { date: '2026-10-13', views: 74, count: 74 },
-                      { date: '2026-10-14', views: 92, count: 92 },
-                    ];
+                  : Array.from({ length: 7 }, (_, i) => {
+                      const d = new Date();
+                      d.setDate(d.getDate() - (6 - i));
+                      return {
+                        date: d.toISOString().split('T')[0],
+                        views: 0,
+                        count: 0,
+                      };
+                    });
                 const maxVal = Math.max(...days.map((d) => d.views || d.count || 0), 10);
                 return days.map((day, idx) => {
                   const val = day.views || day.count || 0;
                   const barHeight = Math.max(14, Math.round((val / maxVal) * 70));
-                  const isPeak = val === maxVal;
+                  const isPeak = val === maxVal && val > 0;
                   const dayLabel = day.date ? day.date.slice(-2) : `D${idx + 1}`;
                   return (
                     <View key={idx} style={styles.chartCol}>
@@ -1578,8 +1821,83 @@ export default function ProfileScreen({
                 </View>
 
                 {/* Section Content Rendering */}
-                {/* 1. Portfolio / Projects Grid */}
-                {section.type === 'portfolio' &&
+                {/* 1. Business Catalog, Rate Card, Products & Menu Grid */}
+                {['services', 'products', 'rate_card', 'menu'].includes(section.type) &&
+                section.content?.items &&
+                Array.isArray(section.content.items) ? (
+                  <View style={styles.businessCatalogGrid}>
+                    {section.content.items.map((prod, pIdx) => {
+                      const itemTitle =
+                        typeof prod === 'object' && prod !== null
+                          ? prod.title || prod.name || 'Offering'
+                          : String(prod).split('|')[0]?.trim();
+                      const itemPrice =
+                        typeof prod === 'object' && prod !== null
+                          ? prod.price || prod.cost || prod.rate || ''
+                          : String(prod).split('|')[1]?.trim();
+                      const itemDesc =
+                        typeof prod === 'object' && prod !== null
+                          ? prod.description || prod.desc || prod.details || ''
+                          : String(prod).split('|')[2]?.trim();
+
+                      return (
+                        <View
+                          key={pIdx}
+                          style={[styles.catalogItemCard, { borderLeftColor: theme.primary }]}
+                        >
+                          <View style={styles.catalogItemTopRow}>
+                            <View style={{ flex: 1, marginRight: 8 }}>
+                              <Text style={styles.catalogItemTitle}>{itemTitle}</Text>
+                              {itemDesc ? (
+                                <Text style={styles.catalogItemDesc}>{itemDesc}</Text>
+                              ) : null}
+                            </View>
+                            {itemPrice ? (
+                              <View style={[styles.catalogPriceBadge, { backgroundColor: theme.badgeBg, borderColor: theme.badgeBorder }]}>
+                                <Text style={[styles.catalogPriceText, { color: theme.primary }]}>
+                                  {itemPrice.startsWith('₹') || itemPrice.startsWith('$') ? itemPrice : `₹${itemPrice}`}
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+
+                          <View style={styles.catalogActionRow}>
+                            <TouchableOpacity
+                              style={styles.catalogInquireBtn}
+                              onPress={() => {
+                                const wa = profile.businessDetails?.whatsappNumber || profile.contactDetails?.whatsapp;
+                                if (wa) {
+                                  const clean = wa.replace(/[^0-9]/g, '');
+                                  Linking.openURL(
+                                    `https://wa.me/${clean}?text=${encodeURIComponent(
+                                      `Hi ${profile.businessDetails?.businessName || profile.name}, I am interested in "${itemTitle}" (${itemPrice || 'Inquiry'})`
+                                    )}`
+                                  );
+                                } else {
+                                  openSendInquiryModal();
+                                }
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={styles.catalogInquireText}>💬 Inquire / Order</Text>
+                            </TouchableOpacity>
+
+                            {profile.businessDetails?.bookingUrl ? (
+                              <TouchableOpacity
+                                style={[styles.catalogBookBtn, { backgroundColor: theme.primary }]}
+                                onPress={() => Linking.openURL(profile.businessDetails.bookingUrl)}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={styles.catalogBookText}>📅 Book Now</Text>
+                              </TouchableOpacity>
+                            ) : null}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : /* 2. Portfolio / Projects Grid */
+                section.type === 'portfolio' &&
                 section.content?.items &&
                 Array.isArray(section.content.items) ? (
                   <View style={styles.portfolioGrid}>
@@ -1779,18 +2097,14 @@ export default function ProfileScreen({
             </View>
 
             <View style={styles.qrCodeBox}>
-              {(profile.qrCodeDataUrl || profile.qrCodeUrl) ? (
-                <Image
-                  source={{ uri: profile.qrCodeDataUrl || profile.qrCodeUrl }}
-                  style={styles.qrImage}
-                />
+              {loadingQrCode && !resilientQrUrl ? (
+                <ActivityIndicator size="large" color={theme.primary} />
               ) : (
-                <View style={styles.qrPlaceholderBox}>
-                  <Text style={styles.qrPlaceholderIcon}>📱</Text>
-                  <Text style={styles.qrPlaceholderText}>
-                    Scan to Connect with @{profile.username}
-                  </Text>
-                </View>
+                <Image
+                  source={{ uri: resilientQrUrl }}
+                  style={styles.qrImage}
+                  resizeMode="contain"
+                />
               )}
             </View>
 
@@ -1900,7 +2214,89 @@ export default function ProfileScreen({
               />
 
               {/* Content Items */}
-              {['skills', 'services'].includes(sectionForm.type) ? (
+              {['services', 'products', 'rate_card', 'menu'].includes(sectionForm.type) ? (
+                <View>
+                  <Text style={styles.modalInputLabel}>
+                    ITEMS / RATE CARD (Title | Price | Description)
+                  </Text>
+                  
+                  {/* 1-Tap Quick Fill Presets */}
+                  <View style={styles.templatePresetsContainer}>
+                    <Text style={styles.templatePresetHintText}>⚡ 1-Tap Business Presets:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.templatePresetPillsRow}>
+                      <TouchableOpacity
+                        style={styles.templatePresetBtn}
+                        onPress={() => {
+                          setSectionForm((prev) => ({
+                            ...prev,
+                            title: prev.title || 'Salon & Spa Services',
+                            itemsText: 'Haircut & Styling | ₹350 | Wash, cut and professional styling\nFacial & Glow Care | ₹799 | Herbal organic facial & head massage\nKeratin Hair Treatment | ₹1,499 | Deep hair repair and shine therapy\nBeard Grooming | ₹200 | Hot towel shape & beard oil massage',
+                          }));
+                          onShowToast('Loaded Salon Services template! ✨', 'info');
+                        }}
+                      >
+                        <Text style={styles.templatePresetText}>💈 Salon Services</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.templatePresetBtn}
+                        onPress={() => {
+                          setSectionForm((prev) => ({
+                            ...prev,
+                            title: prev.title || 'Store Products & Catalog',
+                            itemsText: 'Cotton Casual Shirt | ₹899 | 100% pure breathable cotton (Sizes M-XXL)\nStretch Denim Jeans | ₹1,299 | Slim fit durable premium wash\nLeather Formal Wallet | ₹499 | Genuine leather with RFID protection\nCasual Sneakers | ₹1,799 | Lightweight memory foam cushion',
+                          }));
+                          onShowToast('Loaded Store Catalog template! 🛍️', 'info');
+                        }}
+                      >
+                        <Text style={styles.templatePresetText}>🛍️ Store Products</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.templatePresetBtn}
+                        onPress={() => {
+                          setSectionForm((prev) => ({
+                            ...prev,
+                            title: prev.title || 'Cafe & Food Menu',
+                            itemsText: 'Artisan Cold Brew | ₹180 | Single origin arabica with vanilla foam\nGrilled Paneer Sandwich | ₹220 | Multi-grain sourdough with herb cheese\nBelgian Dark Chocolate Cake | ₹240 | 70% dark cocoa rich truffle slice\nFresh Fruit Smoothie | ₹190 | Banana, strawberry & almond milk',
+                          }));
+                          onShowToast('Loaded Cafe / Menu template! ☕', 'info');
+                        }}
+                      >
+                        <Text style={styles.templatePresetText}>☕ Cafe / Food Menu</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.templatePresetBtn}
+                        onPress={() => {
+                          setSectionForm((prev) => ({
+                            ...prev,
+                            title: prev.title || 'Business Services & Rates',
+                            itemsText: 'Business Consultation | ₹2,500/hr | Strategy, financial planning & audit\nGST & Company Registration | ₹4,999 | Complete startup documentation package\nMonthly Accounting & Tax | ₹3,000/mo | Bookkeeping and compliance filing',
+                          }));
+                          onShowToast('Loaded Business Consultation template! 💼', 'info');
+                        }}
+                      >
+                        <Text style={styles.templatePresetText}>💼 Business Services</Text>
+                      </TouchableOpacity>
+                    </ScrollView>
+                  </View>
+
+                  <TextInput
+                    style={[styles.modalInput, styles.modalBioInput, { height: 130 }]}
+                    value={sectionForm.itemsText}
+                    onChangeText={(text) =>
+                      setSectionForm((prev) => ({ ...prev, itemsText: text }))
+                    }
+                    placeholder={'Haircut & Wash | ₹350 | Wash + Styling\nSkin Facial | ₹799 | Herbal facial\nBeard Trim | ₹150 | Sharp edge cut'}
+                    placeholderTextColor="#64748b"
+                    multiline
+                  />
+                  <Text style={styles.catalogSyntaxHint}>
+                    💡 Format: Item Name | Price | Description (one per line)
+                  </Text>
+                </View>
+              ) : ['skills'].includes(sectionForm.type) ? (
                 <View>
                   <Text style={styles.modalInputLabel}>
                     ITEMS (COMMA SEPARATED)
@@ -2226,6 +2622,194 @@ export default function ProfileScreen({
                 multiline
                 numberOfLines={3}
               />
+
+              {/* Business & Store Details Section */}
+              <View style={styles.modalSectionDividerHeader}>
+                <Text style={styles.modalSectionDividerTitle}>🏪 STOREFRONT & BUSINESS SETUP</Text>
+                <Text style={styles.modalSectionDividerSub}>
+                  For Salons, Retail Stores, Supermarkets, Restaurants, Clinics & Businessmen
+                </Text>
+              </View>
+
+              {/* Business Category Selection */}
+              <Text style={styles.modalInputLabel}>BUSINESS / INDUSTRY CATEGORY</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryChipsScrollRow}>
+                {BUSINESS_CATEGORIES.map((cat) => {
+                  const isSelected = editForm.category === cat.name;
+                  return (
+                    <TouchableOpacity
+                      key={cat.name}
+                      style={[
+                        styles.categoryChipOption,
+                        isSelected && {
+                          borderColor: theme.primary,
+                          backgroundColor: theme.badgeBg,
+                        },
+                      ]}
+                      onPress={() => setEditForm((prev) => ({ ...prev, category: cat.name }))}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.categoryChipIcon}>{cat.icon}</Text>
+                      <Text
+                        style={[
+                          styles.categoryChipOptionText,
+                          isSelected && { color: theme.text, fontWeight: '800' },
+                        ]}
+                      >
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Sub-Category / Niche */}
+              <Text style={styles.modalInputLabel}>SUB-CATEGORY / SPECIALTY</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.subCategory}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, subCategory: text }))
+                }
+                placeholder="e.g. Unisex Hair Salon, Organic Grocery, Fine Dining, Luxury Apparel"
+                placeholderTextColor="#64748b"
+              />
+
+              {/* Business / Shop Name */}
+              <Text style={styles.modalInputLabel}>SHOP / FIRM / BRAND NAME</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.businessName}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, businessName: text }))
+                }
+                placeholder="e.g. Royal Unisex Salon & Spa / Metro Mart"
+                placeholderTextColor="#64748b"
+              />
+
+              {/* Business Tagline */}
+              <Text style={styles.modalInputLabel}>BUSINESS TAGLINE / SLOGAN</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.tagline}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, tagline: text }))
+                }
+                placeholder="e.g. Premium Hair Styling & Skin Treatments at Best Prices"
+                placeholderTextColor="#64748b"
+              />
+
+              {/* Operating Hours / Timing */}
+              <Text style={styles.modalInputLabel}>OPERATING HOURS / TIMING</Text>
+              <View style={styles.quickTimingRow}>
+                {[
+                  '9:00 AM - 9:00 PM (Daily)',
+                  '10:00 AM - 8:30 PM (Mon-Sat)',
+                  '11:00 AM - 11:00 PM',
+                  '24/7 Open',
+                ].map((presetTime) => (
+                  <TouchableOpacity
+                    key={presetTime}
+                    style={styles.timingPresetBtn}
+                    onPress={() => setEditForm((prev) => ({ ...prev, timing: presetTime }))}
+                  >
+                    <Text style={styles.timingPresetText}>{presetTime}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.timing}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, timing: text }))
+                }
+                placeholder="e.g. 9:00 AM - 9:30 PM (Mon to Sun)"
+                placeholderTextColor="#64748b"
+              />
+
+              {/* Physical Address */}
+              <Text style={styles.modalInputLabel}>STORE / OFFICE PHYSICAL ADDRESS</Text>
+              <TextInput
+                style={[styles.modalInput, styles.modalBioInput, { height: 75 }]}
+                value={editForm.address}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, address: text }))
+                }
+                placeholder="Shop No. 12, Ground Floor, Linking Road, Bandra West, Mumbai 400050"
+                placeholderTextColor="#64748b"
+                multiline
+              />
+
+              {/* Google Maps Location Link */}
+              <Text style={styles.modalInputLabel}>GOOGLE MAPS LOCATION LINK</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.googleMapsUrl}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, googleMapsUrl: text }))
+                }
+                placeholder="https://maps.app.goo.gl/... or Google Maps place link"
+                placeholderTextColor="#64748b"
+                autoCapitalize="none"
+              />
+
+              {/* WhatsApp Ordering / Support Number */}
+              <Text style={styles.modalInputLabel}>WHATSAPP BUSINESS / ORDER NUMBER</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.whatsappNumber}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, whatsappNumber: text }))
+                }
+                placeholder="+919876543210 (Direct customer WhatsApp chat)"
+                placeholderTextColor="#64748b"
+                keyboardType="phone-pad"
+              />
+
+              {/* Online Booking / Catalog / Menu Link */}
+              <Text style={styles.modalInputLabel}>BOOKING / DIGITAL CATALOG LINK</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.bookingUrl}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, bookingUrl: text }))
+                }
+                placeholder="https://calendly.com/... or https://wa.me/catalog/..."
+                placeholderTextColor="#64748b"
+                autoCapitalize="none"
+              />
+
+              {/* UPI ID for Direct Customer Payment */}
+              <Text style={styles.modalInputLabel}>UPI PAYMENT ID (GPay / PhonePe / Paytm)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.upiId}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, upiId: text }))
+                }
+                placeholder="e.g. salonname@okhdfcbank or 9876543210@paytm"
+                placeholderTextColor="#64748b"
+                autoCapitalize="none"
+              />
+
+              {/* GSTIN / Business Reg No */}
+              <Text style={styles.modalInputLabel}>GSTIN / BUSINESS REGISTRATION NUMBER</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={editForm.gstNumber}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, gstNumber: text.toUpperCase() }))
+                }
+                placeholder="e.g. 27AAAAA0000A1Z5"
+                placeholderTextColor="#64748b"
+                autoCapitalize="characters"
+              />
+
+              {/* Personal / Account Contact Information */}
+              <View style={styles.modalSectionDividerHeader}>
+                <Text style={styles.modalSectionDividerTitle}>📱 PERSONAL & SOCIAL CONNECT</Text>
+                <Text style={styles.modalSectionDividerSub}>Direct phone, email, and social profiles</Text>
+              </View>
 
               {/* Contact Information */}
               <Text style={styles.modalInputLabel}>WHATSAPP NUMBER</Text>
@@ -4199,14 +4783,21 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  ownerHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   ownerStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
+    flexShrink: 1,
   },
   ownerDot: {
     width: 8,
@@ -4226,10 +4817,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   ownerEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
+    flexShrink: 0,
   },
   ownerEditBtnText: {
     fontSize: 11,
@@ -4998,10 +5592,12 @@ const styles = StyleSheet.create({
 
   // Owner Inquiries Button in control strip
   ownerInquiriesBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
@@ -5011,6 +5607,10 @@ const styles = StyleSheet.create({
   ownerInquiriesBtnActive: {
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
     borderColor: 'rgba(245, 158, 11, 0.4)',
+  },
+  ownerNotificationsBtnActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: 'rgba(56, 189, 248, 0.4)',
   },
   ownerInquiriesEmoji: {
     fontSize: 13,
@@ -6145,6 +6745,391 @@ const styles = StyleSheet.create({
   bookingActionText: {
     color: '#ffffff',
     fontSize: 12,
+    fontWeight: '800',
+  },
+
+  // Storefront & Commercial Business Extensions
+  storefrontTitleCol: {
+    flex: 1,
+  },
+  storefrontTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
+  storefrontTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#f8fafc',
+    letterSpacing: 0.3,
+  },
+  storefrontCategoryBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  storefrontCategoryText: {
+    color: '#38bdf8',
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  storefrontSubCatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  storefrontSubCatText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  storefrontTagline: {
+    fontSize: 12,
+    color: '#cbd5e1',
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  storefrontTrustRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  upiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  upiBadgeText: {
+    color: '#34d399',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  gstBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(99, 102, 241, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  gstBadgeText: {
+    color: '#a5b4fc',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  callStoreActionBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingVertical: 9,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callStoreActionText: {
+    color: '#f8fafc',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  // Business Catalog & Rate Card Grid
+  businessCatalogGrid: {
+    gap: 10,
+  },
+  catalogItemCard: {
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
+    padding: 12,
+  },
+  catalogItemTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 6,
+  },
+  catalogItemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#f8fafc',
+    flex: 1,
+  },
+  catalogItemDesc: {
+    fontSize: 12,
+    color: '#94a3b8',
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  catalogPriceBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  catalogPriceText: {
+    color: '#34d399',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  catalogActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  catalogInquireBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(37, 211, 102, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 211, 102, 0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  catalogInquireText: {
+    color: '#25D366',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  catalogBookBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  catalogBookText: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  // Modal Business Form Controls
+  modalSectionDividerHeader: {
+    marginTop: 18,
+    marginBottom: 10,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalSectionDividerTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#38bdf8',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  modalSectionDividerSub: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  categoryChipsScrollRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  categoryChipOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginRight: 8,
+  },
+  categoryChipIcon: {
+    fontSize: 14,
+  },
+  categoryChipOptionText: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  quickTimingRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  timingPresetBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  timingPresetText: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  templatePresetsContainer: {
+    marginBottom: 8,
+  },
+  templatePresetHintText: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  templatePresetPillsRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  templatePresetBtn: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  templatePresetText: {
+    color: '#e0f2fe',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  catalogSyntaxHint: {
+    color: '#64748b',
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+
+  // Instant Profile QR Stand Card
+  profileQrStandCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    gap: 12,
+  },
+  profileQrStandLeft: {
+    flex: 1,
+  },
+  qrStandBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginBottom: 6,
+  },
+  qrStandBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  qrStandTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#f8fafc',
+    marginBottom: 4,
+  },
+  qrStandSub: {
+    fontSize: 11,
+    color: '#94a3b8',
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  qrStandActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  qrStandBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  qrStandBtnText: {
+    color: '#020617',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  qrStandShareBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  qrStandShareText: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  profileQrStandThumbWrapper: {
+    width: 96,
+    height: 96,
+    borderRadius: 14,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 6,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  profileQrStandThumb: {
+    width: 84,
+    height: 84,
+  },
+  qrThumbTapBadge: {
+    position: 'absolute',
+    bottom: -6,
+    backgroundColor: '#0284c7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  qrThumbTapText: {
+    color: '#ffffff',
+    fontSize: 9,
     fontWeight: '800',
   },
 });

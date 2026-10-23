@@ -43,17 +43,17 @@ const MobileDeviceFrame = ({ profile, sections = [] }) => {
   const currentTheme = THEME_STYLES[profile?.theme] || THEME_STYLES['default'];
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center w-full max-w-full">
       {/* Phone chassis */}
-      <div className="relative w-[340px] h-[690px] rounded-[52px] bg-slate-950 p-3 shadow-2xl shadow-emerald-500/10 ring-1 ring-slate-800/80 border-[6px] border-slate-900 overflow-hidden">
+      <div className="relative max-w-[340px] w-full h-[620px] sm:h-[690px] rounded-[44px] sm:rounded-[52px] bg-slate-950 p-2.5 sm:p-3 shadow-2xl shadow-emerald-500/10 ring-1 ring-slate-800/80 border-4 sm:border-[6px] border-slate-900 overflow-hidden mx-auto">
         {/* Dynamic Island / Speaker notch */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center justify-center space-x-2 w-28 h-5 rounded-full bg-black border border-slate-800/60 shadow-inner">
-          <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-700/60" />
+        <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-30 flex items-center justify-center space-x-2 w-24 sm:w-28 h-4 sm:h-5 rounded-full bg-black border border-slate-800/60 shadow-inner">
+          <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-slate-900 border border-slate-700/60" />
           <div className="w-1.5 h-1.5 rounded-full bg-blue-900/50" />
         </div>
 
         {/* Screen inner container */}
-        <div className={`relative w-full h-full rounded-[42px] overflow-y-auto bg-gradient-to-b ${currentTheme.bg} text-slate-100 p-5 pt-10 scrollbar-none`}>
+        <div className={`relative w-full h-full rounded-[34px] sm:rounded-[42px] overflow-y-auto bg-gradient-to-b ${currentTheme.bg} text-slate-100 p-4 sm:p-5 pt-8 sm:pt-10 scrollbar-none`}>
           
           {/* Header Profile Info */}
           <div className="text-center pt-2 pb-4">
@@ -101,11 +101,11 @@ const MobileDeviceFrame = ({ profile, sections = [] }) => {
                 <div className="text-[8px] font-bold text-slate-500 tracking-wider">VERIFIED</div>
               </div>
               <div className="text-center border-x border-white/5">
-                <div className="text-xs font-black text-white">4</div>
+                <div className="text-xs font-black text-white">{profile?.reels?.length ?? profile?.stats?.reelsCount ?? 0}</div>
                 <div className="text-[8px] font-bold text-slate-500 tracking-wider">REELS</div>
               </div>
               <div className="text-center">
-                <div className="text-xs font-black text-white">1.4K</div>
+                <div className="text-xs font-black text-white">{profile?.stats?.viewsCount ?? 0}</div>
                 <div className="text-[8px] font-bold text-slate-500 tracking-wider">VIEWS</div>
               </div>
             </div>
@@ -149,17 +149,47 @@ const MobileDeviceFrame = ({ profile, sections = [] }) => {
                     </span>
                   </div>
 
-                  {sec.content?.items && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {sec.content.items.map((it, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-800/90 text-slate-200 border border-slate-700/40"
-                        >
-                          {it}
-                        </span>
-                      ))}
-                    </div>
+                  {sec.content?.items && Array.isArray(sec.content.items) && (
+                    sec.type === 'experience' || (sec.content.items[0] && typeof sec.content.items[0] === 'object' && ('role' in sec.content.items[0] || 'company' in sec.content.items[0])) ? (
+                      <div className="space-y-1.5 mt-1">
+                        {sec.content.items.map((exp, idx) => (
+                          <div key={idx} className="p-2 rounded-xl bg-slate-950/60 border border-white/5 text-[10px]">
+                            <div className="font-bold text-white">{typeof exp === 'object' ? exp.role : exp}</div>
+                            {typeof exp === 'object' && exp.company && (
+                              <div className="text-[9px] text-slate-400">{exp.company} {exp.period ? `• ${exp.period}` : ''}</div>
+                            )}
+                            {typeof exp === 'object' && exp.description && (
+                              <div className="text-[9px] text-slate-300 line-clamp-2 mt-0.5">{exp.description}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : sec.type === 'portfolio' || (sec.content.items[0] && typeof sec.content.items[0] === 'object' && 'title' in sec.content.items[0]) ? (
+                      <div className="space-y-1.5 mt-1">
+                        {sec.content.items.map((proj, idx) => (
+                          <div key={idx} className="p-2 rounded-xl bg-slate-950/60 border border-white/5 text-[10px]">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-white">{typeof proj === 'object' ? proj.title : proj}</span>
+                              {typeof proj === 'object' && proj.link && <ExternalLink className="w-2.5 h-2.5 text-slate-500" />}
+                            </div>
+                            {typeof proj === 'object' && proj.description && (
+                              <div className="text-[9px] text-slate-300 line-clamp-2 mt-0.5">{proj.description}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {sec.content.items.map((it, idx) => (
+                          <span
+                            key={idx}
+                            className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-800/90 text-slate-200 border border-slate-700/40"
+                          >
+                            {typeof it === 'string' ? it : (it?.title || it?.name || it?.role || String(it))}
+                          </span>
+                        ))}
+                      </div>
+                    )
                   )}
 
                   {sec.content?.text && (
@@ -168,7 +198,7 @@ const MobileDeviceFrame = ({ profile, sections = [] }) => {
                     </p>
                   )}
 
-                  {sec.content?.links && (
+                  {sec.content?.links && Array.isArray(sec.content.links) && (
                     <div className="space-y-1 mt-1.5">
                       {sec.content.links.map((lnk, lIdx) => (
                         <div

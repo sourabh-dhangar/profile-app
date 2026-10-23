@@ -60,6 +60,7 @@ const DEFAULT_PROFILE_DATA = {
     photoUrl: 'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
     theme: 'default',
     completionPercentage: 100,
+    qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=http%3A%2F%2Flocalhost%3A8081%2Fp%2Frahul_dev&bgcolor=ffffff&color=020617&margin=8',
   },
   sections: [
     {
@@ -149,7 +150,7 @@ class ErrorBoundary extends React.Component {
 }
 
 function MainApp() {
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'reels' | 'discover' | 'login'
+  const [activeTab, setActiveTab] = useState('login'); // 'login' | 'profile' | 'reels' | 'discover' | 'admin'
 
   // Toast Notification State
   const [toast, setToast] = useState({ message: '', type: 'info', visible: false });
@@ -162,7 +163,7 @@ function MainApp() {
   };
 
   // Profile State
-  const [profileUsername, setProfileUsername] = useState('rahul_dev');
+  const [profileUsername, setProfileUsername] = useState('');
   const [profileData, setProfileData] = useState(DEFAULT_PROFILE_DATA);
   const [loadingProfile, setLoadingProfile] = useState(false);
 
@@ -174,13 +175,13 @@ function MainApp() {
 
 
   // Discover State
-  const [searchPhone, setSearchPhone] = useState('9876543210');
+  const [searchPhone, setSearchPhone] = useState('');
   const [discoverResult, setDiscoverResult] = useState(null);
   const [discoverMsg, setDiscoverMsg] = useState('');
   const [loadingDiscover, setLoadingDiscover] = useState(false);
 
   // Auth State & User Isolation
-  const [mobileInput, setMobileInput] = useState('9876543210');
+  const [mobileInput, setMobileInput] = useState('');
   const [otpInput, setOtpInput] = useState('');
   const [otpStep, setOtpStep] = useState(1);
   const [authMsg, setAuthMsg] = useState('');
@@ -208,23 +209,62 @@ function MainApp() {
   const [adminReports, setAdminReports] = useState([]);
   const [loadingAdmin, setLoadingAdmin] = useState(false);
 
-  // Initial Data Fetching
+  // Restore persistent mobile session if available
   useEffect(() => {
-    if (activeTab === 'profile') {
-      if (currentUser?.token && profileUsername === currentUser?.profile?.username) {
-        loadMyProfile(currentUser.token);
-      } else {
+    const restoreSession = async () => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const savedToken = window.localStorage.getItem('myprofile_mobile_token');
+          const savedUserStr = window.localStorage.getItem('myprofile_mobile_user');
+          if (savedToken) {
+            setAuthToken(savedToken);
+            if (savedUserStr) {
+              try {
+                const parsedUser = JSON.parse(savedUserStr);
+                setCurrentUser(parsedUser);
+                if (parsedUser.profile?.username) {
+                  setProfileUsername(parsedUser.profile.username);
+                }
+              } catch (e) {}
+            }
+            await loadMyProfile(savedToken);
+            setActiveTab('profile');
+            return;
+          }
+        }
+      } catch (err) {
+        console.log('Session restore error:', err.message);
+      }
+      // Guarantee unauthenticated users land on login
+      setActiveTab('login');
+    };
+    restoreSession();
+  }, []);
+
+  // Strict Authentication Guard when activeTab changes
+  useEffect(() => {
+    const isAuth = Boolean(authToken || currentUser?.token);
+    if (!isAuth && (activeTab === 'profile' || activeTab === 'reels' || activeTab === 'admin')) {
+      setActiveTab('login');
+      return;
+    }
+
+    if (activeTab === 'profile' && isAuth) {
+      const effectiveToken = authToken || currentUser?.token;
+      if (effectiveToken && profileUsername === currentUser?.profile?.username) {
+        loadMyProfile(effectiveToken);
+      } else if (profileUsername) {
         loadProfile(profileUsername);
-        if (currentUser?.token) {
-          loadNotifications(currentUser.token);
+        if (effectiveToken) {
+          loadNotifications(effectiveToken);
         }
       }
-    } else if (activeTab === 'reels') {
+    } else if (activeTab === 'reels' && isAuth) {
       loadReels();
-    } else if (activeTab === 'admin') {
+    } else if (activeTab === 'admin' && isAuth) {
       loadAdminData(currentUser?.token || authToken);
     }
-  }, [activeTab]);
+  }, [activeTab, authToken]);
 
   const loadAdminData = async (token) => {
     const effectiveToken = token || authToken || currentUser?.token;
@@ -343,6 +383,7 @@ function MainApp() {
               'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
             theme: 'default',
             completionPercentage: 100,
+            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=http%3A%2F%2Flocalhost%3A8081%2Fp%2F${encodeURIComponent(username || 'rahul_dev')}&bgcolor=ffffff&color=020617&margin=8`,
           },
           sections: [
             {
@@ -662,16 +703,23 @@ function MainApp() {
     }
   };
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyOtp = async (signupData = null) => {
     setAuthMsg('');
     setLoadingAuth(true);
     try {
-      const res = await verifyOtp(mobileInput, otpInput);
+      const res = await verifyOtp(mobileInput, otpInput, '+91', signupData || {});
       if (res.success && res.data) {
         const token = res.data.token;
         const profile = res.data.profile;
         const user = res.data.user;
         const loggedUser = { token, user, profile };
+
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('myprofile_mobile_token', token);
+            window.localStorage.setItem('myprofile_mobile_user', JSON.stringify(loggedUser));
+          }
+        } catch (e) {}
 
         setAuthToken(token);
         setCurrentUser(loggedUser);
@@ -698,38 +746,54 @@ function MainApp() {
         const isAdmin = mobileInput === '9999999999';
         const isKavya = mobileInput === '9811223344';
         const isDemo = mobileInput === '9876543210';
-        let devName = 'New Creator';
-        let devSlug = `user_${mobileInput.slice(-4)}`;
+        let devName = signupData?.name?.trim() || 'New Creator';
+        let devSlug = signupData?.name?.trim()
+          ? `${signupData.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 12)}_${mobileInput.slice(-4)}`
+          : `user_${mobileInput.slice(-4)}`;
         if (isAdmin) {
           devName = 'Super Admin';
           devSlug = 'super_admin';
         } else if (isKavya) {
           devName = 'Kavya Verma';
           devSlug = 'kavya_ux';
-        } else if (isDemo) {
+        } else if (isDemo && !signupData?.name) {
           devName = 'Rahul Sharma';
           devSlug = 'rahul_dev';
         }
 
         const devUser = {
           token: 'sample-jwt-dev-token',
-          user: { mobile: mobileInput, role: isAdmin ? 'admin' : 'user' },
+          user: { mobile: mobileInput, email: signupData?.email, role: isAdmin ? 'admin' : 'user' },
           profile: {
             name: devName,
             username: devSlug,
-            bio: isAdmin
+            bio: signupData?.bio?.trim() || (isAdmin
               ? 'Platform Super Administrator with system-wide governance privileges.'
               : isKavya
               ? 'Senior Product & Motion Designer crafting fluid spatial interfaces.'
               : isDemo
               ? 'Full Stack Engineer building next-generation mobile experiences.'
-              : 'Fresh digital profile created via Mobile OTP.',
+              : 'Fresh digital profile created via Mobile OTP.'),
             city: isKavya ? 'Mumbai, India' : isDemo ? 'Bengaluru, India' : 'India',
-            profileType: isKavya ? 'Designer' : 'Creator',
+            profileType: signupData?.profileType || (isKavya ? 'Designer' : 'Creator'),
             theme: 'default',
             completionPercentage: 85,
+            contactDetails: {
+              phone: mobileInput,
+              whatsapp: mobileInput,
+              email: signupData?.email?.trim() || '',
+              showPhone: true,
+              showWhatsapp: true,
+              showEmail: Boolean(signupData?.email),
+            },
           },
         };
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('myprofile_mobile_token', devUser.token);
+            window.localStorage.setItem('myprofile_mobile_user', JSON.stringify(devUser));
+          }
+        } catch (e) {}
         setAuthToken(devUser.token);
         setCurrentUser(devUser);
         setProfileData({ profile: devUser.profile, sections: [], reels: [] });
@@ -739,7 +803,7 @@ function MainApp() {
           showToast(`Authenticated as Super Admin!`, 'success');
         } else {
           setActiveTab('profile');
-          showToast(`Authenticated as ${devUser.profile.name}!`, 'success');
+          showToast(`Welcome, ${devUser.profile.name}! Your profile is live.`, 'success');
         }
       } else {
         setAuthMsg('Invalid OTP. Use test code 123456.');
@@ -1035,6 +1099,12 @@ function MainApp() {
   };
 
   const handleLogout = () => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('myprofile_mobile_token');
+        window.localStorage.removeItem('myprofile_mobile_user');
+      }
+    } catch (e) {}
     setAuthToken(null);
     setCurrentUser(null);
     setOtpStep(1);
@@ -1046,16 +1116,33 @@ function MainApp() {
     setAdminUsers([]);
     setAdminAnalytics(null);
     setAdminReports([]);
-    setProfileUsername('rahul_dev');
-    loadProfile('rahul_dev');
-    showToast('Signed out of session. Switched to demo view.', 'info');
+    setProfileUsername('');
+    setProfileData(DEFAULT_PROFILE_DATA);
+    setActiveTab('login');
+    showToast('Signed out of session. Please sign in to access your profile.', 'info');
   };
 
   const handleSelectCreator = (username) => {
+    const isAuth = Boolean(authToken || currentUser?.token);
+    if (!isAuth) {
+      showToast('🔒 Please sign in first to view creator profiles', 'info');
+      setActiveTab('login');
+      return;
+    }
     setProfileUsername(username);
     loadProfile(username);
     setActiveTab('profile');
     showToast(`Loaded @${username}'s Profile`, 'success');
+  };
+
+  const handleTabPress = (tabId) => {
+    const isAuth = Boolean(authToken || currentUser?.token);
+    if (!isAuth && (tabId === 'profile' || tabId === 'reels' || tabId === 'admin')) {
+      showToast(`🔒 Sign in required to access ${tabId === 'reels' ? 'Reels' : 'Profile'}`, 'info');
+      setActiveTab('login');
+      return;
+    }
+    setActiveTab(tabId);
   };
 
   const handleAdminUpdateUserStatus = async (userId, accountStatus, role) => {
@@ -1208,126 +1295,21 @@ function MainApp() {
           currentUser={currentUser}
           onSignIn={() => setActiveTab('login')}
           onLogoPress={() => {
-            if (currentUser?.profile?.username) {
+            const isAuth = Boolean(authToken || currentUser?.token);
+            if (isAuth && currentUser?.profile?.username) {
               setProfileUsername(currentUser.profile.username);
               loadMyProfile(currentUser.token);
+              setActiveTab('profile');
             } else {
-              setProfileUsername('rahul_dev');
-              loadProfile('rahul_dev');
+              setActiveTab('login');
+              showToast('Please sign in or create an account to view profiles', 'info');
             }
-            setActiveTab('profile');
           }}
         />
 
         {/* Main Screen Body */}
         <View style={styles.bodyContainer}>
-          {activeTab === 'profile' && (
-            <ProfileScreen
-              profileData={profileData}
-              loading={loadingProfile}
-              onRefresh={() => {
-                if (currentUser?.token && profileUsername === currentUser?.profile?.username) {
-                  loadMyProfile(currentUser.token);
-                } else {
-                  loadProfile(profileUsername);
-                }
-              }}
-              onShowToast={showToast}
-              onSelectReelsTab={() => setActiveTab('reels')}
-              currentUser={currentUser}
-              isOwner={Boolean(
-                currentUser && currentUser.profile?.username === profileData.profile?.username
-              )}
-              onNavigateToAuth={() => setActiveTab('login')}
-              onUpdateProfile={handleUpdateProfile}
-              onCreateSection={handleCreateSection}
-              onUpdateSection={handleUpdateSection}
-              onDeleteSection={handleDeleteSection}
-              onCreateReel={handleCreateReel}
-              onLikeReel={handleLikeReel}
-              onDeleteReel={handleDeleteReel}
-              analyticsData={analyticsData}
-              loadingAnalytics={loadingAnalytics}
-              onRefreshAnalytics={() => loadAnalytics(authToken)}
-              inquiries={inquiries}
-              unreadInquiriesCount={unreadInquiriesCount}
-              loadingInquiries={loadingInquiries}
-              onRefreshInquiries={() => loadInquiries(authToken)}
-              onSendInquiry={handleSendInquiry}
-              onUpdateInquiryStatus={handleUpdateInquiryStatus}
-              onReplyInquiry={handleReplyInquiry}
-              onOpenSavedVault={() => {
-                setReelsFeedTab('saved');
-                setActiveTab('reels');
-                loadReels('saved');
-              }}
-              onLogout={handleLogout}
-              onBackToMyProfile={() => {
-                if (currentUser?.profile?.username) {
-                  setProfileUsername(currentUser.profile.username);
-                  loadMyProfile(currentUser.token);
-                  showToast('Returned to Your Profile', 'info');
-                } else {
-                  setProfileUsername('rahul_dev');
-                  loadProfile('rahul_dev');
-                }
-              }}
-              isFollowing={isFollowingCurrentProfile}
-              onToggleFollow={handleToggleFollow}
-              notifications={notifications}
-              unreadNotificationsCount={unreadNotificationsCount}
-              loadingNotifications={loadingNotifications}
-              onRefreshNotifications={() => loadNotifications()}
-              onMarkNotificationRead={handleMarkNotificationRead}
-              onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
-              onTogglePinReel={handleTogglePinReel}
-              onVouchSkill={handleVouchSkill}
-            />
-          )}
-
-          {activeTab === 'reels' && (
-            <ReelsScreen
-              reels={reels}
-              loading={loadingReels}
-              onShowToast={showToast}
-              onViewCreatorProfile={handleSelectCreator}
-              activeFeedTab={reelsFeedTab}
-              onSwitchFeedTab={handleSwitchReelsFeedTab}
-              onToggleBookmark={handleToggleBookmark}
-              currentUser={currentUser}
-              authToken={authToken || currentUser?.token}
-              onNavigateToAuth={() => setActiveTab('login')}
-            />
-          )}
-
-          {activeTab === 'discover' && (
-            <DiscoverScreen
-              searchPhone={searchPhone}
-              setSearchPhone={setSearchPhone}
-              onSearch={handleSearchPhone}
-              loading={loadingDiscover}
-              discoverResult={discoverResult}
-              discoverMsg={discoverMsg}
-              onSelectProfile={handleSelectCreator}
-            />
-          )}
-
-          {activeTab === 'admin' && (
-            <AdminScreen
-              users={adminUsers}
-              analytics={adminAnalytics}
-              reports={adminReports}
-              loading={loadingAdmin}
-              onRefresh={() => loadAdminData(authToken)}
-              onViewProfile={handleSelectCreator}
-              onUpdateUserStatus={handleAdminUpdateUserStatus}
-              onResolveReport={handleAdminResolveReport}
-              onShowToast={showToast}
-              currentUser={currentUser}
-            />
-          )}
-
-          {activeTab === 'login' && (
+          {(!authToken && !currentUser?.token && activeTab !== 'login' && activeTab !== 'discover') ? (
             <LoginScreen
               mobileInput={mobileInput}
               setMobileInput={setMobileInput}
@@ -1348,15 +1330,147 @@ function MainApp() {
               }}
               loading={loadingAuth}
             />
+          ) : (
+            <>
+              {activeTab === 'profile' && (
+                <ProfileScreen
+                  profileData={profileData}
+                  loading={loadingProfile}
+                  onRefresh={() => {
+                    if (currentUser?.token && profileUsername === currentUser?.profile?.username) {
+                      loadMyProfile(currentUser.token);
+                    } else {
+                      loadProfile(profileUsername);
+                    }
+                  }}
+                  onShowToast={showToast}
+                  onSelectReelsTab={() => setActiveTab('reels')}
+                  currentUser={currentUser}
+                  isOwner={Boolean(
+                    currentUser && currentUser.profile?.username === profileData.profile?.username
+                  )}
+                  onNavigateToAuth={() => setActiveTab('login')}
+                  onUpdateProfile={handleUpdateProfile}
+                  onCreateSection={handleCreateSection}
+                  onUpdateSection={handleUpdateSection}
+                  onDeleteSection={handleDeleteSection}
+                  onCreateReel={handleCreateReel}
+                  onLikeReel={handleLikeReel}
+                  onDeleteReel={handleDeleteReel}
+                  analyticsData={analyticsData}
+                  loadingAnalytics={loadingAnalytics}
+                  onRefreshAnalytics={() => loadAnalytics(authToken)}
+                  inquiries={inquiries}
+                  unreadInquiriesCount={unreadInquiriesCount}
+                  loadingInquiries={loadingInquiries}
+                  onRefreshInquiries={() => loadInquiries(authToken)}
+                  onSendInquiry={handleSendInquiry}
+                  onUpdateInquiryStatus={handleUpdateInquiryStatus}
+                  onReplyInquiry={handleReplyInquiry}
+                  onOpenSavedVault={() => {
+                    setReelsFeedTab('saved');
+                    setActiveTab('reels');
+                    loadReels('saved');
+                  }}
+                  onLogout={handleLogout}
+                  onBackToMyProfile={() => {
+                    if (currentUser?.profile?.username) {
+                      setProfileUsername(currentUser.profile.username);
+                      loadMyProfile(currentUser.token);
+                      showToast('Returned to Your Profile', 'info');
+                    } else {
+                      setProfileUsername('');
+                      setActiveTab('login');
+                    }
+                  }}
+                  isFollowing={isFollowingCurrentProfile}
+                  onToggleFollow={handleToggleFollow}
+                  notifications={notifications}
+                  unreadNotificationsCount={unreadNotificationsCount}
+                  loadingNotifications={loadingNotifications}
+                  onRefreshNotifications={() => loadNotifications()}
+                  onMarkNotificationRead={handleMarkNotificationRead}
+                  onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+                  onTogglePinReel={handleTogglePinReel}
+                  onVouchSkill={handleVouchSkill}
+                />
+              )}
+
+              {activeTab === 'reels' && (
+                <ReelsScreen
+                  reels={reels}
+                  loading={loadingReels}
+                  onShowToast={showToast}
+                  onViewCreatorProfile={handleSelectCreator}
+                  activeFeedTab={reelsFeedTab}
+                  onSwitchFeedTab={handleSwitchReelsFeedTab}
+                  onToggleBookmark={handleToggleBookmark}
+                  currentUser={currentUser}
+                  authToken={authToken || currentUser?.token}
+                  onNavigateToAuth={() => setActiveTab('login')}
+                />
+              )}
+
+              {activeTab === 'discover' && (
+                <DiscoverScreen
+                  searchPhone={searchPhone}
+                  setSearchPhone={setSearchPhone}
+                  onSearch={handleSearchPhone}
+                  loading={loadingDiscover}
+                  discoverResult={discoverResult}
+                  discoverMsg={discoverMsg}
+                  onSelectProfile={handleSelectCreator}
+                />
+              )}
+
+              {activeTab === 'admin' && (
+                <AdminScreen
+                  users={adminUsers}
+                  analytics={adminAnalytics}
+                  reports={adminReports}
+                  loading={loadingAdmin}
+                  onRefresh={() => loadAdminData(authToken)}
+                  onViewProfile={handleSelectCreator}
+                  onUpdateUserStatus={handleAdminUpdateUserStatus}
+                  onResolveReport={handleAdminResolveReport}
+                  onShowToast={showToast}
+                  currentUser={currentUser}
+                />
+              )}
+
+              {activeTab === 'login' && (
+                <LoginScreen
+                  mobileInput={mobileInput}
+                  setMobileInput={setMobileInput}
+                  otpInput={otpInput}
+                  setOtpInput={setOtpInput}
+                  otpStep={otpStep}
+                  setOtpStep={setOtpStep}
+                  authMsg={authMsg}
+                  authToken={authToken}
+                  currentUser={currentUser}
+                  onSendOtp={handleSendOtp}
+                  onVerifyOtp={handleVerifyOtp}
+                  onLogout={handleLogout}
+                  onNavigateToProfile={() => setActiveTab('profile')}
+                  onNavigateToAdmin={() => {
+                    loadAdminData(authToken);
+                    setActiveTab('admin');
+                  }}
+                  loading={loadingAuth}
+                />
+              )}
+            </>
           )}
         </View>
 
         {/* Bottom Floating Navigation Dock */}
         <TabBar
           activeTab={activeTab}
-          onTabPress={(tabId) => setActiveTab(tabId)}
+          onTabPress={handleTabPress}
           unreadReels={reels.length}
           isAdmin={currentUser?.user?.role === 'admin'}
+          isAuthenticated={Boolean(authToken || currentUser?.token)}
         />
       </View>
     </SafeAreaView>

@@ -93,20 +93,6 @@ export default function DiscoverScreen({
             )}
           </TouchableOpacity>
         </View>
-
-        {/* Quick Sample Numbers */}
-        <View style={styles.samplesRow}>
-          <Text style={styles.samplesLabel}>Quick Demo:</Text>
-          {sampleNumbers.map((num) => (
-            <TouchableOpacity
-              key={num}
-              style={styles.sampleChip}
-              onPress={() => setSearchPhone(num)}
-            >
-              <Text style={styles.sampleChipText}>{num}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
       </View>
 
       {/* Discovery Result Card */}

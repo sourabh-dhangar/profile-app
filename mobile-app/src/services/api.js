@@ -61,16 +61,23 @@ export const requestOtp = async (mobile, countryCode = '+91') => {
   return res.json();
 };
 
-export const verifyOtp = async (mobile, otp, countryCode = '+91') => {
+export const verifyOtp = async (mobile, otp, countryCode = '+91', profileDetails = {}) => {
   const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mobile, otp, countryCode }),
+    body: JSON.stringify({ mobile, otp, countryCode, ...(profileDetails || {}) }),
   });
   return res.json();
 };
 
 export const getVCardUrl = (username) => `${API_BASE_URL}/profiles/${username}/vcard`;
+
+export const getQRCodeUrl = (username) => `${API_BASE_URL}/profiles/${username}/qr`;
+
+export const fetchProfileQR = async (username) => {
+  const res = await fetch(`${API_BASE_URL}/profiles/${username}/qr`);
+  return res.json();
+};
 
 export const createSection = async (token, sectionData) => {
   const res = await fetch(`${API_BASE_URL}/sections`, {
