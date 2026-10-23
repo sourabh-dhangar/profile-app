@@ -91,6 +91,12 @@ const DashboardPage = () => {
     showEmail: false,
     showPhone: false,
     theme: 'default',
+    github: '',
+    linkedin: '',
+    instagram: '',
+    youtube: '',
+    twitter: '',
+    website: '',
   });
 
   // Section modal state
@@ -163,6 +169,12 @@ const DashboardPage = () => {
           showEmail: !!p.contactDetails?.showEmail,
           showPhone: !!p.contactDetails?.showPhone,
           theme: p.theme || 'default',
+          github: p.socialLinks?.find((s) => s.platform === 'github')?.url || '',
+          linkedin: p.socialLinks?.find((s) => s.platform === 'linkedin')?.url || '',
+          instagram: p.socialLinks?.find((s) => s.platform === 'instagram')?.url || '',
+          youtube: p.socialLinks?.find((s) => s.platform === 'youtube')?.url || '',
+          twitter: p.socialLinks?.find((s) => s.platform === 'twitter')?.url || '',
+          website: p.socialLinks?.find((s) => s.platform === 'website')?.url || '',
         });
       }
 
@@ -239,7 +251,18 @@ const DashboardPage = () => {
     setErrorMsg('');
 
     try {
+      
+      const socialLinks = [
+        { platform: 'github', url: formData.github },
+        { platform: 'linkedin', url: formData.linkedin },
+        { platform: 'instagram', url: formData.instagram },
+        { platform: 'youtube', url: formData.youtube },
+        { platform: 'twitter', url: formData.twitter },
+        { platform: 'website', url: formData.website },
+      ].filter((s) => s.url && s.url.trim().length > 0);
+  
       const res = await api.put('/profiles/me', {
+        socialLinks,
         name: formData.name,
         username: formData.username,
         bio: formData.bio,
@@ -906,6 +929,98 @@ const DashboardPage = () => {
                     </div>
                   </div>
 
+                </div>
+
+
+                {/* Social Media & Portfolio Links Section */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <span className="text-xs font-bold text-white flex items-center space-x-1.5">
+                      <span>🔗</span>
+                      <span>Social Media & Portfolio Links</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500">Displayed on your public profile</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                        💼 LinkedIn Profile URL
+                      </label>
+                      <input
+                        type="url"
+                        value={formData.linkedin}
+                        onChange={(e) => setFormData({ ...formData, linkedin: e.target.value })}
+                        placeholder="https://linkedin.com/in/username"
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                        💻 GitHub Profile URL
+                      </label>
+                      <input
+                        type="url"
+                        value={formData.github}
+                        onChange={(e) => setFormData({ ...formData, github: e.target.value })}
+                        placeholder="https://github.com/username"
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                        📸 Instagram Profile URL
+                      </label>
+                      <input
+                        type="url"
+                        value={formData.instagram}
+                        onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
+                        placeholder="https://instagram.com/username"
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                        🎥 YouTube Channel URL
+                      </label>
+                      <input
+                        type="url"
+                        value={formData.youtube}
+                        onChange={(e) => setFormData({ ...formData, youtube: e.target.value })}
+                        placeholder="https://youtube.com/@channel"
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                        🐦 X / Twitter URL
+                      </label>
+                      <input
+                        type="url"
+                        value={formData.twitter}
+                        onChange={(e) => setFormData({ ...formData, twitter: e.target.value })}
+                        placeholder="https://x.com/username"
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                        🌐 Personal Website / Portfolio
+                      </label>
+                      <input
+                        type="url"
+                        value={formData.website}
+                        onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                        placeholder="https://yourbrand.com"
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Bio Section with Prominent AI Helper */}

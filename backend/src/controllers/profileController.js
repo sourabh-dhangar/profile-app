@@ -317,6 +317,7 @@ const getPublicProfile = async (req, res, next) => {
           city: profile.city,
           theme: profile.theme || 'default',
           socialLinks: profile.socialLinks,
+          testimonials: profile.testimonials || [],
           qrCodeUrl: profile.qrCodeUrl,
           contactDetails: sanitizedContact,
           followersCount: profile.followersCount || 0,
@@ -1013,6 +1014,57 @@ const deleteMyAccount = async (req, res, next) => {
   }
 };
 
+
+/**
+ * Add Testimonial / Review
+ * POST /api/v1/profiles/:username/testimonials
+ */
+const addTestimonial = async (req, res, next) => {
+  try {
+    const { username } = req.params;
+    const { name, role, company, content, rating, avatarUrl } = req.body;
+
+    if (!name || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name and testimonial content are required.',
+      });
+    }
+
+    const profile = await Profile.findOne({ username: username.toLowerCase().trim() });
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Profile not found.',
+      });
+    }
+
+    const newTestimonial = {
+      name: name.trim(),
+      role: (role || '').trim(),
+      company: (company || '').trim(),
+      content: content.trim(),
+      rating: Number(rating) || 5,
+      avatarUrl: (avatarUrl || '').trim(),
+      date: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+    };
+
+    if (!profile.testimonials) {
+      profile.testimonials = [];
+    }
+    profile.testimonials.push(newTestimonial);
+    await profile.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Testimonial added successfully!',
+      data: newTestimonial,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyProfile,
   updateMyProfile,
@@ -1020,6 +1072,7 @@ module.exports = {
   publishProfile,
   checkUsername,
   getPublicProfile,
+  addTestimonial,
   getProfileQR,
   getVCard,
   trackProfileView,

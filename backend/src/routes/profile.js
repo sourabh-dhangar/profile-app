@@ -7,6 +7,7 @@ const {
   publishProfile,
   checkUsername,
   getPublicProfile,
+  addTestimonial,
   getProfileQR,
   getVCard,
   trackProfileView,
@@ -45,6 +46,7 @@ router.get('/:username/vcard', getVCard);
 router.post('/:username/view', trackProfileView);
 router.post('/:username/click', trackLinkClick);
 router.post('/:username/inquiries', createInquiry);
+router.post('/:username/testimonials', addTestimonial);
 router.post('/:username/skills/vouch', optionalAuth, vouchSkill);
 
 // Follow / Social routes

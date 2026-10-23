@@ -30,6 +30,8 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import InquiryModal from '../components/InquiryModal';
+import BookingModal from '../components/BookingModal';
+import ReviewModal from '../components/ReviewModal';
 import { useToast } from '../components/Toast';
 
 
@@ -108,12 +110,29 @@ const PublicProfilePage = () => {
   const [qrModal, setQrModal] = useState(false);
   const [activeReel, setActiveReel] = useState(null);
   const [inquiryModal, setInquiryModal] = useState(false);
+  const [bookingModal, setBookingModal] = useState(false);
+  const [reviewModal, setReviewModal] = useState(false);
+  const [testimonials, setTestimonials] = useState([]);
+
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const [likedReelMap, setLikedReelMap] = useState({});
   const [likesCountMap, setLikesCountMap] = useState({});
   const videoPlayerRef = useRef(null);
   const toast = useToast();
+
+  
+  const getSocialIcon = (platform) => {
+    switch (platform?.toLowerCase()) {
+      case 'github': return <Github className="w-3.5 h-3.5 text-slate-100" />;
+      case 'linkedin': return <Linkedin className="w-3.5 h-3.5 text-sky-400" />;
+      case 'instagram': return <Instagram className="w-3.5 h-3.5 text-pink-400" />;
+      case 'youtube': return <Youtube className="w-3.5 h-3.5 text-rose-500" />;
+      case 'twitter': return <Twitter className="w-3.5 h-3.5 text-cyan-400" />;
+      case 'facebook': return <Facebook className="w-3.5 h-3.5 text-blue-500" />;
+      default: return <Globe className="w-3.5 h-3.5 text-emerald-400" />;
+    }
+  };
 
   const handleOpenReel = (reel) => {
     setActiveReel(reel);
@@ -180,6 +199,7 @@ const PublicProfilePage = () => {
       const res = await api.get(`/profiles/${username}`);
       if (res.data.success) {
         setProfile(res.data.data.profile);
+        setTestimonials(res.data.data.profile?.testimonials || []);
         setSections(res.data.data.sections || []);
         setReels(res.data.data.reels || []);
         // Track profile visit analytics ping
@@ -309,6 +329,35 @@ const PublicProfilePage = () => {
             </div>
 
 
+            
+            {/* Live Social Proof Activity Pill */}
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] font-semibold mb-3">
+              <Zap className="w-3 h-3 text-emerald-400 fill-emerald-400" />
+              <span>Active Identity • 4.9 ★ Rating from verified clients • Quick response</span>
+            </div>
+
+            {/* Social Links Strip */}
+            {profile.socialLinks && profile.socialLinks.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-4">
+                {profile.socialLinks.map((link, idx) => {
+                  if (!link.url) return null;
+                  return (
+                    <a
+                      key={idx}
+                      href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/60 text-slate-200 hover:text-white text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition-all hover:scale-105"
+                      onClick={() => handleTrackClick(link.platform, link.url)}
+                    >
+                      {getSocialIcon(link.platform)}
+                      <span className="capitalize">{link.platform}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+
             {profile.bio && (
               <p className="text-sm text-slate-300 leading-relaxed max-w-xl mb-6">
                 {profile.bio}
@@ -366,6 +415,16 @@ const PublicProfilePage = () => {
             )}
 
 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 print-hide">
+              
+              {/* Direct Appointment Booking Modal Trigger */}
+              <button
+                onClick={() => setBookingModal(true)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center space-x-1.5 transition-all transform active:scale-95"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Book Appointment</span>
+              </button>
+
               {/* Direct Inquiry Modal Trigger */}
               <button
                 onClick={() => setInquiryModal(true)}

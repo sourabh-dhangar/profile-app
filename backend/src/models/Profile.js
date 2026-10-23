@@ -100,6 +100,15 @@ const ProfileSchema = new mongoose.Schema({
       trim: true,
     },
   }],
+  testimonials: [{
+    name: { type: String, required: true, trim: true },
+    role: { type: String, default: '', trim: true },
+    company: { type: String, default: '', trim: true },
+    content: { type: String, required: true, trim: true },
+    rating: { type: Number, default: 5, min: 1, max: 5 },
+    avatarUrl: { type: String, default: '' },
+    date: { type: String, default: '' },
+  }],
   contactDetails: {
     phone: { type: String, default: '' },
     whatsapp: { type: String, default: '' },
