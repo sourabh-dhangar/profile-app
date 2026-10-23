@@ -99,6 +99,22 @@ The platform features a secure, passwordless mobile OTP authentication system:
 - **Keyword Search:** Instant live filtering by specialty, service name, or city.
 - **Direct Business Contact:** Each business card displays working hours, address, direct profile link, and 1-click WhatsApp inquiry chat.
 
+### I. Interactive Appointment & Service Booking Engine (NEW in v2.2)
+- **Frictionless In-App Booking:** Visitors can tap **"Book Appointment"** to pick a specific service, appointment date, and convenient time window (Morning, Afternoon, Evening).
+- **Dual Confirmation Channels:** Automatically creates an organized record in the owner's CRM Inbox AND opens a pre-formatted WhatsApp chat with the full booking details.
+
+### J. Verified Client Reviews & Testimonials System (NEW in v2.2)
+- **5-Star Rating Breakdown:** Displays client ratings and average score badge.
+- **Client Recommendation Cards:** Shows client testimonials with avatars, job titles, and companies.
+- **Interactive "Leave a Review" Modal:** Allows visitors and clients to submit genuine feedback directly on the profile.
+
+### K. Multi-Platform Social Media Strip (NEW in v2.2)
+- **Brand Icons & Links:** Integrated profile links for LinkedIn, GitHub, Instagram, YouTube, X/Twitter, and Personal Websites.
+- **Studio Dashboard Editor:** Easy URL inputs in the profile management studio.
+
+### L. Live Social Proof Trust Badge (NEW in v2.2)
+- **Real-Time Trust Indicator:** Displays profile activity and verified client rating badges to dramatically boost conversion rates.
+
 ---
 
 ## 4. Client Step-by-Step Verification Runbook
