@@ -104,13 +104,13 @@ The platform features a secure, passwordless mobile OTP authentication system:
 ## 4. Client Step-by-Step Verification Runbook
 
 ### Verification Checklist 1: Business Profile & Counter Stand
-1. **Open the Web URL:** Go to [https://frontend-six-jet-94.vercel.app](https://frontend-six-jet-94.vercel.app).
+1. **Open the Web URL:** Go to [https://myprofile-official-web.vercel.app](https://myprofile-official-web.vercel.app).
 2. **Explore Public Profile:**
-   - Visit [https://frontend-six-jet-94.vercel.app/rahul_dev](https://frontend-six-jet-94.vercel.app/rahul_dev).
+   - Visit [https://myprofile-official-web.vercel.app/rahul_dev](https://myprofile-official-web.vercel.app/rahul_dev).
    - Verify the **Category Badge** (`💻 IT & Software`), **Sub-Category** (`Senior Full Stack & Cloud Architect`), **Working Hours**, **Address**, and **WhatsApp/Booking links**.
    - Tap **"Share QR"** to view the **Printable Business Counter Stand Card**. Tap **"Print Counter Stand"** to test the desktop print view.
 3. **Log In to Dashboard:**
-   - Go to [https://frontend-six-jet-94.vercel.app/login](https://frontend-six-jet-94.vercel.app/login).
+   - Go to [https://myprofile-official-web.vercel.app/login](https://myprofile-official-web.vercel.app/login).
    - Enter your phone number and OTP `123456`.
 4. **Test Category & Business Setup:**
    - Under **Identity & Bio Details**, change the category (e.g. `💇 Salon, Spa & Beauty Lounge`).
@@ -121,7 +121,7 @@ The platform features a secure, passwordless mobile OTP authentication system:
 ---
 
 ### Verification Checklist 2: Android APK Mobile Testing
-1. **Download the APK:** Tap [Download Android APK](https://expo.dev/artifacts/eas/fIFxZfwGE3y5e3xcfFmZ1ICMr5qwJw_BD8HSqIVpqHU.apk) on your Android device.
+1. **Download the APK:** Tap [Download Android APK (Direct APK)](https://expo.dev/artifacts/eas/Ydv3QGoeh8xi2CQW9yqotL43IfyQANSX1w3TkskH0Ws.apk) on your Android device.
 2. **Install & Launch:** Open the app and test the vertical 60fps reels, bottom tabs, and login using OTP `123456`.
 
 ---
