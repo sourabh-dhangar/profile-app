@@ -16,7 +16,7 @@ const { generateQRCodeDataURL } = require('../utils/qr');
  */
 const requestOtp = async (req, res, next) => {
   try {
-    let { mobile, countryCode = '+91' } = req.body;
+    let { mobile, countryCode = '+91', mode } = req.body;
     if (!mobile) {
       return res.status(400).json({
         success: false,
@@ -26,8 +26,33 @@ const requestOtp = async (req, res, next) => {
 
     const normalized = normalizePhone(mobile, countryCode);
 
-    // Find or create user
+    // Find user
     let user = await User.findOne({ mobile: normalized });
+
+    // When mode is 'signin', user must exist and have an active profile
+    if (mode === 'signin') {
+      const profile = user ? await Profile.findOne({ userId: user._id }) : null;
+      if (!user || (!user.isVerified && !profile)) {
+        return res.status(404).json({
+          success: false,
+          code: 'USER_NOT_FOUND',
+          message: 'User does not exist with this mobile number. Please create your account.',
+        });
+      }
+    }
+
+    // When mode is 'signup', check if already registered
+    if (mode === 'signup' && user) {
+      const profile = await Profile.findOne({ userId: user._id });
+      if (profile && user.isVerified) {
+        return res.status(409).json({
+          success: false,
+          code: 'USER_ALREADY_EXISTS',
+          message: 'An account is already registered with this mobile number. Please sign in.',
+        });
+      }
+    }
+
     if (!user) {
       user = new User({
         mobile: normalized,

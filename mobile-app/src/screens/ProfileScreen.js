@@ -210,6 +210,10 @@ export default function ProfileScreen({
   onTogglePinReel,
   onVouchSkill,
 }) {
+  const profile = profileData?.profile || null;
+  const sections = profileData?.sections || [];
+  const reels = profileData?.reels || [];
+
   const [selectedTheme, setSelectedTheme] = useState('default');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -220,7 +224,7 @@ export default function ProfileScreen({
   // Load official backend QR or fallback
   React.useEffect(() => {
     if (profile?.username) {
-      if (profile.qrCodeDataUrl || profile.qrCodeUrl) {
+      if (profile?.qrCodeDataUrl || profile?.qrCodeUrl) {
         setFetchedQrCode(profile.qrCodeDataUrl || profile.qrCodeUrl);
       } else {
         setLoadingQrCode(true);
@@ -238,8 +242,8 @@ export default function ProfileScreen({
 
   const profileDirectUrl =
     typeof window !== 'undefined' && window.location?.origin
-      ? `${window.location.origin}/p/${profile.username || 'user'}`
-      : `http://localhost:8081/p/${profile.username || 'user'}`;
+      ? `${window.location.origin}/p/${profile?.username || 'user'}`
+      : `http://localhost:8081/p/${profile?.username || 'user'}`;
 
   const resilientQrUrl =
     fetchedQrCode ||
@@ -377,7 +381,7 @@ export default function ProfileScreen({
     );
   }
 
-  const { profile, sections = [], reels = [] } = profileData;
+  // profile, sections, and reels safely extracted at top
   const currentThemeKey = profile.theme || selectedTheme || 'default';
   const theme = THEME_ACCENTS[currentThemeKey] || THEME_ACCENTS['default'];
 

@@ -44,6 +44,8 @@ export default function LoginScreen({
 }) {
   // Tab Mode: 'signin' | 'signup'
   const [authMode, setAuthMode] = useState('signup'); // Default to Sign Up as requested by user
+  const [userNotFound, setUserNotFound] = useState(false);
+  const [userAlreadyExists, setUserAlreadyExists] = useState(false);
 
   // Sign Up Form State
   const [fullName, setFullName] = useState('');
@@ -54,10 +56,43 @@ export default function LoginScreen({
   const isStep1 = otpStep === 1;
 
   // Handle Signup Submit -> triggers OTP dispatch
-  const handleProceedSignup = () => {
+  const handleProceedSignup = async () => {
     if (!fullName.trim()) return;
     if (!mobileInput || mobileInput.length < 10) return;
-    onSendOtp();
+    setUserNotFound(false);
+    setUserAlreadyExists(false);
+    const res = await onSendOtp('signup');
+    if (res && !res.success) {
+      if (
+        res.code === 'USER_ALREADY_EXISTS' ||
+        res.message?.toLowerCase().includes('already registered')
+      ) {
+        setUserAlreadyExists(true);
+      }
+    }
+  };
+
+  // Handle Signin Submit -> triggers OTP dispatch with 'signin' mode
+  const handleProceedSignin = async () => {
+    if (!mobileInput || mobileInput.length < 10) return;
+    setUserNotFound(false);
+    setUserAlreadyExists(false);
+    const res = await onSendOtp('signin');
+    if (res && !res.success) {
+      if (
+        res.code === 'USER_NOT_FOUND' ||
+        res.message?.toLowerCase().includes('not exist') ||
+        res.message?.toLowerCase().includes('create your account')
+      ) {
+        setUserNotFound(true);
+      }
+    }
+  };
+
+  const switchMode = (mode) => {
+    setAuthMode(mode);
+    setUserNotFound(false);
+    setUserAlreadyExists(false);
   };
 
   // Handle Verify Submit with profile metadata
@@ -185,7 +220,7 @@ export default function LoginScreen({
           <View style={styles.modeToggleRow}>
             <TouchableOpacity
               style={[styles.modeToggleBtn, authMode === 'signup' && styles.modeToggleBtnActive]}
-              onPress={() => setAuthMode('signup')}
+              onPress={() => switchMode('signup')}
               activeOpacity={0.8}
             >
               <Text
@@ -200,7 +235,7 @@ export default function LoginScreen({
 
             <TouchableOpacity
               style={[styles.modeToggleBtn, authMode === 'signin' && styles.modeToggleBtnActive]}
-              onPress={() => setAuthMode('signin')}
+              onPress={() => switchMode('signin')}
               activeOpacity={0.8}
             >
               <Text
@@ -271,12 +306,51 @@ export default function LoginScreen({
                     onChangeText={(text) => {
                       const cleaned = text.replace(/[^0-9]/g, '');
                       setMobileInput(cleaned);
+                      if (userNotFound) setUserNotFound(false);
+                      if (userAlreadyExists) setUserAlreadyExists(false);
                     }}
                     keyboardType="phone-pad"
                     maxLength={10}
                   />
                 </View>
               </View>
+
+              {/* User Already Registered Banner on Sign Up */}
+              {userAlreadyExists && (
+                <View style={styles.userAlreadyExistsCard}>
+                  <View style={styles.userNotFoundHeader}>
+                    <View
+                      style={[
+                        styles.userNotFoundIconBadge,
+                        {
+                          backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                          borderColor: 'rgba(56, 189, 248, 0.3)',
+                        },
+                      ]}
+                    >
+                      <Text style={styles.userNotFoundIcon}>ℹ️</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.userNotFoundTitle, { color: '#38bdf8' }]}>
+                        Account Already Registered
+                      </Text>
+                      <Text style={styles.userNotFoundDesc}>
+                        An account already exists for +91 {mobileInput}. Please sign in to access your profile.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.createAccountCtaBtn, { backgroundColor: '#38bdf8' }]}
+                    onPress={() => switchMode('signin')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.createAccountCtaText, { color: '#020617' }]}>
+                      🔐 Sign In to Existing Account →
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* Field 3: Email Address */}
               <View style={styles.fieldGroup}>
@@ -364,7 +438,7 @@ export default function LoginScreen({
 
               <TouchableOpacity
                 style={styles.switchModeRow}
-                onPress={() => setAuthMode('signin')}
+                onPress={() => switchMode('signin')}
               >
                 <Text style={styles.switchModeText}>
                   Already have a profile? <Text style={styles.switchModeHighlight}>Sign In</Text>
@@ -390,6 +464,8 @@ export default function LoginScreen({
                     onChangeText={(text) => {
                       const cleaned = text.replace(/[^0-9]/g, '');
                       setMobileInput(cleaned);
+                      if (userNotFound) setUserNotFound(false);
+                      if (userAlreadyExists) setUserAlreadyExists(false);
                     }}
                     keyboardType="phone-pad"
                     maxLength={10}
@@ -397,6 +473,34 @@ export default function LoginScreen({
                   />
                 </View>
               </View>
+
+              {/* User Not Found Warning Banner & Create Account Action */}
+              {userNotFound && (
+                <View style={styles.userNotFoundCard}>
+                  <View style={styles.userNotFoundHeader}>
+                    <View style={styles.userNotFoundIconBadge}>
+                      <Text style={styles.userNotFoundIcon}>⚠️</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.userNotFoundTitle}>User Not Found</Text>
+                      <Text style={styles.userNotFoundDesc}>
+                        Yeh mobile number (+91 {mobileInput}) registered nahi hai.
+                      </Text>
+                      <Text style={styles.userNotFoundSub}>
+                        User not existing. Please create your account first.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.createAccountCtaBtn}
+                    onPress={() => switchMode('signup')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.createAccountCtaText}>✨ Create Your Account Now →</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <View style={styles.securityHintRow}>
                 <Text style={styles.securityHintIcon}>🔒</Text>
@@ -410,7 +514,7 @@ export default function LoginScreen({
                   styles.submitBtn,
                   (!mobileInput || mobileInput.length < 10 || loading) && styles.submitBtnDisabled,
                 ]}
-                onPress={onSendOtp}
+                onPress={handleProceedSignin}
                 disabled={loading || !mobileInput || mobileInput.length < 10}
                 activeOpacity={0.8}
               >
@@ -423,7 +527,7 @@ export default function LoginScreen({
 
               <TouchableOpacity
                 style={styles.switchModeRow}
-                onPress={() => setAuthMode('signup')}
+                onPress={() => switchMode('signup')}
               >
                 <Text style={styles.switchModeText}>
                   Don't have a profile yet?{' '}
@@ -1074,5 +1178,88 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontWeight: '800',
     fontSize: 13,
+  },
+  userNotFoundCard: {
+    backgroundColor: 'rgba(244, 63, 94, 0.08)',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(244, 63, 94, 0.35)',
+    marginVertical: 12,
+    shadowColor: '#f43f5e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  userAlreadyExistsCard: {
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    marginVertical: 12,
+    shadowColor: '#38bdf8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  userNotFoundHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  userNotFoundIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(244, 63, 94, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  userNotFoundIcon: {
+    fontSize: 18,
+  },
+  userNotFoundTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#fb7185',
+    marginBottom: 4,
+  },
+  userNotFoundDesc: {
+    fontSize: 12,
+    color: '#cbd5e1',
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  userNotFoundSub: {
+    fontSize: 11,
+    color: '#94a3b8',
+    lineHeight: 16,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  createAccountCtaBtn: {
+    backgroundColor: '#10b981',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  createAccountCtaText: {
+    color: '#020617',
+    fontWeight: '900',
+    fontSize: 13,
+    letterSpacing: 0.3,
   },
 });

@@ -678,26 +678,29 @@ function MainApp() {
     }
   };
 
-  const handleSendOtp = async () => {
+  const handleSendOtp = async (mode = 'signin') => {
     setAuthMsg('');
     setLoadingAuth(true);
     try {
-      const res = await requestOtp(mobileInput);
+      const res = await requestOtp(mobileInput, '+91', mode);
       if (res.success) {
         setOtpStep(2);
         const code = res.data?.devOtp || '123456';
         setAuthMsg(`OTP Code Dispatched! (Dev code: ${code})`);
         setOtpInput(code);
         showToast(`OTP Code sent to ${mobileInput}`, 'success');
+        return { success: true, res };
       } else {
-        setAuthMsg(res.message || 'Failed to send OTP.');
+        const errorMsg = res.message || 'Failed to send OTP.';
+        setAuthMsg(errorMsg);
+        showToast(errorMsg, res.code === 'USER_NOT_FOUND' ? 'warning' : 'error');
+        return { success: false, code: res.code, message: errorMsg };
       }
     } catch (e) {
       // Offline fallback
-      setOtpStep(2);
-      setOtpInput('123456');
-      setAuthMsg('Dev Mode Active: Use test OTP 123456.');
-      showToast('Dev OTP Ready: 123456', 'info');
+      setAuthMsg(e.message || 'Connection error. Please try again.');
+      showToast('Server unreachable. Please check backend connection.', 'error');
+      return { success: false, error: e };
     } finally {
       setLoadingAuth(false);
     }

@@ -52,11 +52,13 @@ export const searchByPhone = async (phone, countryCode = '+91') => {
   return res.json();
 };
 
-export const requestOtp = async (mobile, countryCode = '+91') => {
+export const requestOtp = async (mobile, countryCode = '+91', mode = null) => {
+  const payload = { mobile, countryCode };
+  if (mode) payload.mode = mode;
   const res = await fetch(`${API_BASE_URL}/auth/request-otp`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mobile, countryCode }),
+    body: JSON.stringify(payload),
   });
   return res.json();
 };
