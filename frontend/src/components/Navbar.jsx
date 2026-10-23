@@ -11,6 +11,8 @@ import {
   Sparkles,
   LayoutDashboard,
   MessageSquare,
+  Smartphone,
+  Download,
 } from 'lucide-react';
 
 const Navbar = () => {
@@ -85,6 +87,25 @@ const Navbar = () => {
               <Film className="w-4 h-4 text-teal-400 shrink-0" />
               <span className="hidden md:inline">Reels</span>
             </Link>
+
+            {/* Direct Mobile App APK Download CTA */}
+            <a
+              href="https://expo.dev/artifacts/eas/Ydv3QGoeh8xi2CQW9yqotL43IfyQANSX1w3TkskH0Ws.apk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative flex items-center space-x-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition-all shadow-sm shadow-emerald-500/10 group"
+              title="Download Android APK (Direct Link, 52MB)"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <Smartphone className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+              <span className="inline">Get App</span>
+              <span className="hidden sm:inline-block text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                APK
+              </span>
+            </a>
 
             {/* Direct 1-on-1 Messages Link */}
             {user && (
