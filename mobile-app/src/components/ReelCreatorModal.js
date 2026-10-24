@@ -62,12 +62,16 @@ export default function ReelCreatorModal({
 
     setIsUploading(true);
     try {
+      const safeThumbnail = (thumbnailUrl && !thumbnailUrl.toLowerCase().endsWith('.mp4') && !thumbnailUrl.toLowerCase().endsWith('.mov'))
+        ? thumbnailUrl.trim()
+        : 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800';
+
       await onSubmitReel?.({
-        videoUrl,
-        thumbnailUrl: thumbnailUrl || videoUrl,
+        videoUrl: videoUrl.trim(),
+        thumbnailUrl: safeThumbnail,
         caption: caption.trim() || 'My new showcase reel 🚀',
-        durationSeconds: duration,
-        visibility,
+        durationSeconds: duration || 15,
+        visibility: visibility || 'public',
       });
 
       onShowToast?.('🎉 Reel Published Successfully!', 'success');

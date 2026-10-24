@@ -963,39 +963,40 @@ function MainApp() {
   };
 
   const handleCreateReel = async (reelData) => {
-    if (!authToken) {
+    const effectiveToken = authToken || currentUser?.token;
+    if (!effectiveToken) {
       showToast('Please sign in to post reels', 'error');
+      setActiveTab('login');
       return false;
     }
     try {
-      const res = await createReel(authToken, reelData);
+      const res = await createReel(effectiveToken, reelData);
       if (res.success && res.data) {
+        const createdReel = {
+          ...res.data,
+          profileId: res.data.profileId || {
+            name: currentUser?.profile?.name || 'Creator',
+            username: currentUser?.profile?.username || 'creator',
+            photoUrl: currentUser?.profile?.photoUrl || '',
+          },
+        };
         setProfileData((prev) => ({
           ...prev,
-          reels: [res.data, ...(prev.reels || [])],
+          reels: [createdReel, ...(prev?.reels || [])],
           stats: {
-            ...prev.stats,
-            reelsCount: ((prev.reels?.length || 0) + 1),
+            ...prev?.stats,
+            reelsCount: ((prev?.reels?.length || 0) + 1),
           },
         }));
-        setReels((prev) => [
-          {
-            ...res.data,
-            profileId: {
-              name: currentUser?.profile?.name || 'Creator',
-              username: currentUser?.profile?.username || 'creator',
-              photoUrl: currentUser?.profile?.photoUrl || '',
-            },
-          },
-          ...prev,
-        ]);
+        setReels((prev) => [createdReel, ...(prev || [])]);
         showToast('Reel published to your profile & feed! 🎬✨', 'success');
         return true;
       } else {
-        showToast(res.message || 'Failed to post reel', 'error');
+        showToast(res?.message || 'Failed to post reel', 'error');
         return false;
       }
     } catch (e) {
+      console.log('Reel post fallback:', e.message);
       const localReel = {
         _id: 'reel-' + Date.now(),
         ...reelData,
@@ -1009,9 +1010,9 @@ function MainApp() {
       };
       setProfileData((prev) => ({
         ...prev,
-        reels: [localReel, ...(prev.reels || [])],
+        reels: [localReel, ...(prev?.reels || [])],
       }));
-      setReels((prev) => [localReel, ...prev]);
+      setReels((prev) => [localReel, ...(prev || [])]);
       showToast('Reel posted locally! 🎬', 'success');
       return true;
     }
@@ -1426,6 +1427,7 @@ function MainApp() {
                   currentUser={currentUser}
                   authToken={authToken || currentUser?.token}
                   onNavigateToAuth={() => setActiveTab('login')}
+                  onCreateReel={handleCreateReel}
                 />
               )}
 

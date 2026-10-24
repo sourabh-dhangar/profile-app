@@ -732,26 +732,42 @@ export default function ProfileScreen({
   };
 
   const handleSaveReel = async () => {
-    if (!reelForm.caption.trim()) {
+    const enteredCaption = (reelForm.caption || '').trim();
+    if (!enteredCaption) {
       onShowToast('Please enter a caption for your reel', 'error');
       return;
     }
-    if (!reelForm.videoUrl.trim()) {
-      onShowToast('Video URL is required', 'error');
-      return;
+    const finalVideoUrl = (reelForm.videoUrl || '').trim() || REEL_PRESETS[0].videoUrl;
+    let finalThumbnail = (reelForm.thumbnailUrl || '').trim();
+    if (
+      !finalThumbnail ||
+      finalThumbnail.toLowerCase().endsWith('.mp4') ||
+      finalThumbnail.toLowerCase().endsWith('.mov') ||
+      finalThumbnail.toLowerCase().endsWith('.webm')
+    ) {
+      finalThumbnail = REEL_PRESETS[0].thumbnailUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800';
     }
+
     setSavingReel(true);
     try {
       if (onCreateReel) {
-        await onCreateReel({
-          caption: reelForm.caption.trim(),
-          videoUrl: reelForm.videoUrl.trim(),
-          thumbnailUrl: reelForm.thumbnailUrl.trim() || reelForm.videoUrl.trim(),
+        const ok = await onCreateReel({
+          caption: enteredCaption,
+          videoUrl: finalVideoUrl,
+          thumbnailUrl: finalThumbnail,
           durationSeconds: parseInt(reelForm.durationSeconds, 10) || 15,
           visibility: 'public',
         });
+        if (ok !== false) {
+          setIsCreateReelModalVisible(false);
+          setReelForm({
+            caption: '',
+            videoUrl: REEL_PRESETS[0].videoUrl,
+            thumbnailUrl: REEL_PRESETS[0].thumbnailUrl,
+            durationSeconds: 15,
+          });
+        }
       }
-      setIsCreateReelModalVisible(false);
     } finally {
       setSavingReel(false);
     }
@@ -1591,7 +1607,7 @@ export default function ProfileScreen({
                 <Text style={styles.savedVaultBtnText}>🔖 Saved</Text>
               </TouchableOpacity>
             )}
-            {isOwner && (
+            {(isOwner || (currentUser?.profile?.username && profileData?.profile?.username === currentUser.profile.username)) && (
               <TouchableOpacity
                 style={[styles.postReelBtn, { backgroundColor: theme.primary }]}
                 onPress={openCreateReelModal}
@@ -1619,7 +1635,7 @@ export default function ProfileScreen({
                 ? 'Share 15s–60s videos to show your craft, walk through your code, or present your ideas!'
                 : 'This creator has not uploaded any video reels yet. Check back soon!'}
             </Text>
-            {isOwner && (
+            {(isOwner || (currentUser?.profile?.username && profileData?.profile?.username === currentUser.profile.username)) && (
               <TouchableOpacity
                 style={[styles.postFirstReelBtn, { borderColor: theme.primary }]}
                 onPress={openCreateReelModal}

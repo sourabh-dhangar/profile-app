@@ -14,6 +14,7 @@ import {
   PanResponder,
 } from 'react-native';
 import { COLORS } from '../theme';
+import ReelCreatorModal from '../components/ReelCreatorModal';
 import {
   fetchReelComments,
   addReelComment,
@@ -43,7 +44,9 @@ export default function ReelsScreen({
   onSwitchFeedTab,
   onToggleBookmark,
   onNavigateToAuth,
+  onCreateReel,
 }) {
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [likedMap, setLikedMap] = useState({});
   const [likesCountMap, setLikesCountMap] = useState({});
@@ -398,6 +401,23 @@ export default function ReelsScreen({
           </Text>
           {activeFeedTab === 'saved' && <View style={styles.activeTabIndicator} />}
         </TouchableOpacity>
+
+        <View style={styles.feedTabSeparator} />
+
+        <TouchableOpacity
+          style={styles.postReelHeaderBtn}
+          onPress={() => {
+            if (!authToken && !currentUser?.token) {
+              onShowToast('Sign in to post video reels 🎬', 'info');
+              if (onNavigateToAuth) onNavigateToAuth();
+              return;
+            }
+            setShowCreateModal(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.postReelHeaderText}>+ Post</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Topic Filter Chips & Search Bar (Active on For You tab) */}
@@ -698,6 +718,20 @@ export default function ReelsScreen({
           </View>
         </TouchableOpacity>
       )}
+
+      {/* ========================================================================= */}
+      {/* 0. CREATE / PUBLISH REEL MODAL                                            */}
+      {/* ========================================================================= */}
+      <ReelCreatorModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmitReel={async (data) => {
+          if (onCreateReel) {
+            return await onCreateReel(data);
+          }
+        }}
+        onShowToast={onShowToast}
+      />
 
       {/* ========================================================================= */}
       {/* 1. IMMERSIVE FULL-SCREEN VIDEO PLAYER MODAL                               */}
@@ -1026,6 +1060,19 @@ const styles = StyleSheet.create({
     width: 1,
     height: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  postReelHeaderBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  postReelHeaderText: {
+    color: '#020617',
+    fontSize: 11,
+    fontWeight: '900',
   },
   emptyFeedBox: {
     flex: 1,
