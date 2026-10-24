@@ -11,6 +11,7 @@ import {
   TextInput,
   ScrollView,
   Platform,
+  PanResponder,
 } from 'react-native';
 import { COLORS } from '../theme';
 import {
@@ -54,6 +55,7 @@ export default function ReelsScreen({
   const [showPlayState, setShowPlayState] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   // Full-Screen Video Player Modal
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -73,9 +75,10 @@ export default function ReelsScreen({
   const lastTapRef = useRef(0);
   const videoRef = useRef(null);
 
-  const currentReel = reels[currentIndex] || reels[0];
-  const reelId = currentReel?._id || `reel-${currentIndex}`;
-  const creatorUsername = currentReel?.profileId?.username;
+  const activeIndex = currentIndex >= 0 && currentIndex < reels.length ? currentIndex : 0;
+  const currentReel = reels[activeIndex] || reels[0] || {};
+  const reelId = currentReel?._id || `reel-${activeIndex}`;
+  const creatorUsername = currentReel?.profileId?.username || '';
   const isLiked = !!likedMap[reelId];
   const isBookmarked = bookmarkedMap[reelId] ?? Boolean(currentReel?.isBookmarked);
   const likesCount = (likesCountMap[reelId] ?? currentReel?.likesCount) || 0;
@@ -87,6 +90,50 @@ export default function ReelsScreen({
     creatorUsername &&
     currentUser.profile.username === creatorUsername
   );
+
+  const currentIndexRef = useRef(activeIndex);
+  currentIndexRef.current = activeIndex;
+  const reelsLengthRef = useRef(reels.length);
+  reelsLengthRef.current = reels.length;
+
+  useEffect(() => {
+    setImageError(false);
+  }, [activeIndex, currentReel?._id]);
+
+  const reelThumbnailUri = (
+    currentReel?.thumbnailUrl &&
+    typeof currentReel.thumbnailUrl === 'string' &&
+    currentReel.thumbnailUrl.trim().length > 0 &&
+    !currentReel.thumbnailUrl.toLowerCase().endsWith('.mp4') &&
+    !currentReel.thumbnailUrl.toLowerCase().endsWith('.mov')
+  )
+    ? currentReel.thumbnailUrl
+    : 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800';
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return (
+          Math.abs(gestureState.dy) > 20 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+        );
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dy < -40) {
+          if (currentIndexRef.current < reelsLengthRef.current - 1) {
+            setCurrentIndex((prev) => prev + 1);
+            setIsPlaying(true);
+          }
+        } else if (gestureState.dy > 40) {
+          if (currentIndexRef.current > 0) {
+            setCurrentIndex((prev) => prev - 1);
+            setIsPlaying(true);
+          }
+        }
+      },
+    })
+  ).current;
 
   const handleToggleBookmark = async () => {
     if (!authToken) {
@@ -359,6 +406,7 @@ export default function ReelsScreen({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.topicScrollView}
             contentContainerStyle={styles.topicChipsScroll}
           >
             {TOPIC_CHIPS.map((chip) => {
@@ -412,24 +460,25 @@ export default function ReelsScreen({
         /* Video Reel Chassis Card */
         <TouchableOpacity
           style={styles.reelChassis}
-          activeOpacity={1}
+          activeOpacity={0.95}
           onPress={handleCardTap}
+          {...panResponder.panHandlers}
         >
           {/* Cover Media Image */}
           <Image
             source={{
-              uri:
-                currentReel.thumbnailUrl ||
-                currentReel.videoUrl ||
-                'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
+              uri: (!imageError && reelThumbnailUri)
+                ? reelThumbnailUri
+                : 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
             }}
+            onError={() => setImageError(true)}
             style={styles.reelImage}
             resizeMode="cover"
           />
 
           {/* Vignette Gradients */}
-          <View style={styles.topVignette} />
-          <View style={styles.bottomVignette} />
+          <View style={styles.topVignette} pointerEvents="none" />
+          <View style={styles.bottomVignette} pointerEvents="none" />
 
           {/* Double-tap Heart Burst Overlay */}
           {showHeartBurst && (
@@ -710,7 +759,7 @@ export default function ReelsScreen({
               <Image
                 source={{
                   uri:
-                    currentReel?.thumbnailUrl ||
+                    reelThumbnailUri ||
                     'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
                 }}
                 style={styles.reelImage}
@@ -917,7 +966,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 12,
   },
   centerContainer: {
@@ -1014,12 +1063,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   reelChassis: {
+    flex: 1,
     width: '100%',
-    height: '100%',
-    maxHeight: 560,
-    borderRadius: 28,
+    borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#000000',
+    backgroundColor: '#0a0f1d',
     position: 'relative',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -1030,6 +1078,11 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   reelImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     width: '100%',
     height: '100%',
   },
@@ -1285,8 +1338,8 @@ const styles = StyleSheet.create({
   },
   navChevrons: {
     position: 'absolute',
-    right: 12,
-    top: '34%',
+    left: 12,
+    top: '40%',
     zIndex: 22,
     gap: 8,
   },
@@ -1592,11 +1645,17 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   topicFilterContainer: {
-    marginVertical: 4,
+    width: '100%',
+    height: 38,
+    marginBottom: 8,
     zIndex: 10,
   },
+  topicScrollView: {
+    flexGrow: 0,
+    height: 38,
+  },
   topicChipsScroll: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     gap: 6,
     alignItems: 'center',
   },
