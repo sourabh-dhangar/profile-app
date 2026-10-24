@@ -53,15 +53,15 @@ import {
 
 const DEFAULT_PROFILE_DATA = {
   profile: {
-    name: 'Rahul Sharma',
-    username: 'rahul_dev',
+    name: 'Verified Creator',
+    username: 'creator',
     profileType: 'Creator',
-    bio: 'Full Stack Engineer & Content Creator building next-generation mobile experiences.',
-    city: 'Bengaluru, India',
-    photoUrl: 'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
+    bio: 'Digital Profile & Content Showcase building modern mobile experiences.',
+    city: 'India',
+    photoUrl: 'https://ui-avatars.com/api/?name=Creator&background=1e293b&color=10b981&size=256',
     theme: 'default',
     completionPercentage: 100,
-    qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=http%3A%2F%2Flocalhost%3A8081%2Fp%2Frahul_dev&bgcolor=ffffff&color=020617&margin=8',
+    qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=http%3A%2F%2Flocalhost%3A8081%2Fp%2Fcreator&bgcolor=ffffff&color=020617&margin=8',
   },
   sections: [
     {
@@ -102,9 +102,9 @@ const DEFAULT_REELS = [
     viewsCount: 2890,
     thumbnailUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800',
     profileId: {
-      name: 'Rahul Sharma',
-      username: 'rahul_dev',
-      photoUrl: 'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
+      name: 'Sourabh Kumar Dhangar',
+      username: 'sourabh-dhangar',
+      photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400',
     },
   },
   {
@@ -114,9 +114,21 @@ const DEFAULT_REELS = [
     viewsCount: 1420,
     thumbnailUrl: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800',
     profileId: {
-      name: 'Priya Patel',
-      username: 'priya_design',
+      name: 'Kavya Verma',
+      username: 'kavya_ux',
       photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
+    },
+  },
+  {
+    _id: 'reel-demo-3',
+    caption: 'Interventional cardiology: Preventive wellness and daily heart vitality tips 🩺',
+    likesCount: 420,
+    viewsCount: 3100,
+    thumbnailUrl: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=800',
+    profileId: {
+      name: 'Dr. Arjun Mehta',
+      username: 'dr_arjun_mehta',
+      photoUrl: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400',
     },
   },
 ];
@@ -274,7 +286,7 @@ function MainApp() {
   useEffect(() => {
     if (isRestoringSession) return;
     const isAuth = Boolean(authToken || currentUser?.token);
-    if (!isAuth && (activeTab === 'profile' || activeTab === 'reels' || activeTab === 'admin')) {
+    if (!isAuth && ((activeTab === 'profile' && !profileUsername) || activeTab === 'reels' || activeTab === 'admin')) {
       setActiveTab('login');
       return;
     }
@@ -427,8 +439,8 @@ function MainApp() {
         // Fallback demo data if backend is offline
         setProfileData({
           profile: {
-            name: 'Rahul Sharma',
-            username: username || 'rahul_dev',
+            name: username ? username.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Verified Creator',
+            username: username || 'creator',
             profileType: 'Creator',
             bio: 'Full Stack Engineer & Content Creator building next-generation mobile experiences.',
             city: 'Bengaluru, India',
@@ -436,7 +448,7 @@ function MainApp() {
               'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
             theme: 'default',
             completionPercentage: 100,
-            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=http%3A%2F%2Flocalhost%3A8081%2Fp%2F${encodeURIComponent(username || 'rahul_dev')}&bgcolor=ffffff&color=020617&margin=8`,
+            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=http%3A%2F%2Flocalhost%3A8081%2Fp%2F${encodeURIComponent(username || 'creator')}&bgcolor=ffffff&color=020617&margin=8`,
           },
           sections: [
             {
@@ -475,8 +487,8 @@ function MainApp() {
       // Resilient fallback
       setProfileData({
         profile: {
-          name: 'Rahul Sharma',
-          username: username || 'rahul_dev',
+          name: username ? username.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Verified Creator',
+            username: username || 'creator',
           profileType: 'Creator',
           bio: 'Full Stack Engineer & Content Creator building next-generation mobile experiences.',
           city: 'Bengaluru, India',
@@ -548,8 +560,8 @@ function MainApp() {
               thumbnailUrl:
                 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800',
               profileId: {
-                name: 'Rahul Sharma',
-                username: 'rahul_dev',
+                name: 'Sourabh Kumar Dhangar',
+                username: 'sourabh-dhangar',
                 photoUrl:
                   'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
               },
@@ -600,8 +612,8 @@ function MainApp() {
             thumbnailUrl:
               'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800',
             profileId: {
-              name: 'Rahul Sharma',
-              username: 'rahul_dev',
+                name: 'Sourabh Kumar Dhangar',
+                username: 'sourabh-dhangar',
               photoUrl:
                 'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
             },
@@ -717,12 +729,32 @@ function MainApp() {
         setDiscoverResult({
           name: 'Rahul Sharma',
           username: 'rahul_dev',
-          profileType: 'Creator',
+          profileType: 'Engineer',
+          category: 'IT & Software',
           city: 'Bengaluru, India',
-          photoUrl:
-            'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
+          photoUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400',
         });
         showToast('Demo profile matched!', 'success');
+      } else if (searchPhone === '9820112233') {
+        setDiscoverResult({
+          name: 'Dr. Arjun Mehta',
+          username: 'dr_arjun_mehta',
+          profileType: 'Doctor & Clinic',
+          category: 'Doctor & Clinic',
+          city: 'Indiranagar, Bengaluru',
+          photoUrl: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400',
+        });
+        showToast('Dr. Arjun Mehta matched!', 'success');
+      } else if (searchPhone === '9820223344') {
+        setDiscoverResult({
+          name: 'Pooja Hegde Studios',
+          username: 'pooja_hegde',
+          profileType: 'Content Creator & Artist',
+          category: 'Content Creator & Artist',
+          city: 'Colaba, Mumbai',
+          photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+        });
+        showToast('Pooja Hegde Studios matched!', 'success');
       } else {
         setDiscoverMsg('No profile found. Ensure owner enabled "Allow Mobile Discovery".');
       }
@@ -835,8 +867,8 @@ function MainApp() {
           devName = 'Kavya Verma';
           devSlug = 'kavya_ux';
         } else if (isDemo && !signupData?.name) {
-          devName = 'Rahul Sharma';
-          devSlug = 'rahul_dev';
+          devName = 'Demo Creator';
+          devSlug = `creator_${mobileInput.slice(-4)}`;
         }
 
         const devUser = {
@@ -1192,12 +1224,6 @@ function MainApp() {
   };
 
   const handleSelectCreator = (username) => {
-    const isAuth = Boolean(authToken || currentUser?.token);
-    if (!isAuth) {
-      showToast('🔒 Please sign in first to view creator profiles', 'info');
-      setActiveTab('login');
-      return;
-    }
     setProfileUsername(username);
     loadProfile(username);
     setActiveTab('profile');

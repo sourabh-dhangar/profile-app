@@ -1,9 +1,5 @@
 // Configurable API URL: Supports EXPO_PUBLIC_API_URL or defaults to localhost/live Vercel API
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  (typeof window !== 'undefined' && window.location?.hostname === 'localhost'
-    ? 'http://localhost:5000/api/v1'
-    : 'https://myprofile-official-api.vercel.app/api/v1');
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://myprofile-official-api.vercel.app/api/v1';
 
 export const fetchPublicProfile = async (username) => {
   const res = await fetch(`${API_BASE_URL}/profiles/${username}`);
@@ -38,6 +34,21 @@ export const fetchReels = async (page = 1, limit = 20, tag = '', search = '') =>
   }
   if (search && search.trim()) {
     url += `&search=${encodeURIComponent(search.trim())}`;
+  }
+  const res = await fetch(url);
+  return res.json();
+};
+
+export const browseProfilesApi = async (category = '', search = '', city = '', page = 1, limit = 20) => {
+  let url = `${API_BASE_URL}/discovery/browse?page=${page}&limit=${limit}`;
+  if (category && category !== 'All') {
+    url += `&category=${encodeURIComponent(category)}`;
+  }
+  if (search && search.trim()) {
+    url += `&search=${encodeURIComponent(search.trim())}`;
+  }
+  if (city && city.trim()) {
+    url += `&city=${encodeURIComponent(city.trim())}`;
   }
   const res = await fetch(url);
   return res.json();

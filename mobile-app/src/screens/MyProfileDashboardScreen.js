@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -43,7 +43,21 @@ export default function MyProfileDashboardScreen({
   );
 
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editName, setEditName] = useState(profileData?.profile?.name || 'Rahul Sharma');
+  const [editName, setEditName] = useState(profileData?.profile?.name || '');
+
+  useEffect(() => {
+    if (profileData?.profile) {
+      if (profileData.profile.name) setEditName(profileData.profile.name);
+      if (profileData.profile.bio !== undefined) setEditBio(profileData.profile.bio || '');
+      if (profileData.profile.profileType) setEditProfileType(profileData.profile.profileType);
+      if (profileData.profile.city !== undefined) setEditCity(profileData.profile.city || '');
+      if (profileData.profile.category) setEditCategory(profileData.profile.category);
+      if (profileData.profile.subCategory !== undefined) setEditSubCategory(profileData.profile.subCategory || '');
+      if (profileData.profile.businessDetails?.timing !== undefined) setEditTiming(profileData.profile.businessDetails.timing || '10:00 AM - 8:00 PM');
+      if (profileData.profile.businessDetails?.address !== undefined) setEditAddress(profileData.profile.businessDetails.address || '');
+      if (profileData.profile.businessDetails?.whatsappNumber !== undefined) setEditWhatsapp(profileData.profile.businessDetails.whatsappNumber || '');
+    }
+  }, [profileData?.profile]);
   const [editBio, setEditBio] = useState(profileData?.profile?.bio || '');
   const [editProfileType, setEditProfileType] = useState(
     profileData?.profile?.profileType || 'Creator'
@@ -75,8 +89,8 @@ export default function MyProfileDashboardScreen({
   }
 
   const profile = profileData?.profile || {
-    name: 'Rahul Sharma',
-    username: 'rahul_dev',
+    name: 'Verified Profile',
+    username: 'creator',
     profileType: 'Creator',
     bio: 'Full Stack Engineer & Content Creator building next-generation mobile experiences.',
     city: 'Bengaluru, India',
@@ -93,7 +107,7 @@ export default function MyProfileDashboardScreen({
       name: 'Aditi Verma',
       email: 'aditi.v@startup.io',
       phone: '+919876501234',
-      message: 'Hi Rahul, loved your mobile app reels! We need a senior React Native consultant for our fintech app.',
+      message: 'Loved your mobile app reels! We need a senior React Native consultant for our fintech app.',
       status: 'new',
       createdAt: new Date(Date.now() - 3600000 * 3).toISOString(),
     },
