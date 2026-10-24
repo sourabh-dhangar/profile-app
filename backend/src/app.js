@@ -103,7 +103,7 @@ app.get('/', (req, res) => {
 
     <div class="btn-group">
       <a href="https://myprofile-official-web.vercel.app" class="btn btn-primary">🌐 Open Web Application (Frontend)</a>
-      <a href="https://expo.dev/artifacts/eas/HGuyumyw8sYrP43V-wsN8BjrZrVpZurcNlqPCSr96ro.apk" class="btn btn-secondary">📱 Download Android APK</a>
+      <a href="https://expo.dev/artifacts/eas/7KqmaUUROgg8JVlUPOSqTskBjQ_1B1WkpjkWF2nu6Jw.apk" class="btn btn-secondary">📱 Download Android APK</a>
       <a href="/api/v1/reels/feed" class="btn btn-secondary">🎥 View Public Reels Feed JSON</a>
     </div>
 
@@ -128,7 +128,7 @@ app.get('/', (req, res) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     frontendUrl: 'https://myprofile-official-web.vercel.app',
-    apkUrl: 'https://expo.dev/artifacts/eas/HGuyumyw8sYrP43V-wsN8BjrZrVpZurcNlqPCSr96ro.apk',
+    apkUrl: 'https://expo.dev/artifacts/eas/7KqmaUUROgg8JVlUPOSqTskBjQ_1B1WkpjkWF2nu6Jw.apk',
     endpoints: {
       health: '/health',
       auth: '/api/v1/auth',
