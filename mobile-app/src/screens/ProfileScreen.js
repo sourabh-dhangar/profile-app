@@ -814,7 +814,7 @@ export default function ProfileScreen({
 
   // Contacts
   const rawPhone = profile.contactDetails?.phone || profile.contactDetails?.whatsapp || '';
-  const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+  const cleanPhone = String(rawPhone || '').replace(/[^0-9]/g, '');
   const contactEmail = profile.contactDetails?.email || '';
 
   return (
@@ -966,7 +966,7 @@ export default function ProfileScreen({
         {/* Name & Handle */}
         <View style={styles.profileNameRow}>
           <Text style={styles.profileName}>{profile.name}</Text>
-          {profile.verifiedBadge && profile.verifiedBadge !== 'none' && (
+          {Boolean(profile.verifiedBadge && profile.verifiedBadge !== 'none') && (
             <View
               style={[
                 styles.verifiedBadgePill,
@@ -1002,7 +1002,7 @@ export default function ProfileScreen({
             <Text style={styles.roleText}>{profile.profileType || 'Creator'}</Text>
           </View>
 
-          {profile.category && (
+          {Boolean(profile.category) && (
             <View style={styles.categoryBadge}>
               <Text style={styles.categoryBadgeText}>🏷️ {profile.category}</Text>
             </View>
@@ -1014,7 +1014,7 @@ export default function ProfileScreen({
             </View>
           ) : null}
 
-          {profile.city && (
+          {Boolean(profile.city) && (
             <View style={styles.cityBadge}>
               <Text style={styles.cityText}>📍 {profile.city}</Text>
             </View>
@@ -1022,14 +1022,16 @@ export default function ProfileScreen({
         </View>
 
         {/* Storefront & Business Details Strip */}
-        {profile.businessDetails &&
+        {Boolean(
+          profile.businessDetails &&
           (profile.businessDetails.businessName ||
             profile.businessDetails.timing ||
             profile.businessDetails.address ||
             profile.businessDetails.whatsappNumber ||
             profile.businessDetails.bookingUrl ||
             profile.businessDetails.upiId ||
-            profile.businessDetails.gstNumber) && (
+            profile.businessDetails.gstNumber)
+        ) && (
             <View style={styles.storefrontCard}>
               <View style={styles.storefrontHeader}>
                 <View style={styles.storefrontTitleCol}>
@@ -1044,7 +1046,7 @@ export default function ProfileScreen({
                   ) : null}
                 </View>
 
-                {profile.category && (
+                {Boolean(profile.category) && (
                   <View style={[styles.storefrontCategoryBadge, { backgroundColor: theme.badgeBg, borderColor: theme.badgeBorder }]}>
                     <Text style={[styles.storefrontCategoryText, { color: theme.primary }]}>
                       {profile.category}
@@ -1113,7 +1115,7 @@ export default function ProfileScreen({
                   <TouchableOpacity
                     style={styles.whatsappActionBtn}
                     onPress={() => {
-                      const cleanPhone = profile.businessDetails.whatsappNumber.replace(/[^0-9]/g, '');
+                      const cleanPhone = String(profile.businessDetails?.whatsappNumber || '').replace(/[^0-9]/g, '');
                       Linking.openURL('https://wa.me/' + cleanPhone + '?text=Hi%20' + encodeURIComponent(profile.businessDetails.businessName || profile.name) + ',%20I%20found%20your%20business%20on%20MyProfile!');
                     }}
                     activeOpacity={0.8}
@@ -1598,7 +1600,7 @@ export default function ProfileScreen({
           </View>
 
           <View style={styles.reelsHeaderActions}>
-            {onOpenSavedVault && (
+            {Boolean(onOpenSavedVault) && (
               <TouchableOpacity
                 style={styles.savedVaultBtn}
                 onPress={onOpenSavedVault}
@@ -1894,7 +1896,7 @@ export default function ProfileScreen({
                               onPress={() => {
                                 const wa = profile.businessDetails?.whatsappNumber || profile.contactDetails?.whatsapp;
                                 if (wa) {
-                                  const clean = wa.replace(/[^0-9]/g, '');
+                                  const clean = String(wa).replace(/[^0-9]/g, '');
                                   Linking.openURL(
                                     `https://wa.me/${clean}?text=${encodeURIComponent(
                                       `Hi ${profile.businessDetails?.businessName || profile.name}, I am interested in "${itemTitle}" (${itemPrice || 'Inquiry'})`
@@ -3729,7 +3731,7 @@ export default function ProfileScreen({
                           <TouchableOpacity
                             style={styles.inquiryActionWaBtn}
                             onPress={() => {
-                              const clean = inq.senderPhone.replace(/[^0-9]/g, '');
+                              const clean = String(inq.senderPhone || '').replace(/[^0-9]/g, '');
                               Linking.openURL(`https://wa.me/${clean}`);
                             }}
                             activeOpacity={0.7}

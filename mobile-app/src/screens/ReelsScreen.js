@@ -585,7 +585,7 @@ export default function ReelsScreen({
             </TouchableOpacity>
 
             {/* Profile Quick Jump */}
-            {creatorUsername && (
+            {Boolean(creatorUsername) && (
               <TouchableOpacity
                 style={styles.creatorActionBtn}
                 onPress={() => onViewCreatorProfile(creatorUsername)}
@@ -609,13 +609,13 @@ export default function ReelsScreen({
           {/* Bottom Drawer (Creator info & Caption) */}
           <View style={styles.bottomDrawer}>
             {/* Master Pitch Golden Pinned Badge */}
-            {currentReel.isPinned && (
+            {Boolean(currentReel.isPinned) && (
               <View style={styles.masterPitchBadge}>
                 <Text style={styles.masterPitchBadgeText}>📌 MASTER PITCH</Text>
               </View>
             )}
 
-            {currentReel.profileId && (
+            {Boolean(currentReel.profileId) && (
               <View style={styles.creatorRow}>
                 <TouchableOpacity
                   style={styles.creatorPill}
@@ -944,7 +944,7 @@ export default function ReelsScreen({
                         <Text style={styles.commentText}>{item.text}</Text>
                       </View>
 
-                      {canDelete && (
+                      {Boolean(canDelete) && (
                         <TouchableOpacity
                           style={styles.deleteCommentBtn}
                           onPress={() => handleDeleteComment(item._id)}

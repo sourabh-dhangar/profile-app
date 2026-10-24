@@ -110,7 +110,7 @@ export default function LoginScreen({
     }
   };
 
-  if (authToken) {
+  if (authToken || currentUser?.token) {
     const isAdmin = currentUser?.user?.role === 'admin';
     const profileName = currentUser?.profile?.name || 'Verified User';
     const profileHandle = currentUser?.profile?.username ? `@${currentUser.profile.username}` : '';

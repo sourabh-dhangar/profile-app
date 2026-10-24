@@ -345,13 +345,36 @@ function MainApp() {
     try {
       const res = await fetchMyProfile(token);
       if (res.success && res.data) {
-        setProfileData(res.data);
-        if (res.data.profile?.username) {
-          setProfileUsername(res.data.profile.username);
+        const safeProfile = {
+          ...res.data.profile,
+          businessDetails: res.data.profile?.businessDetails || {
+            businessName: '',
+            tagline: '',
+            timing: '',
+            address: '',
+            googleMapsUrl: '',
+            whatsappNumber: '',
+            bookingUrl: '',
+            upiId: '',
+            gstNumber: '',
+          },
+          verifiedBadge: res.data.profile?.verifiedBadge || 'verified_pro',
+          followersCount: res.data.profile?.followersCount || 0,
+          followingCount: res.data.profile?.followingCount || 0,
+          testimonials: res.data.profile?.testimonials || [],
+        };
+        setProfileData({
+          ...res.data,
+          profile: safeProfile,
+          sections: res.data.sections || [],
+          reels: res.data.reels || [],
+        });
+        if (safeProfile?.username) {
+          setProfileUsername(safeProfile.username);
         }
         setCurrentUser((prev) => ({
           ...prev,
-          profile: res.data.profile,
+          profile: safeProfile,
         }));
         loadAnalytics(token);
         loadInquiries(token);
@@ -739,10 +762,28 @@ function MainApp() {
         setCurrentUser(loggedUser);
         setProfileUsername(profile?.username);
 
-        // Immediate fallback profile state so ProfileScreen never renders empty or null
+        // Immediate fallback profile state with safe defaults so ProfileScreen never renders empty or null
         if (profile) {
+          const safeProfile = {
+            ...profile,
+            businessDetails: profile.businessDetails || {
+              businessName: '',
+              tagline: '',
+              timing: '',
+              address: '',
+              googleMapsUrl: '',
+              whatsappNumber: '',
+              bookingUrl: '',
+              upiId: '',
+              gstNumber: '',
+            },
+            verifiedBadge: profile.verifiedBadge || 'verified_pro',
+            followersCount: profile.followersCount || 0,
+            followingCount: profile.followingCount || 0,
+            testimonials: profile.testimonials || [],
+          };
           setProfileData({
-            profile,
+            profile: safeProfile,
             sections: res.data.sections || [],
             reels: res.data.reels || [],
           });
@@ -838,7 +879,7 @@ function MainApp() {
       return false;
     }
     try {
-      const res = await updateMyProfile(authToken, updates);
+      const res = await updateMyProfile(effectiveToken, updates);
       if (res.success && res.data) {
         setProfileData((prev) => ({
           ...prev,
@@ -883,7 +924,7 @@ function MainApp() {
       return false;
     }
     try {
-      const res = await createSection(authToken, sectionData);
+      const res = await createSection(effectiveToken, sectionData);
       if (res.success && res.data) {
         setProfileData((prev) => ({
           ...prev,
@@ -916,7 +957,7 @@ function MainApp() {
       return false;
     }
     try {
-      const res = await updateSection(authToken, sectionId, updates);
+      const res = await updateSection(effectiveToken, sectionId, updates);
       if (res.success && res.data) {
         setProfileData((prev) => ({
           ...prev,
@@ -943,7 +984,7 @@ function MainApp() {
       return false;
     }
     try {
-      const res = await deleteSection(authToken, sectionId);
+      const res = await deleteSection(effectiveToken, sectionId);
       if (res.success) {
         setProfileData((prev) => ({
           ...prev,
@@ -1031,7 +1072,7 @@ function MainApp() {
           r._id === reelId ? { ...r, likesCount: (r.likesCount || 0) + 1 } : r
         )
       );
-      const res = await likeReelApi(reelId, authToken);
+      const res = await likeReelApi(reelId, authToken || currentUser?.token);
       if (res.success && res.data?.likesCount !== undefined) {
         setProfileData((prev) => ({
           ...prev,
@@ -1054,7 +1095,7 @@ function MainApp() {
       return false;
     }
     try {
-      const res = await deleteReelApi(authToken, reelId);
+      const res = await deleteReelApi(effectiveToken, reelId);
       if (res.success) {
         setProfileData((prev) => ({
           ...prev,
@@ -1106,7 +1147,7 @@ function MainApp() {
       } else if (status === 'unread') {
         setUnreadInquiriesCount((c) => c + 1);
       }
-      const res = await updateInquiryStatus(authToken, inquiryId, status);
+      const res = await updateInquiryStatus(effectiveToken, inquiryId, status);
       if (res.success) {
         showToast(`Marked proposal as ${status}`, 'info');
         return true;
@@ -1366,7 +1407,7 @@ function MainApp() {
                   onSelectReelsTab={() => setActiveTab('reels')}
                   currentUser={currentUser}
                   isOwner={Boolean(
-                    currentUser && currentUser.profile?.username === profileData.profile?.username
+                    currentUser && currentUser.profile?.username === profileData?.profile?.username
                   )}
                   onNavigateToAuth={() => setActiveTab('login')}
                   onUpdateProfile={handleUpdateProfile}
