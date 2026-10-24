@@ -11,6 +11,7 @@ import DiscoverScreen from './src/screens/DiscoverScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import AdminScreen from './src/screens/AdminScreen';
 
+import { saveAuthSession, loadAuthSession, clearAuthSession } from './src/services/storage';
 import {
   fetchPublicProfile,
   fetchMyProfile,
@@ -192,6 +193,7 @@ function MainApp() {
   const [authToken, setAuthToken] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(false);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
 
   // Creator Analytics State
   const [analyticsData, setAnalyticsData] = useState(null);
@@ -213,31 +215,40 @@ function MainApp() {
   const [adminReports, setAdminReports] = useState([]);
   const [loadingAdmin, setLoadingAdmin] = useState(false);
 
-  // Restore persistent mobile session if available
+  // Restore persistent mobile session across app restarts & tab reloads
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          const savedToken = window.localStorage.getItem('myprofile_mobile_token');
-          const savedUserStr = window.localStorage.getItem('myprofile_mobile_user');
-          if (savedToken) {
-            setAuthToken(savedToken);
-            if (savedUserStr) {
-              try {
-                const parsedUser = JSON.parse(savedUserStr);
-                setCurrentUser(parsedUser);
-                if (parsedUser.profile?.username) {
-                  setProfileUsername(parsedUser.profile.username);
-                }
-              } catch (e) {}
+        const savedSession = await loadAuthSession();
+        if (savedSession && savedSession.token) {
+          const { token, user } = savedSession;
+          setAuthToken(token);
+          if (user) {
+            setCurrentUser(user);
+            if (user.profile?.username) {
+              setProfileUsername(user.profile.username);
             }
-            await loadMyProfile(savedToken);
-            setActiveTab('profile');
-            return;
+            if (user.profile) {
+              setProfileData((prev) => ({
+                ...prev,
+                profile: user.profile,
+                sections: user.sections || prev.sections || [],
+                reels: user.reels || prev.reels || [],
+              }));
+            }
           }
+          const targetTab = user?.user?.role === 'admin' ? 'admin' : 'profile';
+          setActiveTab(targetTab);
+          setIsRestoringSession(false);
+
+          // Background sync fresh data from server without disrupting view
+          loadMyProfile(token, user?.profile?.username);
+          return;
         }
       } catch (err) {
-        console.log('Session restore error:', err.message);
+        console.log('[Auth] Session restore error:', err.message);
+      } finally {
+        setIsRestoringSession(false);
       }
       // Guarantee unauthenticated users land on login
       setActiveTab('login');
@@ -247,6 +258,7 @@ function MainApp() {
 
   // Strict Authentication Guard when activeTab changes
   useEffect(() => {
+    if (isRestoringSession) return;
     const isAuth = Boolean(authToken || currentUser?.token);
     if (!isAuth && (activeTab === 'profile' || activeTab === 'reels' || activeTab === 'admin')) {
       setActiveTab('login');
@@ -268,7 +280,7 @@ function MainApp() {
     } else if (activeTab === 'admin' && isAuth) {
       loadAdminData(currentUser?.token || authToken);
     }
-  }, [activeTab, authToken]);
+  }, [activeTab, authToken, isRestoringSession]);
 
   const loadAdminData = async (token) => {
     const effectiveToken = token || authToken || currentUser?.token;
@@ -721,12 +733,7 @@ function MainApp() {
         const user = res.data.user;
         const loggedUser = { token, user, profile };
 
-        try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.setItem('myprofile_mobile_token', token);
-            window.localStorage.setItem('myprofile_mobile_user', JSON.stringify(loggedUser));
-          }
-        } catch (e) {}
+        await saveAuthSession(token, loggedUser);
 
         setAuthToken(token);
         setCurrentUser(loggedUser);
@@ -804,12 +811,7 @@ function MainApp() {
             },
           },
         };
-        try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.setItem('myprofile_mobile_token', devUser.token);
-            window.localStorage.setItem('myprofile_mobile_user', JSON.stringify(devUser));
-          }
-        } catch (e) {}
+        await saveAuthSession(devUser.token, devUser);
         setAuthToken(devUser.token);
         setCurrentUser(devUser);
         setProfileData({ profile: devUser.profile, sections: [], reels: [] });
@@ -1114,13 +1116,8 @@ function MainApp() {
     }
   };
 
-  const handleLogout = () => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.removeItem('myprofile_mobile_token');
-        window.localStorage.removeItem('myprofile_mobile_user');
-      }
-    } catch (e) {}
+  const handleLogout = async () => {
+    await clearAuthSession();
     setAuthToken(null);
     setCurrentUser(null);
     setOtpStep(1);
@@ -1325,7 +1322,12 @@ function MainApp() {
 
         {/* Main Screen Body */}
         <View style={styles.bodyContainer}>
-          {(!authToken && !currentUser?.token && activeTab !== 'login' && activeTab !== 'discover') ? (
+          {isRestoringSession ? (
+            <View style={styles.centerLoadingContainer}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.restoringSessionText}>Syncing Digital Identity...</Text>
+            </View>
+          ) : (!authToken && !currentUser?.token && activeTab !== 'login' && activeTab !== 'discover') ? (
             <LoginScreen
               mobileInput={mobileInput}
               setMobileInput={setMobileInput}
@@ -1524,6 +1526,19 @@ const styles = StyleSheet.create({
   },
   bodyContainer: {
     flex: 1,
+  },
+  centerLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.background,
+    padding: 24,
+  },
+  restoringSessionText: {
+    marginTop: 14,
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
