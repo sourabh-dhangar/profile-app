@@ -210,7 +210,7 @@ export default function ProfileScreen({
   onTogglePinReel,
   onVouchSkill,
 }) {
-  const profile = profileData?.profile || null;
+  const profile = profileData?.profile || {};
   const sections = profileData?.sections || [];
   const reels = profileData?.reels || [];
 
@@ -247,8 +247,8 @@ export default function ProfileScreen({
 
   const resilientQrUrl =
     fetchedQrCode ||
-    profile.qrCodeDataUrl ||
-    profile.qrCodeUrl ||
+    profile?.qrCodeDataUrl ||
+    profile?.qrCodeUrl ||
     `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(
       profileDirectUrl
     )}&bgcolor=ffffff&color=020617&margin=8`;
@@ -382,8 +382,15 @@ export default function ProfileScreen({
   }
 
   // profile, sections, and reels safely extracted at top
-  const currentThemeKey = profile.theme || selectedTheme || 'default';
-  const theme = THEME_ACCENTS[currentThemeKey] || THEME_ACCENTS['default'];
+  const currentThemeKey = profile?.theme || selectedTheme || 'default';
+  const theme = THEME_ACCENTS[currentThemeKey] || THEME_ACCENTS['default'] || {
+    primary: '#10b981',
+    glow: 'rgba(16, 185, 129, 0.2)',
+    badgeBg: 'rgba(16, 185, 129, 0.12)',
+    badgeBorder: 'rgba(16, 185, 129, 0.3)',
+    text: '#34d399',
+    name: 'Emerald Classic',
+  };
 
   // Handlers
   const handleSaveContact = () => {

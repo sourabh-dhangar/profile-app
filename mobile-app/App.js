@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, View, StatusBar } from 'react-native';
+import { StyleSheet, SafeAreaView, View, StatusBar, Text, TouchableOpacity } from 'react-native';
 import { COLORS } from './src/theme';
 import Header from './src/components/Header';
 import TabBar from './src/components/TabBar';
@@ -139,9 +139,13 @@ class ErrorBoundary extends React.Component {
           <Text style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center', marginBottom: 24, lineHeight: 18 }}>
             {this.state.error?.message || 'Recovering session...'}
           </Text>
-          <View style={{ backgroundColor: '#10b981', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 }}>
+          <TouchableOpacity
+            style={{ backgroundColor: '#10b981', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 }}
+            onPress={() => this.setState({ hasError: false, error: null })}
+            activeOpacity={0.8}
+          >
             <Text style={{ color: '#030712', fontWeight: '900', fontSize: 14 }}>Tap to Refresh</Text>
-          </View>
+          </TouchableOpacity>
         </SafeAreaView>
       );
     }
@@ -727,6 +731,15 @@ function MainApp() {
         setAuthToken(token);
         setCurrentUser(loggedUser);
         setProfileUsername(profile?.username);
+
+        // Immediate fallback profile state so ProfileScreen never renders empty or null
+        if (profile) {
+          setProfileData({
+            profile,
+            sections: res.data.sections || [],
+            reels: res.data.reels || [],
+          });
+        }
 
         // Fetch their full isolated profile & modular sections
         await loadMyProfile(token, profile?.username);
