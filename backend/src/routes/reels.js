@@ -10,6 +10,7 @@ const {
   getReelById,
   recordView,
   likeReel,
+  shareReel,
   deleteReel,
   addComment,
   getComments,
@@ -35,6 +36,7 @@ router.delete('/:id/comments/:commentId', authenticate, deleteComment);
 router.get('/:id', getReelById);
 router.post('/:id/view', recordView);
 router.post('/:id/like', optionalAuth, likeReel);
+router.post('/:id/share', optionalAuth, shareReel);
 router.post('/:id/bookmark', authenticate, toggleBookmark);
 router.post('/:id/pin', authenticate, togglePinReel);
 

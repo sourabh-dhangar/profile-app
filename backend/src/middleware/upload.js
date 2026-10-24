@@ -59,15 +59,15 @@ const imageFileFilter = (req, file, cb) => {
   }
 };
 
-// File filter for videos
-const videoFileFilter = (req, file, cb) => {
-  const allowed = /mp4|webm|mov|mkv/;
+// File filter for reels (supports both videos and showcase images)
+const reelMediaFileFilter = (req, file, cb) => {
+  const allowed = /mp4|webm|mov|mkv|jpeg|jpg|png|webp|gif/;
   const ext = path.extname(file.originalname).toLowerCase().slice(1);
   const mime = file.mimetype;
-  if (allowed.test(ext) || mime.startsWith('video/')) {
+  if (allowed.test(ext) || mime.startsWith('video/') || mime.startsWith('image/')) {
     cb(null, true);
   } else {
-    cb(new Error('Only video files (mp4, webm, mov, mkv) are allowed'));
+    cb(new Error('Only video files (mp4, webm, mov, mkv) or image files (jpg, png, webp) are allowed'));
   }
 };
 
@@ -80,7 +80,7 @@ const uploadPhoto = multer({
 const uploadReel = multer({
   storage: reelStorage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
-  fileFilter: videoFileFilter,
+  fileFilter: reelMediaFileFilter,
 });
 
 module.exports = {

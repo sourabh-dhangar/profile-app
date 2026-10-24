@@ -162,6 +162,27 @@ export const likeReelApi = async (reelId, token = null) => {
   return res.json();
 };
 
+export const shareReelApi = async (reelId, token = null) => {
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${API_BASE_URL}/reels/${reelId}/share`, {
+      method: 'POST',
+      headers,
+    });
+    return res.json();
+  } catch (e) {
+    return {
+      success: true,
+      data: {
+        shareUrl: `https://myprofile-official-web.vercel.app/r/${reelId}`,
+      },
+    };
+  }
+};
+
 export const recordReelView = async (reelId) => {
   try {
     const res = await fetch(`${API_BASE_URL}/reels/${reelId}/view`, {

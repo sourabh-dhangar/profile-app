@@ -7,9 +7,19 @@ const ReelSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
+  mediaType: {
+    type: String,
+    enum: ['video', 'image'],
+    default: 'video',
+    index: true,
+  },
+  mediaUrl: {
+    type: String,
+    default: '',
+  },
   videoUrl: {
     type: String,
-    required: [true, 'Video URL is required'],
+    default: '',
   },
   thumbnailUrl: {
     type: String,
@@ -22,7 +32,7 @@ const ReelSchema = new mongoose.Schema({
   },
   durationSeconds: {
     type: Number,
-    required: [true, 'Duration is required'],
+    default: 15,
     max: [60, 'Reel duration cannot exceed 60 seconds'],
   },
   visibility: {
@@ -42,6 +52,10 @@ const ReelSchema = new mongoose.Schema({
     default: 0,
   },
   likesCount: {
+    type: Number,
+    default: 0,
+  },
+  sharesCount: {
     type: Number,
     default: 0,
   },

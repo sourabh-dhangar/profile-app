@@ -89,13 +89,27 @@ const createReel = async (req, res, next) => {
       await profile.save();
     }
 
-    let videoUrl = req.body.videoUrl;
+    let mediaType = req.body.mediaType || 'video';
+    let videoUrl = req.body.videoUrl || req.body.mediaUrl || '';
     if (req.file) {
       videoUrl = `${config.publicUrl}/uploads/reels/${req.file.filename}`;
+      if (req.file.mimetype && req.file.mimetype.startsWith('image/')) {
+        mediaType = 'image';
+      }
+    }
+
+    // Auto-detect image URLs if mediaType is not specified
+    if (
+      mediaType === 'image' ||
+      videoUrl.match(/\.(jpeg|jpg|png|webp|gif|svg)($|\?)/i) ||
+      (req.body.imageUrl && !req.body.videoUrl)
+    ) {
+      mediaType = 'image';
+      videoUrl = videoUrl || req.body.imageUrl || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1080';
     }
 
     // Default video clip fallback if user only provided caption
-    if (!videoUrl || !videoUrl.trim()) {
+    if (mediaType === 'video' && (!videoUrl || !videoUrl.trim())) {
       videoUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4';
     }
 
@@ -119,7 +133,9 @@ const createReel = async (req, res, next) => {
 
     // Sanitize thumbnail: ensure it is a valid image, NOT an .mp4 or empty
     let resolvedThumbnail = (thumbnailUrl && typeof thumbnailUrl === 'string') ? thumbnailUrl.trim() : '';
-    if (
+    if (mediaType === 'image') {
+      resolvedThumbnail = videoUrl;
+    } else if (
       !resolvedThumbnail ||
       resolvedThumbnail.toLowerCase().endsWith('.mp4') ||
       resolvedThumbnail.toLowerCase().endsWith('.mov') ||
@@ -137,9 +153,11 @@ const createReel = async (req, res, next) => {
 
     const reel = new Reel({
       profileId: profile._id,
+      mediaType,
+      mediaUrl: videoUrl.trim(),
       videoUrl: videoUrl.trim(),
       thumbnailUrl: resolvedThumbnail,
-      caption: caption.trim() || 'My showcase reel 🚀',
+      caption: caption.trim() || (mediaType === 'image' ? 'My showcase post 📸' : 'My showcase reel 🚀'),
       durationSeconds: Math.round(duration),
       visibility: visibility || 'public',
       status: 'active',
@@ -257,6 +275,41 @@ const likeReel = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: { likesCount: reel.likesCount },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Track Share & Get Shareable Link
+ * POST /api/v1/reels/:id/share
+ */
+const shareReel = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const reel = await Reel.findByIdAndUpdate(
+      id,
+      { $inc: { sharesCount: 1 } },
+      { new: true }
+    ).populate({
+      path: 'profileId',
+      select: 'name username photoUrl profileType',
+    });
+
+    if (!reel) {
+      return res.status(404).json({ success: false, message: 'Reel not found' });
+    }
+
+    const shareUrl = `https://myprofile-official-web.vercel.app/r/${reel._id}`;
+    res.status(200).json({
+      success: true,
+      message: 'Reel shared successfully',
+      data: {
+        sharesCount: reel.sharesCount || 1,
+        shareUrl,
+        reelId: reel._id,
+      },
     });
   } catch (error) {
     next(error);
@@ -732,6 +785,7 @@ module.exports = {
   getReelById,
   recordView,
   likeReel,
+  shareReel,
   deleteReel,
   addComment,
   getComments,

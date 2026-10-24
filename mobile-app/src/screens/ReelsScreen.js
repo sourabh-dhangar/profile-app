@@ -12,6 +12,7 @@ import {
   ScrollView,
   Platform,
   PanResponder,
+  Share,
 } from 'react-native';
 import { COLORS } from '../theme';
 import ReelCreatorModal from '../components/ReelCreatorModal';
@@ -21,6 +22,7 @@ import {
   deleteReelComment,
   toggleFollowCreator,
   checkFollowStatus,
+  shareReelApi,
 } from '../services/api';
 
 const TOPIC_CHIPS = [
@@ -79,6 +81,10 @@ export default function ReelsScreen({
   const videoRef = useRef(null);
 
   const activeIndex = currentIndex >= 0 && currentIndex < reels.length ? currentIndex : 0;
+  const isPhotoReel = Boolean(
+    reels[activeIndex]?.mediaType === 'image' ||
+    (reels[activeIndex]?.videoUrl && reels[activeIndex].videoUrl.match(/\.(jpeg|jpg|png|webp|gif)/i))
+  );
   const currentReel = reels[activeIndex] || reels[0] || {};
   const reelId = currentReel?._id || `reel-${activeIndex}`;
   const creatorUsername = currentReel?.profileId?.username || '';
@@ -123,16 +129,15 @@ export default function ReelsScreen({
         );
       },
       onPanResponderRelease: (evt, gestureState) => {
-        if (gestureState.dy < -40) {
-          if (currentIndexRef.current < reelsLengthRef.current - 1) {
-            setCurrentIndex((prev) => prev + 1);
-            setIsPlaying(true);
-          }
-        } else if (gestureState.dy > 40) {
-          if (currentIndexRef.current > 0) {
-            setCurrentIndex((prev) => prev - 1);
-            setIsPlaying(true);
-          }
+        const total = reelsLengthRef.current || 1;
+        if (gestureState.dy < -30) {
+          // Swipe up: next reel in infinite loop
+          setCurrentIndex((prev) => (prev + 1) % total);
+          setIsPlaying(true);
+        } else if (gestureState.dy > 30) {
+          // Swipe down: previous reel in infinite loop
+          setCurrentIndex((prev) => (prev - 1 + total) % total);
+          setIsPlaying(true);
         }
       },
     })
@@ -328,8 +333,33 @@ export default function ReelsScreen({
     }
   };
 
-  const handleShare = () => {
-    onShowToast(`Copied link for @${creatorUsername || 'creator'}!`, 'success');
+  const handleShare = async () => {
+    const creator = creatorUsername || 'creator';
+    const reelShareUrl = `https://myprofile-official-web.vercel.app/p/${creator}`;
+    const shareMessage = `Check out this ${isPhotoReel ? 'photo reel' : 'reel'} by @${creator} on MyProfile: "${currentReel?.caption || 'Showcase'}"\n\n${reelShareUrl}`;
+
+    try {
+      if (currentReel?._id) {
+        shareReelApi(currentReel._id, authToken).catch(() => {});
+      }
+      if (Platform.OS === 'web') {
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+          await navigator.clipboard.writeText(shareMessage);
+          onShowToast?.('Reel link copied to clipboard! 📋', 'success');
+        } else {
+          onShowToast?.(`Shared: ${reelShareUrl}`, 'success');
+        }
+      } else {
+        await Share.share({
+          title: `Reel by @${creator}`,
+          message: shareMessage,
+          url: reelShareUrl,
+        });
+        onShowToast?.('Reel shared! 🚀', 'success');
+      }
+    } catch (e) {
+      onShowToast?.(`Link copied for @${creator}!`, 'success');
+    }
   };
 
   if (loading) {
@@ -484,6 +514,33 @@ export default function ReelsScreen({
           onPress={handleCardTap}
           {...panResponder.panHandlers}
         >
+          {/* Floating Loop Controls */}
+          <View style={styles.loopPillContainer}>
+            <TouchableOpacity
+              style={styles.loopPillBtn}
+              onPress={() => {
+                const total = reels.length || 1;
+                setCurrentIndex((prev) => (prev - 1 + total) % total);
+                setIsPlaying(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.loopPillIcon}>▲</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.loopPillBtn}
+              onPress={() => {
+                const total = reels.length || 1;
+                setCurrentIndex((prev) => (prev + 1) % total);
+                setIsPlaying(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.loopPillIcon}>▼</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Cover Media Image */}
           <Image
             source={{
@@ -509,15 +566,17 @@ export default function ReelsScreen({
 
           {/* Tap Play Trigger Banner */}
           <View style={styles.playHintBadge}>
-            <Text style={styles.playHintIcon}>▶</Text>
-            <Text style={styles.playHintText}>Tap to Play Full Screen</Text>
+            <Text style={styles.playHintIcon}>{isPhotoReel ? '🖼️' : '▶'}</Text>
+            <Text style={styles.playHintText}>
+              {isPhotoReel ? 'Photo Reel • Tap to View Full' : 'Tap to Play Full Screen'}
+            </Text>
           </View>
 
           {/* Top Bar on Reel */}
           <View style={styles.topBar}>
             <View style={styles.counterPill}>
               <Text style={styles.counterText}>
-                {currentIndex + 1} / {reels.length}
+                {currentIndex + 1} / {reels.length} • 🔄 Loop
               </Text>
             </View>
 
@@ -769,9 +828,21 @@ export default function ReelsScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Web HTML5 Video / Native Media Player */}
+          {/* Web HTML5 Video / Native Media Player / Photo Reel */}
           <View style={styles.videoSurfaceWrapper}>
-            {Platform.OS === 'web' ? (
+            {isPhotoReel ? (
+              <Image
+                source={{
+                  uri:
+                    currentReel?.mediaUrl ||
+                    currentReel?.videoUrl ||
+                    reelThumbnailUri ||
+                    'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1080',
+                }}
+                style={styles.reelImage}
+                resizeMode="contain"
+              />
+            ) : Platform.OS === 'web' ? (
               <video
                 ref={videoRef}
                 src={
@@ -1002,6 +1073,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
+  },
+  loopPillContainer: {
+    position: 'absolute',
+    left: 12,
+    top: '42%',
+    zIndex: 25,
+    gap: 10,
+  },
+  loopPillBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  loopPillIcon: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
   },
   centerContainer: {
     flex: 1,

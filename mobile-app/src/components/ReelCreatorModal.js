@@ -34,6 +34,40 @@ const SAMPLE_CLIPS = [
     thumbnailUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800',
     duration: 30,
   },
+  {
+    id: 'sample-clip-4',
+    label: 'Mobile App Demo',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
+    duration: 20,
+  },
+];
+
+const SAMPLE_IMAGES = [
+  {
+    id: 'sample-img-1',
+    label: 'Design System',
+    imageUrl: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=1080',
+    caption: 'My latest UI/UX Design System breakdown & micro-interactions 🎨 #portfolio #design',
+  },
+  {
+    id: 'sample-img-2',
+    label: 'Clean Code',
+    imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1080',
+    caption: 'Clean Architecture in React Native with offline state persistence 💻 #coding #reactnative',
+  },
+  {
+    id: 'sample-img-3',
+    label: 'Certification',
+    imageUrl: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1080',
+    caption: 'Achieved Staff Mobile Engineer Certification! 🏆 #milestone #career',
+  },
+  {
+    id: 'sample-img-4',
+    label: 'Creator Project',
+    imageUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1080',
+    caption: 'Building next-gen digital experiences with AI & Cloud integrations 🚀 #creator #tech',
+  },
 ];
 
 export default function ReelCreatorModal({
@@ -42,16 +76,26 @@ export default function ReelCreatorModal({
   onSubmitReel,
   onShowToast,
 }) {
+  const [mediaType, setMediaType] = useState('video'); // 'video' | 'image'
   const [videoUrl, setVideoUrl] = useState(SAMPLE_CLIPS[0].videoUrl);
+  const [imageUrl, setImageUrl] = useState(SAMPLE_IMAGES[0].imageUrl);
   const [thumbnailUrl, setThumbnailUrl] = useState(SAMPLE_CLIPS[0].thumbnailUrl);
   const [caption, setCaption] = useState('');
   const [duration, setDuration] = useState(15);
   const [visibility, setVisibility] = useState('public'); // 'public' | 'profile-only' | 'private'
   const [isUploading, setIsUploading] = useState(false);
 
+  const activeMediaUrl = mediaType === 'image' ? imageUrl : videoUrl;
+  const activePreviewUrl = mediaType === 'image' ? imageUrl : (thumbnailUrl || videoUrl);
+
   const handlePublish = async () => {
-    if (!videoUrl.trim()) {
+    if (mediaType === 'video' && !videoUrl.trim()) {
       onShowToast?.('Please provide or pick a video clip', 'error');
+      return;
+    }
+
+    if (mediaType === 'image' && !imageUrl.trim()) {
+      onShowToast?.('Please provide or pick a showcase image', 'error');
       return;
     }
 
@@ -62,19 +106,26 @@ export default function ReelCreatorModal({
 
     setIsUploading(true);
     try {
-      const safeThumbnail = (thumbnailUrl && !thumbnailUrl.toLowerCase().endsWith('.mp4') && !thumbnailUrl.toLowerCase().endsWith('.mov'))
-        ? thumbnailUrl.trim()
-        : 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800';
+      const finalMediaUrl = (mediaType === 'image' ? imageUrl : videoUrl).trim();
+      const safeThumbnail = mediaType === 'image'
+        ? finalMediaUrl
+        : (thumbnailUrl && !thumbnailUrl.toLowerCase().endsWith('.mp4') && !thumbnailUrl.toLowerCase().endsWith('.mov'))
+          ? thumbnailUrl.trim()
+          : 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800';
+
+      const finalCaption = caption.trim() || (mediaType === 'image' ? 'My showcase photo reel 📸' : 'My showcase reel 🚀');
 
       await onSubmitReel?.({
-        videoUrl: videoUrl.trim(),
+        mediaType,
+        mediaUrl: finalMediaUrl,
+        videoUrl: finalMediaUrl,
         thumbnailUrl: safeThumbnail,
-        caption: caption.trim() || 'My new showcase reel 🚀',
+        caption: finalCaption,
         durationSeconds: duration || 15,
         visibility: visibility || 'public',
       });
 
-      onShowToast?.('🎉 Reel Published Successfully!', 'success');
+      onShowToast?.(`🎉 ${mediaType === 'image' ? 'Photo Reel' : 'Video Reel'} Published Successfully!`, 'success');
       setCaption('');
       onClose();
     } catch (err) {
@@ -96,7 +147,7 @@ export default function ReelCreatorModal({
           {/* Header */}
           <View style={styles.headerRow}>
             <View style={styles.titleWrapper}>
-              <Text style={styles.headerIcon}>🎬</Text>
+              <Text style={styles.headerIcon}>{mediaType === 'image' ? '🖼️' : '🎬'}</Text>
               <Text style={styles.headerTitle}>Create New Reel</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -105,62 +156,162 @@ export default function ReelCreatorModal({
           </View>
 
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-            {/* Video Preview Chassis */}
+            {/* Media Type Switcher: Video vs Photo Reel */}
+            <Text style={styles.sectionLabel}>Choose Reel Format</Text>
+            <View style={styles.mediaTypeRow}>
+              <TouchableOpacity
+                style={[
+                  styles.mediaTypeBtn,
+                  mediaType === 'video' && styles.mediaTypeBtnActive,
+                ]}
+                onPress={() => {
+                  setMediaType('video');
+                  if (!caption) setCaption('');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.mediaTypeIcon}>📹</Text>
+                <View>
+                  <Text
+                    style={[
+                      styles.mediaTypeTitle,
+                      mediaType === 'video' && styles.mediaTypeTitleActive,
+                    ]}
+                  >
+                    Video Reel
+                  </Text>
+                  <Text style={styles.mediaTypeSub}>MP4 clip • Full motion</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.mediaTypeBtn,
+                  mediaType === 'image' && styles.mediaTypeBtnActive,
+                ]}
+                onPress={() => {
+                  setMediaType('image');
+                  if (!caption) setCaption('');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.mediaTypeIcon}>🖼️</Text>
+                <View>
+                  <Text
+                    style={[
+                      styles.mediaTypeTitle,
+                      mediaType === 'image' && styles.mediaTypeTitleActive,
+                    ]}
+                  >
+                    Photo Reel
+                  </Text>
+                  <Text style={styles.mediaTypeSub}>Image card • High res</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Media Preview Chassis */}
             <View style={styles.previewContainer}>
-              <Image source={{ uri: thumbnailUrl || videoUrl }} style={styles.previewImage} resizeMode="cover" />
+              <Image source={{ uri: activePreviewUrl }} style={styles.previewImage} resizeMode="cover" />
               <View style={styles.previewOverlay}>
                 <View style={styles.durationBadge}>
-                  <Text style={styles.durationBadgeText}>⏱️ {duration}s / 60s max</Text>
+                  <Text style={styles.durationBadgeText}>
+                    {mediaType === 'image' ? '🖼️ Photo Reel' : '📹 Video'} • ⏱️ {duration}s
+                  </Text>
                 </View>
                 <View style={styles.visibilityBadge}>
                   <Text style={styles.visibilityBadgeText}>
-                    {visibility === 'public' ? '🌐 Public' : visibility === 'profile-only' ? '👤 Profile Only' : '🔒 Private'}
+                    {visibility === 'public' ? '🌐 Public Feed' : visibility === 'profile-only' ? '👤 Profile Only' : '🔒 Private'}
                   </Text>
                 </View>
               </View>
             </View>
 
-            {/* Quick Pick Samples / Media Picker */}
-            <Text style={styles.sectionLabel}>Select or Pick Video Media</Text>
-            <View style={styles.sampleClipsRow}>
-              {SAMPLE_CLIPS.map((clip) => (
-                <TouchableOpacity
-                  key={clip.id}
-                  style={[
-                    styles.sampleClipBtn,
-                    videoUrl === clip.videoUrl && styles.sampleClipBtnActive,
-                  ]}
-                  onPress={() => {
-                    setVideoUrl(clip.videoUrl);
-                    setThumbnailUrl(clip.thumbnailUrl);
-                    setDuration(clip.duration);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.sampleClipText,
-                      videoUrl === clip.videoUrl && styles.sampleClipTextActive,
-                    ]}
-                  >
-                    {clip.label} ({clip.duration}s)
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {/* If Photo Reel: Image selection */}
+            {mediaType === 'image' ? (
+              <>
+                <Text style={styles.sectionLabel}>Select Showcase Photo</Text>
+                <View style={styles.sampleClipsRow}>
+                  {SAMPLE_IMAGES.map((img) => (
+                    <TouchableOpacity
+                      key={img.id}
+                      style={[
+                        styles.sampleClipBtn,
+                        imageUrl === img.imageUrl && styles.sampleClipBtnActive,
+                      ]}
+                      onPress={() => {
+                        setImageUrl(img.imageUrl);
+                        setCaption(img.caption);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.sampleClipText,
+                          imageUrl === img.imageUrl && styles.sampleClipTextActive,
+                        ]}
+                      >
+                        {img.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-            {/* Custom URL Input */}
-            <Text style={styles.sectionLabel}>Or Enter Direct Video URL (MP4 / WebM)</Text>
-            <TextInput
-              style={styles.inputField}
-              value={videoUrl}
-              onChangeText={setVideoUrl}
-              placeholder="https://example.com/video.mp4"
-              placeholderTextColor="#64748b"
-              autoCapitalize="none"
-            />
+                {/* Custom Image URL Input */}
+                <Text style={styles.sectionLabel}>Or Enter Direct Image URL (JPG / PNG / WebP)</Text>
+                <TextInput
+                  style={styles.inputField}
+                  value={imageUrl}
+                  onChangeText={setImageUrl}
+                  placeholder="https://images.unsplash.com/... or direct image link"
+                  placeholderTextColor="#64748b"
+                  autoCapitalize="none"
+                />
+              </>
+            ) : (
+              /* If Video Reel: Video selection */
+              <>
+                <Text style={styles.sectionLabel}>Select or Pick Video Media</Text>
+                <View style={styles.sampleClipsRow}>
+                  {SAMPLE_CLIPS.map((clip) => (
+                    <TouchableOpacity
+                      key={clip.id}
+                      style={[
+                        styles.sampleClipBtn,
+                        videoUrl === clip.videoUrl && styles.sampleClipBtnActive,
+                      ]}
+                      onPress={() => {
+                        setVideoUrl(clip.videoUrl);
+                        setThumbnailUrl(clip.thumbnailUrl);
+                        setDuration(clip.duration);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.sampleClipText,
+                          videoUrl === clip.videoUrl && styles.sampleClipTextActive,
+                        ]}
+                      >
+                        {clip.label} ({clip.duration}s)
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Custom URL Input */}
+                <Text style={styles.sectionLabel}>Or Enter Direct Video URL (MP4 / WebM)</Text>
+                <TextInput
+                  style={styles.inputField}
+                  value={videoUrl}
+                  onChangeText={setVideoUrl}
+                  placeholder="https://example.com/video.mp4"
+                  placeholderTextColor="#64748b"
+                  autoCapitalize="none"
+                />
+              </>
+            )}
 
             {/* Duration Selector */}
-            <Text style={styles.sectionLabel}>Duration Limit (Seconds)</Text>
+            <Text style={styles.sectionLabel}>Display Duration Limit (Seconds)</Text>
             <View style={styles.durationRow}>
               {[15, 30, 45, 60].map((d) => (
                 <TouchableOpacity
@@ -184,7 +335,7 @@ export default function ReelCreatorModal({
               style={[styles.inputField, styles.captionInput]}
               value={caption}
               onChangeText={setCaption}
-              placeholder="What's this reel about? Add #coding #skills #portfolio..."
+              placeholder={mediaType === 'image' ? "What's this photo reel about? Add #design #skills #portfolio..." : "What's this video reel about? Add #coding #skills #demo..."}
               placeholderTextColor="#64748b"
               multiline={true}
               numberOfLines={3}
@@ -195,7 +346,7 @@ export default function ReelCreatorModal({
             <Text style={styles.sectionLabel}>Audience Visibility</Text>
             <View style={styles.visibilityRow}>
               {[
-                { id: 'public', label: 'Public Feed', desc: 'Home feed & profile' },
+                { id: 'public', label: 'Public Feed', desc: 'Home feed & everyone can like/share' },
                 { id: 'profile-only', label: 'Profile Only', desc: 'Direct visitors only' },
                 { id: 'private', label: 'Private', desc: 'Only you can see' },
               ].map((v) => (
@@ -239,7 +390,9 @@ export default function ReelCreatorModal({
               {isUploading ? (
                 <ActivityIndicator size="small" color="#020617" />
               ) : (
-                <Text style={styles.publishBtnText}>🚀 Publish Reel</Text>
+                <Text style={styles.publishBtnText}>
+                  🚀 Publish {mediaType === 'image' ? 'Photo Reel' : 'Video Reel'}
+                </Text>
               )}
             </TouchableOpacity>
           </View>
@@ -302,6 +455,42 @@ const styles = StyleSheet.create({
   scrollBody: {
     paddingHorizontal: 20,
     paddingTop: 16,
+  },
+  mediaTypeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  mediaTypeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
+    padding: 12,
+  },
+  mediaTypeBtnActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: '#10b981',
+  },
+  mediaTypeIcon: {
+    fontSize: 20,
+  },
+  mediaTypeTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#cbd5e1',
+  },
+  mediaTypeTitleActive: {
+    color: '#34d399',
+  },
+  mediaTypeSub: {
+    fontSize: 9,
+    color: '#64748b',
+    marginTop: 2,
   },
   previewContainer: {
     width: '100%',
