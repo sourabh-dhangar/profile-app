@@ -1,10 +1,25 @@
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+
+// Defensive loader for FileSystem to prevent any import-time crashes in Expo Go or web
+let FileSystem = null;
+try {
+  FileSystem = require('expo-file-system');
+} catch (e) {
+  console.log('[AuthStorage] expo-file-system require note:', e?.message);
+}
 
 const AUTH_FILE_NAME = 'myprofile_auth_session.json';
-const AUTH_FILE_URI = FileSystem.documentDirectory
-  ? `${FileSystem.documentDirectory}${AUTH_FILE_NAME}`
-  : null;
+
+const getAuthFileUri = () => {
+  try {
+    if (FileSystem && FileSystem.documentDirectory) {
+      return `${FileSystem.documentDirectory}${AUTH_FILE_NAME}`;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return null;
+};
 
 // In-memory session cache for instant access
 let memorySession = null;
@@ -38,9 +53,10 @@ export const saveAuthSession = async (token, user) => {
 
   // 2. Native FileSystem (Persistent on Android and iOS disk)
   try {
-    if (AUTH_FILE_URI) {
-      await FileSystem.writeAsStringAsync(AUTH_FILE_URI, JSON.stringify(payload));
-      console.log('[AuthStorage] Session saved to disk:', AUTH_FILE_URI);
+    const fileUri = getAuthFileUri();
+    if (fileUri && FileSystem && FileSystem.writeAsStringAsync) {
+      await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(payload));
+      console.log('[AuthStorage] Session saved to disk:', fileUri);
     }
   } catch (e) {
     console.log('[AuthStorage] FileSystem write error:', e?.message);
@@ -53,15 +69,19 @@ export const saveAuthSession = async (token, user) => {
 export const loadAuthSession = async () => {
   // 1. Try Native FileSystem first
   try {
-    if (AUTH_FILE_URI) {
-      const info = await FileSystem.getInfoAsync(AUTH_FILE_URI);
-      if (info.exists) {
-        const raw = await FileSystem.readAsStringAsync(AUTH_FILE_URI);
+    const fileUri = getAuthFileUri();
+    if (fileUri && FileSystem && FileSystem.getInfoAsync && FileSystem.readAsStringAsync) {
+      const info = await FileSystem.getInfoAsync(fileUri);
+      if (info && info.exists) {
+        const raw = await FileSystem.readAsStringAsync(fileUri);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed && parsed.token) {
             memorySession = parsed;
-            console.log('[AuthStorage] Session restored from disk for user:', parsed.user?.profile?.username || 'user');
+            console.log(
+              '[AuthStorage] Session restored from disk for user:',
+              parsed.user?.profile?.username || 'user'
+            );
             return parsed;
           }
         }
@@ -117,8 +137,9 @@ export const clearAuthSession = async () => {
 
   // 2. Clear Native FileSystem file
   try {
-    if (AUTH_FILE_URI) {
-      await FileSystem.deleteAsync(AUTH_FILE_URI, { idempotent: true });
+    const fileUri = getAuthFileUri();
+    if (fileUri && FileSystem && FileSystem.deleteAsync) {
+      await FileSystem.deleteAsync(fileUri, { idempotent: true });
       console.log('[AuthStorage] Session file removed from disk');
     }
   } catch (e) {}
