@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, View, StatusBar, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, SafeAreaView, View, StatusBar, Text, TouchableOpacity, ActivityIndicator, BackHandler } from 'react-native';
 import { COLORS } from './src/theme';
 import Header from './src/components/Header';
 import TabBar from './src/components/TabBar';
@@ -255,6 +255,20 @@ function MainApp() {
     };
     restoreSession();
   }, []);
+
+  // Handle Android Hardware Back Button safely without resetting session
+  useEffect(() => {
+    const onBackPress = () => {
+      const isAuth = Boolean(authToken || currentUser?.token);
+      if (isAuth && activeTab !== 'profile') {
+        setActiveTab('profile');
+        return true;
+      }
+      return false;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, [activeTab, authToken, currentUser]);
 
   // Strict Authentication Guard when activeTab changes
   useEffect(() => {

@@ -1,27 +1,41 @@
 import { Platform } from 'react-native';
 
-// Defensive loader for FileSystem to prevent any import-time crashes in Expo Go or web
-let FileSystem = null;
-try {
-  FileSystem = require('expo-file-system');
-} catch (e) {
-  console.log('[AuthStorage] expo-file-system require note:', e?.message);
-}
-
 const AUTH_FILE_NAME = 'myprofile_auth_session.json';
 
-const getAuthFileUri = () => {
+// Safe resolver for Expo FileSystem supporting ES imports, CJS require, and unwrap
+const getFileSystemModule = () => {
   try {
-    if (FileSystem && FileSystem.documentDirectory) {
-      return `${FileSystem.documentDirectory}${AUTH_FILE_NAME}`;
+    const fs = require('expo-file-system');
+    if (fs) {
+      if (fs.documentDirectory || fs.cacheDirectory || fs.writeAsStringAsync) {
+        return fs;
+      }
+      if (fs.default && (fs.default.documentDirectory || fs.default.cacheDirectory || fs.default.writeAsStringAsync)) {
+        return fs.default;
+      }
     }
-  } catch (e) {
-    // ignore
+    return fs || null;
+  } catch (err) {
+    console.log('[AuthStorage] FileSystem loader note:', err?.message);
+    return null;
   }
-  return null;
 };
 
-// In-memory session cache for instant access
+const getCandidateFileUris = () => {
+  const fs = getFileSystemModule();
+  const uris = [];
+  if (fs) {
+    if (fs.documentDirectory) {
+      uris.push(`${fs.documentDirectory}${AUTH_FILE_NAME}`);
+    }
+    if (fs.cacheDirectory) {
+      uris.push(`${fs.cacheDirectory}${AUTH_FILE_NAME}`);
+    }
+  }
+  return uris;
+};
+
+// In-memory runtime session cache
 let memorySession = null;
 
 /**
@@ -38,6 +52,9 @@ export const saveAuthSession = async (token, user) => {
   };
 
   memorySession = payload;
+  if (typeof global !== 'undefined') {
+    global.__MYPROFILE_AUTH_SESSION__ = payload;
+  }
 
   // 1. Web LocalStorage (for web browsers)
   try {
@@ -46,20 +63,29 @@ export const saveAuthSession = async (token, user) => {
       if (user) {
         window.localStorage.setItem('myprofile_mobile_user', JSON.stringify(user));
       }
+      console.log('[AuthStorage] Session saved to web localStorage');
     }
   } catch (e) {
-    // Ignore localStorage errors (e.g. private browsing quota)
+    // Ignore web private mode quota errors
   }
 
-  // 2. Native FileSystem (Persistent on Android and iOS disk)
+  // 2. Native FileSystem (Persistent on Android and iOS disk across app termination)
   try {
-    const fileUri = getAuthFileUri();
-    if (fileUri && FileSystem && FileSystem.writeAsStringAsync) {
-      await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(payload));
-      console.log('[AuthStorage] Session saved to disk:', fileUri);
+    const fs = getFileSystemModule();
+    const uris = getCandidateFileUris();
+    if (fs && fs.writeAsStringAsync && uris.length > 0) {
+      const payloadStr = JSON.stringify(payload);
+      for (const uri of uris) {
+        try {
+          await fs.writeAsStringAsync(uri, payloadStr);
+          console.log('[AuthStorage] Session saved to disk:', uri);
+        } catch (writeErr) {
+          console.log('[AuthStorage] FileSystem write error on', uri, writeErr?.message);
+        }
+      }
     }
   } catch (e) {
-    console.log('[AuthStorage] FileSystem write error:', e?.message);
+    console.log('[AuthStorage] FileSystem save error:', e?.message);
   }
 };
 
@@ -67,23 +93,39 @@ export const saveAuthSession = async (token, user) => {
  * Retrieve saved authentication session on app start.
  */
 export const loadAuthSession = async () => {
-  // 1. Try Native FileSystem first
+  // 1. Try Native FileSystem disk files first (Android & iOS)
   try {
-    const fileUri = getAuthFileUri();
-    if (fileUri && FileSystem && FileSystem.getInfoAsync && FileSystem.readAsStringAsync) {
-      const info = await FileSystem.getInfoAsync(fileUri);
-      if (info && info.exists) {
-        const raw = await FileSystem.readAsStringAsync(fileUri);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && parsed.token) {
-            memorySession = parsed;
-            console.log(
-              '[AuthStorage] Session restored from disk for user:',
-              parsed.user?.profile?.username || 'user'
-            );
-            return parsed;
+    const fs = getFileSystemModule();
+    const uris = getCandidateFileUris();
+    if (fs && fs.readAsStringAsync && uris.length > 0) {
+      for (const uri of uris) {
+        try {
+          let exists = true;
+          if (fs.getInfoAsync) {
+            const info = await fs.getInfoAsync(uri);
+            exists = Boolean(info && info.exists);
           }
+          if (exists) {
+            const raw = await fs.readAsStringAsync(uri);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed && parsed.token) {
+                memorySession = parsed;
+                if (typeof global !== 'undefined') {
+                  global.__MYPROFILE_AUTH_SESSION__ = parsed;
+                }
+                console.log(
+                  '[AuthStorage] Session restored from disk:',
+                  uri,
+                  'user:',
+                  parsed.user?.profile?.username || 'user'
+                );
+                return parsed;
+              }
+            }
+          }
+        } catch (readErr) {
+          console.log('[AuthStorage] FileSystem read attempt note on', uri, readErr?.message);
         }
       }
     }
@@ -91,7 +133,7 @@ export const loadAuthSession = async () => {
     console.log('[AuthStorage] FileSystem read error:', e?.message);
   }
 
-  // 2. Try Web LocalStorage
+  // 2. Try Web LocalStorage (for web browsers)
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const savedToken = window.localStorage.getItem('myprofile_mobile_token');
@@ -113,8 +155,12 @@ export const loadAuthSession = async () => {
     console.log('[AuthStorage] localStorage read error:', e?.message);
   }
 
-  // 3. Fallback to memory
+  // 3. Fallback to memory / global
   if (memorySession && memorySession.token) {
+    return memorySession;
+  }
+  if (typeof global !== 'undefined' && global.__MYPROFILE_AUTH_SESSION__?.token) {
+    memorySession = global.__MYPROFILE_AUTH_SESSION__;
     return memorySession;
   }
 
@@ -126,6 +172,9 @@ export const loadAuthSession = async () => {
  */
 export const clearAuthSession = async () => {
   memorySession = null;
+  if (typeof global !== 'undefined') {
+    delete global.__MYPROFILE_AUTH_SESSION__;
+  }
 
   // 1. Clear Web LocalStorage
   try {
@@ -135,12 +184,17 @@ export const clearAuthSession = async () => {
     }
   } catch (e) {}
 
-  // 2. Clear Native FileSystem file
+  // 2. Clear Native FileSystem disk files
   try {
-    const fileUri = getAuthFileUri();
-    if (fileUri && FileSystem && FileSystem.deleteAsync) {
-      await FileSystem.deleteAsync(fileUri, { idempotent: true });
-      console.log('[AuthStorage] Session file removed from disk');
+    const fs = getFileSystemModule();
+    const uris = getCandidateFileUris();
+    if (fs && fs.deleteAsync && uris.length > 0) {
+      for (const uri of uris) {
+        try {
+          await fs.deleteAsync(uri, { idempotent: true });
+          console.log('[AuthStorage] Session file removed from disk:', uri);
+        } catch (delErr) {}
+      }
     }
   } catch (e) {}
 };
