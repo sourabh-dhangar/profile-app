@@ -60,10 +60,32 @@ const ReelsFeedPage = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex, reels.length, isPlaying]);
 
+  // Force autoplay whenever the active reel or reels list loads
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = isMuted;
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+          })
+          .catch(() => {
+            // Autoplay with sound might be blocked, retry muted to ensure instant playback
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              setIsMuted(true);
+              videoRef.current.play().catch(() => {});
+            }
+          });
+      }
+    }
+  }, [currentIndex, reels, isMuted]);
+
   const fetchReelsFeed = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/reels/feed');
+      const res = await api.get('/reels/feed?limit=50');
       if (res.data.success) {
         const fetched = res.data.data.reels || [];
         setReels(fetched);
@@ -219,6 +241,20 @@ const ReelsFeedPage = () => {
           loop
           muted={isMuted}
           playsInline
+          onLoadedMetadata={(e) => {
+            e.currentTarget.muted = isMuted;
+            const p = e.currentTarget.play();
+            if (p !== undefined) {
+              p.catch(() => {
+                e.currentTarget.muted = true;
+                e.currentTarget.play().catch(() => {});
+              });
+            }
+          }}
+          onCanPlay={(e) => {
+            const p = e.currentTarget.play();
+            if (p !== undefined) p.catch(() => {});
+          }}
           onClick={handleVideoTap}
           className="w-full h-full object-cover cursor-pointer"
         />

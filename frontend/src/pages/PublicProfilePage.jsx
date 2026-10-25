@@ -152,13 +152,15 @@ const PublicProfilePage = () => {
 
   useEffect(() => {
     if (videoPlayerRef.current) {
+      videoPlayerRef.current.muted = isMuted;
       if (isPlaying) {
-        videoPlayerRef.current.play().catch(() => {});
+        const p = videoPlayerRef.current.play();
+        if (p !== undefined) p.catch(() => {});
       } else {
         videoPlayerRef.current.pause();
       }
     }
-  }, [isPlaying, activeReel]);
+  }, [isPlaying, activeReel, isMuted]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -713,6 +715,20 @@ const PublicProfilePage = () => {
                         loop
                         playsInline
                         muted={isMuted}
+                        onLoadedMetadata={(e) => {
+                          e.currentTarget.muted = isMuted;
+                          const p = e.currentTarget.play();
+                          if (p !== undefined) {
+                            p.catch(() => {
+                              e.currentTarget.muted = true;
+                              e.currentTarget.play().catch(() => {});
+                            });
+                          }
+                        }}
+                        onCanPlay={(e) => {
+                          const p = e.currentTarget.play();
+                          if (p !== undefined) p.catch(() => {});
+                        }}
                         className="w-full h-full object-cover"
                       />
                     );

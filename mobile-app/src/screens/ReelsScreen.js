@@ -262,6 +262,24 @@ export default function ReelsScreen({
     }
   };
 
+  const handlePlayReelVideo = (targetReel = null) => {
+    const reel = targetReel || currentReel;
+    const streamUrl = reel?.streamUrl || (reel?._id ? `https://myprofile-official-api.vercel.app/api/v1/reels/${reel._id}/stream` : null);
+    const targetUrl = streamUrl || normalizeMediaUrl(reel?.videoUrl || reel?.mediaUrl, 'video');
+
+    if (targetUrl) {
+      if (Platform.OS === 'web') {
+        setShowVideoModal(true);
+      } else {
+        Linking.openURL(targetUrl).catch(() => {
+          onShowToast?.('Could not open video stream', 'error');
+        });
+      }
+    } else {
+      setShowVideoModal(true);
+    }
+  };
+
   const handleCardTap = (index = currentIndex) => {
     setCurrentIndex(index);
     const now = Date.now();
@@ -275,10 +293,10 @@ export default function ReelsScreen({
       lastTapRef.current = 0;
     } else {
       lastTapRef.current = now;
-      // Single tap launches full-screen video player
+      // Single tap launches video player directly
       setTimeout(() => {
         if (lastTapRef.current === now) {
-          setShowVideoModal(true);
+          handlePlayReelVideo(targetReel);
         }
       }, 320);
     }

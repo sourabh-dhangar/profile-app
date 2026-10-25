@@ -546,7 +546,7 @@ function MainApp() {
           setReels([]);
         }
       } else {
-        const res = await fetchReels(1, 20, tag, search);
+        const res = await fetchReels(1, 50, tag, search);
         if (res.success && res.data?.reels?.length > 0) {
           setReels(res.data.reels);
         } else {

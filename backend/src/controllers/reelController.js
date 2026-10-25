@@ -43,20 +43,29 @@ const calculateReelScore = (reel) => {
   const gravity = 1.15;
   const decayedEngagement = (engagementPoints + 20) / Math.pow(ageHours + 2, gravity);
 
-  // 4. Moderate Pin weight
-  const pinBoost = reel.isPinned ? 120 : 0;
+  // 4. High Pin weight
+  const pinBoost = reel.isPinned ? 5000 : 0;
 
-  return freshnessBoost + decayedEngagement + pinBoost;
+  // 5. Platform creator priority
+  const creatorUser = (reel.profileId && typeof reel.profileId === 'object') ? (reel.profileId.username || '') : '';
+  const isPlatformCreator = creatorUser === 'sourabh' || creatorUser === 'sourabh-dhangar';
+  const creatorBoost = isPlatformCreator ? 10000 : 0;
+
+  // Deprioritize automated test generated reels
+  const isTest = creatorUser.startsWith('tester_') || creatorUser.startsWith('creator_mv') || creatorUser.startsWith('peer_');
+  const testPenalty = isTest ? -3000 : 0;
+
+  return creatorBoost + pinBoost + freshnessBoost + decayedEngagement + testPenalty;
 };
 
 /**
  * Get Public Reels Feed with Instagram Discovery Algorithm
- * GET /api/v1/reels/feed?page=1&limit=20
+ * GET /api/v1/reels/feed?page=1&limit=50
  */
 const getFeed = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
     const skip = (page - 1) * limit;
     const { tag, search } = req.query;
 
