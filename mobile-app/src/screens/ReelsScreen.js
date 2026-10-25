@@ -5,6 +5,7 @@ import {
   View,
   Image,
   TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   Dimensions,
   Modal,
@@ -12,7 +13,6 @@ import {
   ScrollView,
   FlatList,
   Platform,
-  PanResponder,
   Share,
 } from 'react-native';
 import { COLORS } from '../theme';
@@ -126,48 +126,42 @@ export default function ReelsScreen({
     ? currentReel.thumbnailUrl
     : 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800';
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        return (
-          Math.abs(gestureState.dy) > 20 &&
-          Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
-        );
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const total = reelsLengthRef.current || 1;
-        if (gestureState.dy < -30) {
-          // Swipe up: next reel in infinite loop
-          setCurrentIndex((prev) => (prev + 1) % total);
-          setIsPlaying(true);
-        } else if (gestureState.dy > 30) {
-          // Swipe down: previous reel in infinite loop
-          setCurrentIndex((prev) => (prev - 1 + total) % total);
-          setIsPlaying(true);
-        }
-      },
-    })
-  ).current;
+  const viewabilityConfigRef = useRef({
+    itemVisiblePercentThreshold: 50,
+  });
 
-  const handleToggleBookmark = async () => {
+  const onViewableItemsChangedRef = useRef(({ viewableItems }) => {
+    if (viewableItems && viewableItems.length > 0) {
+      const activeItem = viewableItems[0];
+      if (typeof activeItem.index === 'number') {
+        setCurrentIndex(activeItem.index);
+        setIsPlaying(true);
+      }
+    }
+  });
+
+  const handleToggleBookmark = async (targetId = null) => {
     if (!authToken) {
       onShowToast('Sign in to save reels to your vault 🔖', 'info');
       if (onNavigateToAuth) onNavigateToAuth();
       return;
     }
-    const nextBookmarked = !isBookmarked;
-    setBookmarkedMap((prev) => ({ ...prev, [reelId]: nextBookmarked }));
+    const id = targetId || reelId;
+    const nextBookmarked = !bookmarkedMap[id];
+    const targetReel = reels.find((r) => (r._id || r.id) === id) || currentReel;
+    const currentCount = (bookmarksCountMap[id] ?? targetReel?.bookmarksCount) || 0;
+
+    setBookmarkedMap((prev) => ({ ...prev, [id]: nextBookmarked }));
     setBookmarksCountMap((prev) => ({
       ...prev,
-      [reelId]: nextBookmarked ? bookmarksCount + 1 : Math.max(bookmarksCount - 1, 0),
+      [id]: nextBookmarked ? currentCount + 1 : Math.max(currentCount - 1, 0),
     }));
 
-    if (onToggleBookmark && currentReel?._id) {
-      const res = await onToggleBookmark(currentReel._id);
+    if (onToggleBookmark && id) {
+      const res = await onToggleBookmark(id);
       if (res) {
-        setBookmarkedMap((prev) => ({ ...prev, [reelId]: res.isBookmarked }));
-        setBookmarksCountMap((prev) => ({ ...prev, [reelId]: res.bookmarksCount }));
+        setBookmarkedMap((prev) => ({ ...prev, [id]: res.isBookmarked }));
+        setBookmarksCountMap((prev) => ({ ...prev, [id]: res.bookmarksCount }));
       }
     }
   };
@@ -219,7 +213,14 @@ export default function ReelsScreen({
     if (index >= 0 && index < reels.length) {
       setCurrentIndex(index);
       setIsPlaying(true);
-      flatListRef.current?.scrollToIndex({ index, animated: true });
+      try {
+        flatListRef.current?.scrollToIndex({ index, animated: true });
+      } catch (e) {
+        flatListRef.current?.scrollToOffset({
+          offset: index * feedHeight,
+          animated: true,
+        });
+      }
     }
   };
 
@@ -235,12 +236,16 @@ export default function ReelsScreen({
     scrollToReelIndex(prevIndex);
   };
 
-  const handleLikeToggle = () => {
-    const nextLiked = !isLiked;
-    setLikedMap((prev) => ({ ...prev, [reelId]: nextLiked }));
+  const handleLikeToggle = (targetId = null) => {
+    const id = targetId || reelId;
+    const nextLiked = !likedMap[id];
+    const targetReel = reels.find((r) => (r._id || r.id) === id) || currentReel;
+    const currentCount = (likesCountMap[id] ?? targetReel?.likesCount) || 0;
+
+    setLikedMap((prev) => ({ ...prev, [id]: nextLiked }));
     setLikesCountMap((prev) => ({
       ...prev,
-      [reelId]: nextLiked ? likesCount + 1 : Math.max(likesCount - 1, 0),
+      [id]: nextLiked ? currentCount + 1 : Math.max(currentCount - 1, 0),
     }));
 
     if (nextLiked) {
@@ -254,15 +259,12 @@ export default function ReelsScreen({
     setCurrentIndex(index);
     const now = Date.now();
     const diff = now - lastTapRef.current;
+    const targetReel = reels[index] || currentReel;
+    const targetReelId = targetReel?._id || `reel-${index}`;
 
     if (diff < 300) {
       // Double tap like!
-      if (!isLiked) {
-        handleLikeToggle();
-      } else {
-        setShowHeartBurst(true);
-        setTimeout(() => setShowHeartBurst(false), 800);
-      }
+      handleLikeToggle(targetReelId);
       lastTapRef.current = 0;
     } else {
       lastTapRef.current = now;
@@ -347,14 +349,20 @@ export default function ReelsScreen({
     }
   };
 
-  const handleShare = async () => {
-    const creator = creatorUsername || 'creator';
+  const handleShare = async (targetReel = null) => {
+    const reel = targetReel || currentReel;
+    const creator = reel?.profileId?.username || creatorUsername || 'creator';
+    const id = reel?._id || reel?.id;
+    const isPhoto = Boolean(
+      reel?.mediaType === 'image' ||
+      (reel?.videoUrl && reel.videoUrl.match(/\.(jpeg|jpg|png|webp|gif)/i))
+    );
     const reelShareUrl = `https://myprofile-official-web.vercel.app/p/${creator}`;
-    const shareMessage = `Check out this ${isPhotoReel ? 'photo reel' : 'reel'} by @${creator} on MyProfile: "${currentReel?.caption || 'Showcase'}"\n\n${reelShareUrl}`;
+    const shareMessage = `Check out this ${isPhoto ? 'photo reel' : 'reel'} by @${creator} on MyProfile: "${reel?.caption || 'Showcase'}"\n\n${reelShareUrl}`;
 
     try {
-      if (currentReel?._id) {
-        shareReelApi(currentReel._id, authToken).catch(() => {});
+      if (id) {
+        shareReelApi(id, authToken).catch(() => {});
       }
       if (Platform.OS === 'web') {
         if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -526,7 +534,7 @@ export default function ReelsScreen({
           style={styles.feedWrapper}
           onLayout={(e) => {
             const { height } = e.nativeEvent.layout;
-            if (height > 100 && Math.abs(height - feedHeight) > 2) {
+            if (height > 100 && Math.abs(height - feedHeight) > 1) {
               setFeedHeight(Math.round(height));
             }
           }}
@@ -535,11 +543,28 @@ export default function ReelsScreen({
             ref={flatListRef}
             data={reels}
             keyExtractor={(item, index) => item._id || `reel-${index}`}
-            pagingEnabled={true}
-            showsVerticalScrollIndicator={false}
+            style={{ flex: 1, width: '100%' }}
+            contentContainerStyle={{ flexGrow: 1 }}
+            pagingEnabled={false}
             snapToInterval={feedHeight}
             snapToAlignment="start"
             decelerationRate="fast"
+            disableIntervalMomentum={true}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            scrollEventThrottle={16}
+            removeClippedSubviews={false}
+            initialNumToRender={3}
+            maxToRenderPerBatch={3}
+            windowSize={5}
+            viewabilityConfig={viewabilityConfigRef.current}
+            onViewableItemsChanged={onViewableItemsChangedRef.current}
+            onScrollToIndexFailed={(info) => {
+              flatListRef.current?.scrollToOffset({
+                offset: info.index * feedHeight,
+                animated: true,
+              });
+            }}
             onMomentumScrollEnd={(e) => {
               const offsetY = e.nativeEvent.contentOffset.y;
               const index = Math.round(offsetY / feedHeight);
@@ -581,11 +606,46 @@ export default function ReelsScreen({
 
               return (
                 <View style={{ height: feedHeight, width: '100%', paddingBottom: 6 }}>
-                  <TouchableOpacity
-                    style={styles.reelChassis}
-                    activeOpacity={0.95}
-                    onPress={() => handleCardTap(index)}
-                  >
+                  <View style={styles.reelChassis}>
+                    {/* Background Media Pressable: Tapping triggers full screen / double tap like */}
+                    {/* delayPressIn={60} ensures vertical scroll / swipe gestures are NEVER intercepted */}
+                    <Pressable
+                      style={StyleSheet.absoluteFillObject}
+                      onPress={() => handleCardTap(index)}
+                      delayPressIn={60}
+                    >
+                      <Image
+                        source={{ uri: itemCoverUri }}
+                        style={styles.reelImage}
+                        resizeMode="cover"
+                      />
+                      {/* Vignette Gradients */}
+                      <View style={styles.topVignette} pointerEvents="none" />
+                      <View style={styles.bottomVignette} pointerEvents="none" />
+                    </Pressable>
+
+                    {/* Double-tap Heart Burst Overlay */}
+                    {showHeartBurst && currentIndex === index && (
+                      <View style={styles.centerOverlay} pointerEvents="none">
+                        <Text style={styles.heartBurstIcon}>❤️</Text>
+                      </View>
+                    )}
+
+                    {/* Tap Play Trigger Banner */}
+                    <TouchableOpacity
+                      style={styles.playHintBadge}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setCurrentIndex(index);
+                        setShowVideoModal(true);
+                      }}
+                    >
+                      <Text style={styles.playHintIcon}>{itemIsPhoto ? '🖼️' : '▶'}</Text>
+                      <Text style={styles.playHintText}>
+                        {itemIsPhoto ? 'Photo Reel • Tap to View Full' : 'Tap to Play Full Screen'}
+                      </Text>
+                    </TouchableOpacity>
+
                     {/* Floating Loop Controls */}
                     <View style={styles.loopPillContainer}>
                       <TouchableOpacity
@@ -613,37 +673,11 @@ export default function ReelsScreen({
                       </TouchableOpacity>
                     </View>
 
-                    {/* Cover Media Image */}
-                    <Image
-                      source={{ uri: itemCoverUri }}
-                      style={styles.reelImage}
-                      resizeMode="cover"
-                    />
-
-                    {/* Vignette Gradients */}
-                    <View style={styles.topVignette} pointerEvents="none" />
-                    <View style={styles.bottomVignette} pointerEvents="none" />
-
-                    {/* Double-tap Heart Burst Overlay */}
-                    {showHeartBurst && currentIndex === index && (
-                      <View style={styles.centerOverlay}>
-                        <Text style={styles.heartBurstIcon}>❤️</Text>
-                      </View>
-                    )}
-
-                    {/* Tap Play Trigger Banner */}
-                    <View style={styles.playHintBadge}>
-                      <Text style={styles.playHintIcon}>{itemIsPhoto ? '🖼️' : '▶'}</Text>
-                      <Text style={styles.playHintText}>
-                        {itemIsPhoto ? 'Photo Reel • Tap to View Full' : 'Tap to Play Full Screen'}
-                      </Text>
-                    </View>
-
                     {/* Top Bar on Reel */}
-                    <View style={styles.topBar}>
+                    <View style={styles.topBar} pointerEvents="box-none">
                       <View style={styles.counterPill}>
                         <Text style={styles.counterText}>
-                          {index + 1} / {reels.length} • ↕️ Scroll to browse
+                          {index + 1} / {reels.length} • ↕️ Swipe to browse
                         </Text>
                       </View>
 
@@ -681,7 +715,7 @@ export default function ReelsScreen({
                       {/* Bookmark / Saved Vault Button */}
                       <TouchableOpacity
                         style={[styles.actionBtn, itemIsBookmarked && styles.actionBtnActive]}
-                        onPress={handleToggleBookmark}
+                        onPress={() => handleToggleBookmark(itemReelId)}
                         activeOpacity={0.8}
                       >
                         <Text style={styles.actionIcon}>{itemIsBookmarked ? '🔖' : '📑'}</Text>
@@ -823,29 +857,7 @@ export default function ReelsScreen({
                         </View>
                       </View>
                     </View>
-
-                    {/* Quick Chevrons for Prev/Next */}
-                    <View style={styles.navChevrons}>
-                      <TouchableOpacity
-                        style={[styles.chevronBtn, index === 0 && styles.chevronDisabled]}
-                        disabled={index === 0}
-                        onPress={() => scrollToReelIndex(Math.max(0, index - 1))}
-                      >
-                        <Text style={styles.chevronText}>▲</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.chevronBtn,
-                          index === reels.length - 1 && styles.chevronDisabled,
-                        ]}
-                        disabled={index === reels.length - 1}
-                        onPress={() => scrollToReelIndex(Math.min(reels.length - 1, index + 1))}
-                      >
-                        <Text style={styles.chevronText}>▼</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </TouchableOpacity>
+                  </View>
                 </View>
               );
             }}
