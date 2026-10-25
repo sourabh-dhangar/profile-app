@@ -21,24 +21,33 @@ const searchByPhone = async (req, res, next) => {
     const hashed = hashPhone(phone, countryCode);
 
     // Query lookup table
-    const lookup = await ProfileLookup.findOne({
+    let lookup = await ProfileLookup.findOne({
       hashedPhone: hashed,
       allowDiscovery: true,
     });
 
-    // PRIVACY ENFORCEMENT: identical 404 for not found OR opted out
-    if (!lookup) {
-      return res.status(404).json({
-        success: false,
-        message: 'No discoverable profile found for this phone number',
+    let profile = null;
+    if (lookup) {
+      profile = await Profile.findOne({
+        _id: lookup.profileId,
+        status: 'published',
       });
     }
 
-    // Retrieve published profile
-    const profile = await Profile.findOne({
-      _id: lookup.profileId,
-      status: 'published',
-    });
+    // Dynamic fallback: matches last 10 digits in contactDetails or businessDetails
+    if (!profile) {
+      const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
+      if (cleanDigits.length === 10) {
+        profile = await Profile.findOne({
+          $or: [
+            { 'contactDetails.phone': { $regex: cleanDigits } },
+            { 'contactDetails.whatsapp': { $regex: cleanDigits } },
+            { 'businessDetails.whatsappNumber': { $regex: cleanDigits } },
+          ],
+          status: 'published',
+        });
+      }
+    }
 
     if (!profile) {
       return res.status(404).json({

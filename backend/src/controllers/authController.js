@@ -293,12 +293,12 @@ const verifyOtp = async (req, res, next) => {
         console.log('Error creating starter sections:', secErr.message);
       }
 
-      // Add to ProfileLookup for phone discovery
+      // Add to ProfileLookup for phone discovery (enabled by default so colleagues & clients can find creator)
       try {
         await ProfileLookup.create({
           hashedPhone: hashPhone(normalized),
           profileId: profile._id,
-          allowDiscovery: false,
+          allowDiscovery: true,
         });
       } catch (lookupErr) {
         // Ignore duplicate if already registered
