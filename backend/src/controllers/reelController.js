@@ -86,6 +86,7 @@ const getFeed = async (req, res, next) => {
     const scoredReels = allCandidates
       .map((r) => {
         const obj = r.toObject ? r.toObject() : { ...r };
+        obj.streamUrl = `${config.publicUrl}/api/v1/reels/${obj._id}/stream`;
         obj.videoUrl = normalizeMediaUrl(obj.videoUrl, obj.mediaType || 'video');
         obj.mediaUrl = normalizeMediaUrl(obj.mediaUrl || obj.videoUrl, obj.mediaType || 'video');
         obj.thumbnailUrl = normalizeMediaUrl(obj.thumbnailUrl, 'thumbnail');
@@ -266,9 +267,15 @@ const getReelById = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Reel not found' });
     }
 
+    const obj = reel.toObject ? reel.toObject() : { ...reel };
+    obj.streamUrl = `${config.publicUrl}/api/v1/reels/${obj._id}/stream`;
+    obj.videoUrl = normalizeMediaUrl(obj.videoUrl, obj.mediaType || 'video');
+    obj.mediaUrl = normalizeMediaUrl(obj.mediaUrl || obj.videoUrl, obj.mediaType || 'video');
+    obj.thumbnailUrl = normalizeMediaUrl(obj.thumbnailUrl, 'thumbnail');
+
     res.status(200).json({
       success: true,
-      data: reel,
+      data: obj,
     });
   } catch (error) {
     next(error);
@@ -447,10 +454,19 @@ const getFollowingFeed = async (req, res, next) => {
 
     const total = await Reel.countDocuments(query);
 
+    const mappedReels = reels.map((r) => {
+      const obj = r.toObject ? r.toObject() : { ...r };
+      obj.streamUrl = `${config.publicUrl}/api/v1/reels/${obj._id}/stream`;
+      obj.videoUrl = normalizeMediaUrl(obj.videoUrl, obj.mediaType || 'video');
+      obj.mediaUrl = normalizeMediaUrl(obj.mediaUrl || obj.videoUrl, obj.mediaType || 'video');
+      obj.thumbnailUrl = normalizeMediaUrl(obj.thumbnailUrl, 'thumbnail');
+      return obj;
+    });
+
     res.status(200).json({
       success: true,
       data: {
-        reels,
+        reels: mappedReels,
         pagination: {
           page,
           limit,
@@ -673,11 +689,16 @@ const getSavedReels = async (req, res, next) => {
 
     const reels = bookmarks
       .filter((b) => b.reelId)
-      .map((b) => ({
-        ...b.reelId.toObject(),
-        isBookmarked: true,
-        bookmarkedAt: b.createdAt,
-      }));
+      .map((b) => {
+        const obj = b.reelId.toObject ? b.reelId.toObject() : { ...b.reelId };
+        obj.streamUrl = `${config.publicUrl}/api/v1/reels/${obj._id}/stream`;
+        obj.videoUrl = normalizeMediaUrl(obj.videoUrl, obj.mediaType || 'video');
+        obj.mediaUrl = normalizeMediaUrl(obj.mediaUrl || obj.videoUrl, obj.mediaType || 'video');
+        obj.thumbnailUrl = normalizeMediaUrl(obj.thumbnailUrl, 'thumbnail');
+        obj.isBookmarked = true;
+        obj.bookmarkedAt = b.createdAt;
+        return obj;
+      });
 
     const total = await Bookmark.countDocuments({ userId: req.user._id });
 
@@ -776,11 +797,20 @@ const getMyReels = async (req, res, next) => {
         select: 'name username photoUrl profileType',
       });
 
+    const mappedReels = reels.map((r) => {
+      const obj = r.toObject ? r.toObject() : { ...r };
+      obj.streamUrl = `${config.publicUrl}/api/v1/reels/${obj._id}/stream`;
+      obj.videoUrl = normalizeMediaUrl(obj.videoUrl, obj.mediaType || 'video');
+      obj.mediaUrl = normalizeMediaUrl(obj.mediaUrl || obj.videoUrl, obj.mediaType || 'video');
+      obj.thumbnailUrl = normalizeMediaUrl(obj.thumbnailUrl, 'thumbnail');
+      return obj;
+    });
+
     res.status(200).json({
       success: true,
       data: {
-        reels,
-        total: reels.length,
+        reels: mappedReels,
+        total: mappedReels.length,
       },
     });
   } catch (error) {
@@ -842,6 +872,78 @@ const updateReelVisibility = async (req, res, next) => {
   }
 };
 
+
+/**
+ * Stream reel video directly with Range support & Content-Disposition: inline
+ * GET /api/v1/reels/:id/stream
+ */
+const streamReelVideo = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const reel = await Reel.findById(id);
+    if (!reel) {
+      return res.status(404).json({ success: false, message: 'Reel not found' });
+    }
+
+    const rawUrl = reel.videoUrl || reel.mediaUrl;
+    if (!rawUrl) {
+      return res.status(404).json({ success: false, message: 'Video source not found' });
+    }
+
+    const targetUrl = normalizeMediaUrl(rawUrl, 'video');
+
+    // If targetUrl is a local upload path
+    if (targetUrl.startsWith('/uploads/') || targetUrl.startsWith('uploads/')) {
+      const path = require('path');
+      const fs = require('fs');
+      const filePath = path.resolve(__dirname, '../../', targetUrl.replace(/^\//, ''));
+      if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+      }
+    }
+
+    const headers = {};
+    if (req.headers.range) {
+      headers['Range'] = req.headers.range;
+    }
+
+    const upstreamRes = await fetch(targetUrl, {
+      method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+      headers,
+    });
+
+    res.status(upstreamRes.status);
+    res.setHeader('Content-Type', upstreamRes.headers.get('content-type') || 'video/mp4');
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    if (upstreamRes.headers.get('content-range')) {
+      res.setHeader('Content-Range', upstreamRes.headers.get('content-range'));
+    }
+    if (upstreamRes.headers.get('content-length')) {
+      res.setHeader('Content-Length', upstreamRes.headers.get('content-length'));
+    }
+
+    if (req.method === 'HEAD' || !upstreamRes.body) {
+      return res.end();
+    }
+
+    const { Readable } = require('stream');
+    const nodeStream = Readable.fromWeb(upstreamRes.body);
+    nodeStream.on('error', () => {
+      if (!res.headersSent) {
+        res.status(500).end();
+      }
+    });
+    nodeStream.pipe(res);
+  } catch (error) {
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to stream video' });
+    }
+  }
+};
+
 module.exports = {
   getFeed,
   getFollowingFeed,
@@ -859,5 +961,6 @@ module.exports = {
   deleteComment,
   getMyReels,
   updateReelVisibility,
+  streamReelVideo,
 };
 

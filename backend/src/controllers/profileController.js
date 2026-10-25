@@ -54,7 +54,14 @@ const getMyProfile = async (req, res, next) => {
       data: {
         profile: profileObj,
         sections,
-        reels,
+        reels: reels.map((r) => {
+          const obj = r.toObject ? r.toObject() : { ...r };
+          obj.streamUrl = config.publicUrl + '/api/v1/reels/' + obj._id + '/stream';
+          obj.videoUrl = normalizeMediaUrl(obj.videoUrl, obj.mediaType || 'video');
+          obj.mediaUrl = normalizeMediaUrl(obj.mediaUrl || obj.videoUrl, obj.mediaType || 'video');
+          obj.thumbnailUrl = normalizeMediaUrl(obj.thumbnailUrl, 'thumbnail');
+          return obj;
+        }),
         stats: {
           reelsCount,
         },
@@ -346,7 +353,14 @@ const getPublicProfile = async (req, res, next) => {
           updatedAt: profile.updatedAt,
         },
         sections,
-        reels,
+        reels: reels.map((r) => {
+          const obj = r.toObject ? r.toObject() : { ...r };
+          obj.streamUrl = config.publicUrl + '/api/v1/reels/' + obj._id + '/stream';
+          obj.videoUrl = normalizeMediaUrl(obj.videoUrl, obj.mediaType || 'video');
+          obj.mediaUrl = normalizeMediaUrl(obj.mediaUrl || obj.videoUrl, obj.mediaType || 'video');
+          obj.thumbnailUrl = normalizeMediaUrl(obj.thumbnailUrl, 'thumbnail');
+          return obj;
+        }),
       },
     });
   } catch (error) {

@@ -150,7 +150,10 @@ const ReelsFeedPage = () => {
         videoRef.current.pause();
         setIsPlaying(false);
       } else {
-        videoRef.current.play();
+        const p = videoRef.current.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {});
+        }
         setIsPlaying(true);
       }
       setShowPlayOverlay(true);
@@ -206,40 +209,19 @@ const ReelsFeedPage = () => {
       </div>
 
       <div className="relative w-full max-w-[370px] aspect-[9/16] rounded-[36px] overflow-hidden glass-panel border border-slate-800/90 shadow-2xl bg-black">
-        {/* Video Player or Google Drive Embedded Player */}
-        {(() => {
-          const driveMatch = currentReel?.videoUrl?.match(
-            /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=|uc\?export=download&id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]{25,})/
-          );
-          const googleDriveId = driveMatch ? driveMatch[1] : null;
-
-          if (googleDriveId) {
-            return (
-              <iframe
-                key={currentReel._id}
-                src={`https://drive.google.com/file/d/${googleDriveId}/preview`}
-                title={currentReel.caption || 'Reel Video'}
-                className="w-full h-full border-0 select-none bg-black"
-                allow="autoplay; fullscreen"
-                allowFullScreen
-              />
-            );
-          }
-
-          return (
-            <video
-              ref={videoRef}
-              key={currentReel._id}
-              src={currentReel.videoUrl}
-              autoPlay
-              loop
-              muted={isMuted}
-              playsInline
-              onClick={handleVideoTap}
-              className="w-full h-full object-cover cursor-pointer"
-            />
-          );
-        })()}
+        {/* Direct Auto-Streaming Video Player */}
+        <video
+          ref={videoRef}
+          key={currentReel._id}
+          src={currentReel.streamUrl || currentReel.videoUrl}
+          poster={currentReel.thumbnailUrl}
+          autoPlay
+          loop
+          muted={isMuted}
+          playsInline
+          onClick={handleVideoTap}
+          className="w-full h-full object-cover cursor-pointer"
+        />
 
         {/* Double-tap burst heart animation */}
         {showHeartAnim && (

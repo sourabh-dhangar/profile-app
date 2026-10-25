@@ -17,6 +17,7 @@ const {
   deleteComment,
   getMyReels,
   updateReelVisibility,
+  streamReelVideo,
 } = require('../controllers/reelController');
 const { authenticate, optionalAuth } = require('../middleware/auth');
 const { uploadReel: reelUploader } = require('../middleware/upload');
@@ -33,6 +34,7 @@ router.post('/:id/comments', authenticate, addComment);
 router.delete('/:id/comments/:commentId', authenticate, deleteComment);
 
 // Reel specific endpoints
+router.get('/:id/stream', streamReelVideo);
 router.get('/:id', getReelById);
 router.post('/:id/view', recordView);
 router.post('/:id/like', optionalAuth, likeReel);

@@ -701,6 +701,23 @@ const PublicProfilePage = () => {
                 onClick={() => setIsPlaying((p) => !p)}
               >
                 {(() => {
+                  // If we have backend streamUrl, prefer native video streaming
+                  if (activeReel?.streamUrl) {
+                    return (
+                      <video
+                        ref={videoPlayerRef}
+                        key={activeReel._id}
+                        src={activeReel.streamUrl}
+                        poster={activeReel.thumbnailUrl}
+                        autoPlay
+                        loop
+                        playsInline
+                        muted={isMuted}
+                        className="w-full h-full object-cover"
+                      />
+                    );
+                  }
+
                   const driveMatch = activeReel?.videoUrl?.match(
                     /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=|uc\?export=download&id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]{25,})/
                   );
@@ -722,6 +739,7 @@ const PublicProfilePage = () => {
                   return (
                     <video
                       ref={videoPlayerRef}
+                      key={activeReel._id}
                       src={activeReel.videoUrl}
                       poster={activeReel.thumbnailUrl}
                       autoPlay
