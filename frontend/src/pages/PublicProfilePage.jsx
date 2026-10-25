@@ -695,21 +695,43 @@ const PublicProfilePage = () => {
 
             {/* Video Chassis Container (9:16 Aspect Ratio) */}
             <div className="relative w-full max-w-sm sm:max-w-md h-full sm:h-[88vh] sm:max-h-[780px] bg-black sm:rounded-3xl overflow-hidden shadow-2xl border border-slate-800/80 flex flex-col justify-between z-10">
-              {/* HTML5 Video Element */}
+              {/* HTML5 Video Element / Google Drive Embedded Player */}
               <div
                 className="relative flex-1 w-full bg-black flex items-center justify-center cursor-pointer select-none"
                 onClick={() => setIsPlaying((p) => !p)}
               >
-                <video
-                  ref={videoPlayerRef}
-                  src={activeReel.videoUrl}
-                  poster={activeReel.thumbnailUrl}
-                  autoPlay
-                  loop
-                  playsInline
-                  muted={isMuted}
-                  className="w-full h-full object-cover"
-                />
+                {(() => {
+                  const driveMatch = activeReel?.videoUrl?.match(
+                    /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=|uc\?export=download&id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]{25,})/
+                  );
+                  const googleDriveId = driveMatch ? driveMatch[1] : null;
+
+                  if (googleDriveId) {
+                    return (
+                      <iframe
+                        key={activeReel._id}
+                        src={`https://drive.google.com/file/d/${googleDriveId}/preview`}
+                        title={activeReel.caption || 'Reel Video'}
+                        className="w-full h-full border-0 select-none bg-black"
+                        allow="autoplay; fullscreen"
+                        allowFullScreen
+                      />
+                    );
+                  }
+
+                  return (
+                    <video
+                      ref={videoPlayerRef}
+                      src={activeReel.videoUrl}
+                      poster={activeReel.thumbnailUrl}
+                      autoPlay
+                      loop
+                      playsInline
+                      muted={isMuted}
+                      className="w-full h-full object-cover"
+                    />
+                  );
+                })()}
 
                 {/* Top Vignette Gradient */}
                 <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/80 via-black/30 to-transparent pointer-events-none" />
@@ -897,7 +919,7 @@ const PublicProfilePage = () => {
                 📱 Scan to View Services & Contact
               </p>
               <p className="text-[11px] text-slate-600 font-mono mt-0.5">
-                {window.location.origin}/{profile.username}
+                {window.location.origin}/p/{profile.username}
               </p>
 
               {profile.businessDetails?.timing && (

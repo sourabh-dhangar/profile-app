@@ -11,9 +11,11 @@ import {
   Dimensions,
   Modal,
   TextInput,
+  Share,
 } from 'react-native';
 import { COLORS, THEME_ACCENTS } from '../theme';
 import { getVCardUrl, fetchProfileQR, getQRCodeUrl } from '../services/api';
+import { normalizeMediaUrl } from '../utils/media';
 
 const { width } = Dimensions.get('window');
 
@@ -240,10 +242,7 @@ export default function ProfileScreen({
     }
   }, [profile?.username, profile?.qrCodeDataUrl, profile?.qrCodeUrl]);
 
-  const profileDirectUrl =
-    typeof window !== 'undefined' && window.location?.origin
-      ? `${window.location.origin}/p/${profile?.username || 'user'}`
-      : `http://localhost:8081/p/${profile?.username || 'user'}`;
+  const profileDirectUrl = `https://myprofile-official-web.vercel.app/p/${profile?.username || 'user'}`;
 
   const resilientQrUrl =
     fetchedQrCode ||
@@ -401,8 +400,16 @@ export default function ProfileScreen({
     onShowToast('Downloading vCard Contact (.vcf)...', 'success');
   };
 
-  const handleShare = () => {
-    onShowToast(`Copied @${profile.username} profile link!`, 'success');
+  const handleShare = async () => {
+    const url = `https://myprofile-official-web.vercel.app/p/${profile.username}`;
+    try {
+      await Share.share({
+        title: `${profile.name || 'User'} on MyProfile`,
+        message: `Connect with ${profile.name || 'User'} (@${profile.username}) on MyProfile: ${url}`,
+        url,
+      });
+    } catch (e) {}
+    onShowToast(`Copied @${profile.username} profile link: ${url}`, 'success');
   };
 
   const openEditModal = () => {
@@ -454,7 +461,7 @@ export default function ProfileScreen({
       const payload = {
         name: editForm.name,
         username: editForm.username,
-        photoUrl: editForm.photoUrl ? editForm.photoUrl.trim() : undefined,
+        photoUrl: editForm.photoUrl ? normalizeMediaUrl(editForm.photoUrl.trim(), 'image') : undefined,
         profileType: editForm.profileType,
         category: editForm.category,
         subCategory: editForm.subCategory,
@@ -2448,7 +2455,7 @@ export default function ProfileScreen({
                     <Image
                       source={{
                         uri:
-                          editForm.photoUrl ||
+                          normalizeMediaUrl(editForm.photoUrl, 'image') ||
                           'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
                       }}
                       style={styles.avatarPreviewImage}

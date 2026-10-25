@@ -22,7 +22,7 @@ export default function QRCodeShareModal({
 
   const username = profile.username || 'user';
   const name = profile.name || 'Profile User';
-  const profileUrl = `https://myprofile.app/${username}`;
+  const profileUrl = `https://myprofile-official-web.vercel.app/p/${username}`;
   const qrEndpointUrl = getQRCodeUrl(username);
   const vCardUrl = getVCardUrl(username);
 

@@ -3,23 +3,35 @@
  * to direct streamable media and high-resolution thumbnail URLs.
  */
 
+/**
+ * URL Utilities for normalizing Google Drive, Dropbox, and cloud storage links
+ * to direct streamable media and high-resolution thumbnail URLs.
+ */
+
+function getGoogleDriveFileId(url) {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim().replace(/^["']|["']$/g, '');
+  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=|uc\?export=download&id=|thumbnail\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]{25,})/;
+  const match = trimmed.match(driveRegex);
+  return match ? match[1] : null;
+}
+
+function getGoogleDrivePreviewUrl(url) {
+  const fileId = getGoogleDriveFileId(url);
+  return fileId ? `https://drive.google.com/file/d/${fileId}/preview` : null;
+}
+
+function isGoogleDriveUrl(url) {
+  return Boolean(getGoogleDriveFileId(url));
+}
+
 function normalizeMediaUrl(url, type = 'video') {
   if (!url || typeof url !== 'string') return url;
-  const trimmed = url.trim();
+  let trimmed = url.trim().replace(/^["']|["']$/g, '');
 
-  // Match Google Drive file ID across all standard share and view URL formats:
-  // - https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-  // - https://drive.google.com/file/d/FILE_ID/view?usp=drivesdk
-  // - https://drive.google.com/file/d/FILE_ID
-  // - https://drive.google.com/open?id=FILE_ID
-  // - https://drive.google.com/uc?id=FILE_ID
-  // - https://docs.google.com/file/d/FILE_ID/...
-  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=|uc\?export=download&id=|thumbnail\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/;
-  const driveMatch = trimmed.match(driveRegex);
-
-  if (driveMatch && driveMatch[1]) {
-    const fileId = driveMatch[1];
-    if (type === 'image' || type === 'thumbnail') {
+  const fileId = getGoogleDriveFileId(trimmed);
+  if (fileId) {
+    if (type === 'image' || type === 'thumbnail' || type === 'photo') {
       return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`;
     }
     // Direct stream / download endpoint for video
@@ -36,4 +48,7 @@ function normalizeMediaUrl(url, type = 'video') {
 
 module.exports = {
   normalizeMediaUrl,
+  getGoogleDriveFileId,
+  getGoogleDrivePreviewUrl,
+  isGoogleDriveUrl,
 };

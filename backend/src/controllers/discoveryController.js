@@ -20,7 +20,19 @@ const searchByPhone = async (req, res, next) => {
 
     const hashed = hashPhone(phone, countryCode);
 
-    // Query lookup table
+    // Check if user explicitly opted out of discovery
+    const explicitlyHidden = await ProfileLookup.findOne({
+      hashedPhone: hashed,
+      allowDiscovery: false,
+    });
+    if (explicitlyHidden) {
+      return res.status(404).json({
+        success: false,
+        message: 'No discoverable profile found for this phone number',
+      });
+    }
+
+    // Query lookup table with allowDiscovery: true
     let lookup = await ProfileLookup.findOne({
       hashedPhone: hashed,
       allowDiscovery: true,
@@ -34,11 +46,11 @@ const searchByPhone = async (req, res, next) => {
       });
     }
 
-    // Dynamic fallback: matches last 10 digits in contactDetails or businessDetails
+    // Dynamic fallback: matches last 10 digits only if user opted in
     if (!profile) {
       const cleanDigits = phone.replace(/[^0-9]/g, '').slice(-10);
       if (cleanDigits.length === 10) {
-        profile = await Profile.findOne({
+        const candidateProfile = await Profile.findOne({
           $or: [
             { 'contactDetails.phone': { $regex: cleanDigits } },
             { 'contactDetails.whatsapp': { $regex: cleanDigits } },
@@ -46,6 +58,14 @@ const searchByPhone = async (req, res, next) => {
           ],
           status: 'published',
         });
+        if (candidateProfile) {
+          const candidateLookup = await ProfileLookup.findOne({
+            profileId: candidateProfile._id,
+          });
+          if (candidateLookup && candidateLookup.allowDiscovery) {
+            profile = candidateProfile;
+          }
+        }
       }
     }
 

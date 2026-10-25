@@ -16,6 +16,7 @@ const RESERVED_USERNAMES = [
 
 const { generateQRCodeDataURL } = require('../utils/qr');
 const { generateVCard } = require('../utils/vcard');
+const { normalizeMediaUrl } = require('../utils/url');
 
 /**
  * Get My Profile
@@ -37,7 +38,7 @@ const getMyProfile = async (req, res, next) => {
 
     // Ensure profile has qrCodeUrl generated
     if (!profile.qrCodeUrl) {
-      const profileWebUrl = `${config.frontendUrl || 'http://localhost:8081'}/p/${profile.username}`;
+      const profileWebUrl = `${config.frontendUrl}/p/${profile.username}`;
       try {
         profile.qrCodeUrl = await generateQRCodeDataURL(profileWebUrl);
         await profile.save();
@@ -45,6 +46,7 @@ const getMyProfile = async (req, res, next) => {
     }
 
     const profileObj = profile.toObject ? profile.toObject() : { ...profile };
+    profileObj.photoUrl = normalizeMediaUrl(profile.photoUrl, 'image');
     profileObj.qrCodeDataUrl = profile.qrCodeUrl;
 
     res.status(200).json({
@@ -124,7 +126,7 @@ const updateMyProfile = async (req, res, next) => {
         ...businessDetails,
       };
     }
-    if (req.body.photoUrl !== undefined) profile.photoUrl = req.body.photoUrl;
+    if (req.body.photoUrl !== undefined) profile.photoUrl = req.body.photoUrl ? normalizeMediaUrl(req.body.photoUrl, 'image') : '';
     if (req.body.verifiedBadge !== undefined) profile.verifiedBadge = req.body.verifiedBadge;
     if (contactDetails !== undefined) {
       profile.contactDetails = {
@@ -177,7 +179,7 @@ const uploadPhoto = async (req, res, next) => {
       success: true,
       message: 'Photo uploaded successfully',
       data: {
-        photoUrl: profile.photoUrl,
+        photoUrl: normalizeMediaUrl(profile.photoUrl, 'image'),
         completionPercentage: profile.completionPercentage,
       },
     });
@@ -323,7 +325,7 @@ const getPublicProfile = async (req, res, next) => {
           id: profile._id,
           name: profile.name,
           username: profile.username,
-          photoUrl: profile.photoUrl,
+          photoUrl: normalizeMediaUrl(profile.photoUrl, 'image'),
           profileType: profile.profileType,
           bio: profile.bio,
           city: profile.city,

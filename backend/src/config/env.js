@@ -1,5 +1,20 @@
+const path = require('path');
 const dotenv = require('dotenv');
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+const FRONTEND_PRODUCTION_URL = 'https://myprofile-official-web.vercel.app';
+const API_PRODUCTION_URL = 'https://myprofile-official-api.vercel.app';
+
+let frontendUrl = process.env.FRONTEND_URL;
+if (!frontendUrl || (isProduction && frontendUrl.includes('localhost'))) {
+  frontendUrl = FRONTEND_PRODUCTION_URL;
+}
+
+let publicUrl = process.env.PUBLIC_URL;
+if (!publicUrl || (isProduction && publicUrl.includes('localhost'))) {
+  publicUrl = API_PRODUCTION_URL;
+}
 
 const config = {
   port: parseInt(process.env.PORT, 10) || 5000,
@@ -11,8 +26,8 @@ const config = {
   otpMode: process.env.OTP_MODE || 'dev',
   phoneHashSecret: process.env.PHONE_HASH_SECRET || 'fallback-hmac-secret',
   uploadDir: process.env.UPLOAD_DIR || './uploads',
-  publicUrl: process.env.PUBLIC_URL || 'http://localhost:5000',
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  publicUrl,
+  frontendUrl,
 };
 
 // Validate critical config

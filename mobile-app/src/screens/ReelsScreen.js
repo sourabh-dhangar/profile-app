@@ -14,9 +14,10 @@ import {
   FlatList,
   Platform,
   Share,
+  Linking,
 } from 'react-native';
 import { COLORS } from '../theme';
-import { normalizeMediaUrl } from '../utils/media';
+import { normalizeMediaUrl, getGoogleDriveFileId } from '../utils/media';
 import ReelCreatorModal from '../components/ReelCreatorModal';
 import {
   fetchReelComments,
@@ -643,12 +644,16 @@ export default function ReelsScreen({
                       activeOpacity={0.8}
                       onPress={() => {
                         setCurrentIndex(index);
-                        setShowVideoModal(true);
+                        if (Platform.OS === 'web') {
+                          setShowVideoModal(true);
+                        } else {
+                          handlePlayReelVideo(item);
+                        }
                       }}
                     >
                       <Text style={styles.playHintIcon}>{itemIsPhoto ? '🖼️' : '▶'}</Text>
                       <Text style={styles.playHintText}>
-                        {itemIsPhoto ? 'Photo Reel • Tap to View Full' : 'Tap to Play Full Screen'}
+                        {itemIsPhoto ? 'Photo Reel • Tap to View' : '▶ Tap to Play Video Reel'}
                       </Text>
                     </TouchableOpacity>
 
@@ -940,28 +945,57 @@ export default function ReelsScreen({
                 resizeMode="contain"
               />
             ) : Platform.OS === 'web' ? (
-              <video
-                ref={videoRef}
-                src={normalizeMediaUrl(currentReel?.videoUrl || currentReel?.mediaUrl, 'video') || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'}
-                autoPlay
-                loop
-                playsInline
-                muted={isMuted}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  backgroundColor: '#000000',
-                }}
-              />
+              (() => {
+                const fileId = getGoogleDriveFileId(currentReel?.videoUrl || currentReel?.mediaUrl);
+                if (fileId) {
+                  return (
+                    <iframe
+                      src={`https://drive.google.com/file/d/${fileId}/preview`}
+                      style={{ width: '100%', height: '100%', border: 'none', backgroundColor: '#000000' }}
+                      allow="autoplay; fullscreen"
+                    />
+                  );
+                }
+                return (
+                  <video
+                    ref={videoRef}
+                    src={normalizeMediaUrl(currentReel?.videoUrl || currentReel?.mediaUrl, 'video') || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'}
+                    autoPlay
+                    loop
+                    playsInline
+                    muted={isMuted}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      backgroundColor: '#000000',
+                    }}
+                  />
+                );
+              })()
             ) : (
-              <Image
-                source={{
-                  uri: normalizeMediaUrl(currentReel?.thumbnailUrl || currentReel?.mediaUrl || currentReel?.videoUrl, 'image'),
-                }}
-                style={styles.reelImage}
-                resizeMode="cover"
-              />
+              <View style={StyleSheet.absoluteFillObject}>
+                <Image
+                  source={{
+                    uri: normalizeMediaUrl(currentReel?.thumbnailUrl || currentReel?.mediaUrl || currentReel?.videoUrl, 'image'),
+                  }}
+                  style={styles.reelImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.nativePlayOverlay}>
+                  <TouchableOpacity
+                    style={styles.nativePlayBtn}
+                    activeOpacity={0.85}
+                    onPress={() => handlePlayReelVideo(currentReel)}
+                  >
+                    <View style={styles.nativePlayIconCircle}>
+                      <Text style={styles.nativePlayTriangle}>▶</Text>
+                    </View>
+                    <Text style={styles.nativePlayTitle}>Play Reel Video</Text>
+                    <Text style={styles.nativePlaySub}>Tap to watch in high definition stream</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             )}
 
             {/* Bottom Overlay on Player */}
