@@ -49,6 +49,7 @@ export default function ReelsScreen({
   onToggleBookmark,
   onNavigateToAuth,
   onCreateReel,
+  isAdmin = false,
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -105,6 +106,11 @@ export default function ReelsScreen({
     currentUser?.profile?.username &&
     creatorUsername &&
     currentUser.profile.username === creatorUsername
+  );
+  const userIsAdmin = Boolean(
+    isAdmin ||
+    currentUser?.user?.role === 'admin' ||
+    currentUser?.role === 'admin'
   );
 
   const currentIndexRef = useRef(activeIndex);
@@ -673,11 +679,17 @@ export default function ReelsScreen({
                       </TouchableOpacity>
                     </View>
 
-                    {/* Top Bar on Reel */}
+                    {/* Top Bar on Reel - Reel count shown strictly for Admin; clean Instagram badge for regular users */}
                     <View style={styles.topBar} pointerEvents="box-none">
                       <View style={styles.counterPill}>
                         <Text style={styles.counterText}>
-                          {index + 1} / {reels.length} • ↕️ Swipe to browse
+                          {userIsAdmin
+                            ? `#${index + 1} of ${reels.length} • 👑 Admin`
+                            : activeFeedTab === 'following'
+                            ? '👥 Following • ↕️ Swipe'
+                            : activeFeedTab === 'saved'
+                            ? '🔖 Saved • ↕️ Swipe'
+                            : '✨ For You • ↕️ Swipe'}
                         </Text>
                       </View>
 
@@ -729,13 +741,15 @@ export default function ReelsScreen({
                         </Text>
                       </TouchableOpacity>
 
-                      {/* View Counter */}
-                      <View style={styles.actionBtn}>
-                        <Text style={styles.actionIcon}>👁️</Text>
-                        <Text style={styles.actionCount}>
-                          {item.viewsCount !== undefined ? item.viewsCount : 0}
-                        </Text>
-                      </View>
+                      {/* View Counter - Visible exclusively to Admin & Reel Owner */}
+                      {(userIsAdmin || itemIsOwnReel) && (
+                        <View style={styles.actionBtn}>
+                          <Text style={styles.actionIcon}>👁️</Text>
+                          <Text style={styles.actionCount}>
+                            {item.viewsCount !== undefined ? item.viewsCount : 0}
+                          </Text>
+                        </View>
+                      )}
 
                       {/* Share Button */}
                       <TouchableOpacity

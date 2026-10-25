@@ -1076,7 +1076,8 @@ function MainApp() {
           },
         }));
         setReels((prev) => [createdReel, ...(prev || [])]);
-        showToast('Reel published to your profile & feed! 🎬✨', 'success');
+        showToast('Reel published to everyone on feed! 🎬✨', 'success');
+        loadReels(reelsFeedTab);
         return true;
       } else {
         showToast(res?.message || 'Failed to post reel', 'error');
@@ -1509,6 +1510,7 @@ function MainApp() {
                   authToken={authToken || currentUser?.token}
                   onNavigateToAuth={() => setActiveTab('login')}
                   onCreateReel={handleCreateReel}
+                  isAdmin={Boolean(currentUser?.user?.role === 'admin' || currentUser?.role === 'admin')}
                 />
               )}
 

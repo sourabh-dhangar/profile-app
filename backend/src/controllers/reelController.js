@@ -8,13 +8,55 @@ const config = require('../config/env');
 const { normalizeMediaUrl } = require('../utils/url');
 
 /**
- * Get Public Reels Feed
- * GET /api/v1/reels/feed?page=1&limit=10
+ * Instagram-Style Discovery & Algorithmic Ranking for Reels
+ * Factors:
+ * 1. Freshness / Discovery Boost (new reels < 24-48h get boosted to the front row for platform-wide exposure)
+ * 2. Real Engagement Velocity (Likes, Comments, Shares, Bookmarks, Views)
+ * 3. Gravity Time Decay (ensures older posts don't permanently crowd out fresh creator uploads)
+ * 4. Pinned Reel Weight
+ */
+const calculateReelScore = (reel) => {
+  const now = Date.now();
+  const createdAt = new Date(reel.createdAt || now).getTime();
+  const ageHours = Math.max(0, (now - createdAt) / (1000 * 60 * 60));
+
+  // 1. Freshness Boost
+  let freshnessBoost = 0;
+  if (ageHours < 6) {
+    freshnessBoost = 1000; // Ultra-fresh (guaranteed front row for newly posted reels)
+  } else if (ageHours < 24) {
+    freshnessBoost = 600;  // Fresh today
+  } else if (ageHours < 72) {
+    freshnessBoost = 250;  // Fresh this week
+  }
+
+  // 2. Engagement Points
+  const likes = reel.likesCount || 0;
+  const comments = reel.commentsCount || 0;
+  const shares = reel.sharesCount || 0;
+  const bookmarks = reel.bookmarksCount || 0;
+  const views = reel.viewsCount || 0;
+
+  const engagementPoints = (likes * 4) + (comments * 6) + (shares * 8) + (bookmarks * 5) + (views * 0.1);
+
+  // 3. Gravity Time Decay (Instagram / HackerNews engagement decay curve)
+  const gravity = 1.15;
+  const decayedEngagement = (engagementPoints + 20) / Math.pow(ageHours + 2, gravity);
+
+  // 4. Moderate Pin weight
+  const pinBoost = reel.isPinned ? 120 : 0;
+
+  return freshnessBoost + decayedEngagement + pinBoost;
+};
+
+/**
+ * Get Public Reels Feed with Instagram Discovery Algorithm
+ * GET /api/v1/reels/feed?page=1&limit=20
  */
 const getFeed = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 30);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
     const skip = (page - 1) * limit;
     const { tag, search } = req.query;
 
@@ -31,29 +73,39 @@ const getFeed = async (req, res, next) => {
       query.caption = { $regex: search.trim(), $options: 'i' };
     }
 
-    const reels = await Reel.find(query)
-      .sort({ isPinned: -1, createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
+    // Retrieve active public candidate reels
+    const allCandidates = await Reel.find(query)
       .populate({
         path: 'profileId',
         select: 'name username photoUrl profileType city verifiedBadge isVerifiedBadge',
       });
 
-    const total = await Reel.countDocuments(query);
+    const total = allCandidates.length;
 
-    const sanitizedReels = reels.map((r) => {
-      const obj = r.toObject ? r.toObject() : { ...r };
-      obj.videoUrl = normalizeMediaUrl(obj.videoUrl, obj.mediaType || 'video');
-      obj.mediaUrl = normalizeMediaUrl(obj.mediaUrl || obj.videoUrl, obj.mediaType || 'video');
-      obj.thumbnailUrl = normalizeMediaUrl(obj.thumbnailUrl, 'thumbnail');
-      return obj;
-    });
+    // Apply Instagram Discovery & Ranking Algorithm
+    const scoredReels = allCandidates
+      .map((r) => {
+        const obj = r.toObject ? r.toObject() : { ...r };
+        obj.videoUrl = normalizeMediaUrl(obj.videoUrl, obj.mediaType || 'video');
+        obj.mediaUrl = normalizeMediaUrl(obj.mediaUrl || obj.videoUrl, obj.mediaType || 'video');
+        obj.thumbnailUrl = normalizeMediaUrl(obj.thumbnailUrl, 'thumbnail');
+        obj.algorithmicScore = calculateReelScore(obj);
+        return obj;
+      })
+      .sort((a, b) => {
+        if (b.algorithmicScore !== a.algorithmicScore) {
+          return b.algorithmicScore - a.algorithmicScore;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+    const paginatedReels = scoredReels.slice(skip, skip + limit);
 
     res.status(200).json({
       success: true,
       data: {
-        reels: sanitizedReels,
+        reels: paginatedReels,
+        algorithm: 'instagram_discovery_v2',
         pagination: {
           page,
           limit,
@@ -134,12 +186,16 @@ const createReel = async (req, res, next) => {
 
     videoUrl = normalizeMediaUrl(videoUrl, mediaType);
 
-    // Sanitize duration safely
+    // Validate duration limit
     let duration = parseFloat(durationSeconds);
+    if (!isNaN(duration) && duration > 60) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reel duration cannot exceed 60 seconds',
+      });
+    }
     if (isNaN(duration) || duration <= 0) {
       duration = 15;
-    } else if (duration > 60) {
-      duration = 60;
     }
 
     // Sanitize thumbnail: ensure it is a valid image, NOT an .mp4 or empty
