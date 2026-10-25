@@ -19,6 +19,18 @@ import {
 import { COLORS } from '../theme';
 import { normalizeMediaUrl, getGoogleDriveFileId } from '../utils/media';
 import ReelCreatorModal from '../components/ReelCreatorModal';
+
+let ExpoVideo = null;
+let ResizeMode = { COVER: 'cover', CONTAIN: 'contain' };
+try {
+  const expoAv = require('expo-av');
+  ExpoVideo = expoAv.Video;
+  if (expoAv.ResizeMode) {
+    ResizeMode = expoAv.ResizeMode;
+  }
+} catch (e) {
+  ExpoVideo = null;
+}
 import {
   fetchReelComments,
   addReelComment,
@@ -293,10 +305,12 @@ export default function ReelsScreen({
       lastTapRef.current = 0;
     } else {
       lastTapRef.current = now;
-      // Single tap launches video player directly
+      // Single tap toggles inline Play / Pause (Instagram style - stays inside app!)
       setTimeout(() => {
         if (lastTapRef.current === now) {
-          handlePlayReelVideo(targetReel);
+          setIsPlaying((prev) => !prev);
+          setShowPlayState(true);
+          setTimeout(() => setShowPlayState(false), 700);
         }
       }, 320);
     }
@@ -629,21 +643,61 @@ export default function ReelsScreen({
                 'image'
               );
 
+              const itemVideoUri = item?.streamUrl ||
+                (item?._id ? `https://myprofile-official-api.vercel.app/api/v1/reels/${item._id}/stream` : null) ||
+                normalizeMediaUrl(item?.videoUrl || item?.mediaUrl, 'video');
+
               return (
                 <View style={{ height: feedHeight, width: '100%', paddingBottom: 6 }}>
                   <View style={styles.reelChassis}>
-                    {/* Background Media Pressable: Tapping triggers full screen / double tap like */}
-                    {/* delayPressIn={60} ensures vertical scroll / swipe gestures are NEVER intercepted */}
+                    {/* Background Media Pressable: Tapping toggles inline play/pause, double tap likes */}
                     <Pressable
                       style={StyleSheet.absoluteFillObject}
                       onPress={() => handleCardTap(index)}
                       delayPressIn={60}
                     >
-                      <Image
-                        source={{ uri: itemCoverUri }}
-                        style={styles.reelImage}
-                        resizeMode="cover"
-                      />
+                      {itemIsPhoto ? (
+                        <Image
+                          source={{ uri: itemCoverUri }}
+                          style={styles.reelImage}
+                          resizeMode="cover"
+                        />
+                      ) : Platform.OS === 'web' ? (
+                        <video
+                          key={itemReelId}
+                          src={itemVideoUri}
+                          poster={itemCoverUri}
+                          autoPlay={currentIndex === index && isPlaying}
+                          loop
+                          playsInline
+                          muted={isMuted}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            backgroundColor: '#000000',
+                          }}
+                        />
+                      ) : ExpoVideo ? (
+                        <ExpoVideo
+                          source={{ uri: itemVideoUri }}
+                          posterSource={{ uri: itemCoverUri }}
+                          usePoster={currentIndex !== index}
+                          posterStyle={styles.reelImage}
+                          resizeMode={ResizeMode.COVER}
+                          shouldPlay={currentIndex === index && isPlaying}
+                          isLooping
+                          isMuted={isMuted}
+                          style={StyleSheet.absoluteFillObject}
+                        />
+                      ) : (
+                        <Image
+                          source={{ uri: itemCoverUri }}
+                          style={styles.reelImage}
+                          resizeMode="cover"
+                        />
+                      )}
+
                       {/* Vignette Gradients */}
                       <View style={styles.topVignette} pointerEvents="none" />
                       <View style={styles.bottomVignette} pointerEvents="none" />
@@ -656,24 +710,26 @@ export default function ReelsScreen({
                       </View>
                     )}
 
-                    {/* Tap Play Trigger Banner */}
-                    <TouchableOpacity
-                      style={styles.playHintBadge}
-                      activeOpacity={0.8}
-                      onPress={() => {
-                        setCurrentIndex(index);
-                        if (Platform.OS === 'web') {
-                          setShowVideoModal(true);
-                        } else {
-                          handlePlayReelVideo(item);
-                        }
-                      }}
-                    >
-                      <Text style={styles.playHintIcon}>{itemIsPhoto ? '🖼️' : '▶'}</Text>
-                      <Text style={styles.playHintText}>
-                        {itemIsPhoto ? 'Photo Reel • Tap to View' : '▶ Tap to Play Video Reel'}
-                      </Text>
-                    </TouchableOpacity>
+                    {/* Play / Pause transient state indicator */}
+                    {showPlayState && currentIndex === index && (
+                      <View style={styles.centerOverlay} pointerEvents="none">
+                        <View style={styles.playStateCircle}>
+                          <Text style={styles.playStateIcon}>{isPlaying ? '▶' : '⏸'}</Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Fallback button only if native module not compiled into this APK build */}
+                    {!ExpoVideo && Platform.OS !== 'web' && !itemIsPhoto && (
+                      <TouchableOpacity
+                        style={styles.playHintBadge}
+                        activeOpacity={0.8}
+                        onPress={() => handlePlayReelVideo(item)}
+                      >
+                        <Text style={styles.playHintIcon}>▶</Text>
+                        <Text style={styles.playHintText}>Tap to Stream Video</Text>
+                      </TouchableOpacity>
+                    )}
 
                     {/* Floating Loop Controls */}
                     <View style={styles.loopPillContainer}>
@@ -716,9 +772,19 @@ export default function ReelsScreen({
                         </Text>
                       </View>
 
-                      <View style={styles.liveTag}>
-                        <View style={styles.pulseDot} />
-                        <Text style={styles.liveTagText}>60 FPS</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <TouchableOpacity
+                          style={styles.cardMuteBtn}
+                          onPress={() => setIsMuted((m) => !m)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.cardMuteIcon}>{isMuted ? '🔇' : '🔊'}</Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.liveTag}>
+                          <View style={styles.pulseDot} />
+                          <Text style={styles.liveTagText}>60 FPS</Text>
+                        </View>
                       </View>
                     </View>
 
@@ -1475,6 +1541,33 @@ const styles = StyleSheet.create({
     color: '#34d399',
     fontSize: 10,
     fontWeight: '900',
+  },
+  cardMuteBtn: {
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardMuteIcon: {
+    fontSize: 12,
+  },
+  playStateCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  playStateIcon: {
+    fontSize: 24,
+    color: '#ffffff',
   },
   actionRail: {
     position: 'absolute',

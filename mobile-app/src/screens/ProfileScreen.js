@@ -19,6 +19,18 @@ import { normalizeMediaUrl } from '../utils/media';
 
 const { width } = Dimensions.get('window');
 
+let ExpoVideo = null;
+let ResizeMode = { COVER: 'cover', CONTAIN: 'contain' };
+try {
+  const expoAv = require('expo-av');
+  ExpoVideo = expoAv.Video;
+  if (expoAv.ResizeMode) {
+    ResizeMode = expoAv.ResizeMode;
+  }
+} catch (e) {
+  ExpoVideo = null;
+}
+
 const SECTION_ICONS = {
   about: '📖',
   experience: '🏢',
@@ -3177,16 +3189,47 @@ export default function ProfileScreen({
               activeOpacity={0.9}
               onPress={() => setViewingReelPlaying((prev) => !prev)}
             >
-              <Image
-                source={{
-                  uri:
-                    activeViewingReel?.thumbnailUrl ||
-                    activeViewingReel?.videoUrl ||
-                    'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
-                }}
-                style={styles.reelPlayerMediaImg}
-                resizeMode="cover"
-              />
+              {Platform.OS === 'web' ? (
+                <video
+                  key={activeViewingReel?._id}
+                  src={activeViewingReel?.streamUrl || (activeViewingReel?._id ? `https://myprofile-official-api.vercel.app/api/v1/reels/${activeViewingReel._id}/stream` : null) || activeViewingReel?.videoUrl}
+                  poster={activeViewingReel?.thumbnailUrl}
+                  autoPlay={viewingReelPlaying}
+                  loop
+                  playsInline
+                  muted={false}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    backgroundColor: '#000000',
+                  }}
+                />
+              ) : ExpoVideo ? (
+                <ExpoVideo
+                  source={{
+                    uri: activeViewingReel?.streamUrl || (activeViewingReel?._id ? `https://myprofile-official-api.vercel.app/api/v1/reels/${activeViewingReel._id}/stream` : null) || activeViewingReel?.videoUrl,
+                  }}
+                  posterSource={{ uri: activeViewingReel?.thumbnailUrl }}
+                  usePoster={!viewingReelPlaying}
+                  posterStyle={styles.reelPlayerMediaImg}
+                  resizeMode={ResizeMode.COVER}
+                  shouldPlay={viewingReelPlaying}
+                  isLooping
+                  style={StyleSheet.absoluteFillObject}
+                />
+              ) : (
+                <Image
+                  source={{
+                    uri:
+                      activeViewingReel?.thumbnailUrl ||
+                      activeViewingReel?.videoUrl ||
+                      'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
+                  }}
+                  style={styles.reelPlayerMediaImg}
+                  resizeMode="cover"
+                />
+              )}
               <View style={styles.reelPlayerMediaVignette} />
 
               {/* Play / Pause Toggle Badge */}
