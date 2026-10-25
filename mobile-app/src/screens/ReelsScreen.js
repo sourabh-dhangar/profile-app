@@ -135,6 +135,19 @@ export default function ReelsScreen({
     setImageError(false);
   }, [activeIndex, currentReel?._id]);
 
+  useEffect(() => {
+    try {
+      const expoAv = require('expo-av');
+      if (expoAv?.Audio?.setAudioModeAsync) {
+        expoAv.Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+        }).catch(() => {});
+      }
+    } catch (e) {}
+  }, []);
+
   const reelThumbnailUri = (
     currentReel?.thumbnailUrl &&
     typeof currentReel.thumbnailUrl === 'string' &&
