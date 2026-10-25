@@ -11,6 +11,7 @@ import {
   Image,
 } from 'react-native';
 import { COLORS } from '../theme';
+import { normalizeMediaUrl, isGoogleDriveUrl } from '../utils/media';
 
 const SAMPLE_CLIPS = [
   {
@@ -85,8 +86,11 @@ export default function ReelCreatorModal({
   const [visibility, setVisibility] = useState('public'); // 'public' | 'profile-only' | 'private'
   const [isUploading, setIsUploading] = useState(false);
 
-  const activeMediaUrl = mediaType === 'image' ? imageUrl : videoUrl;
-  const activePreviewUrl = mediaType === 'image' ? imageUrl : (thumbnailUrl || videoUrl);
+  const activeMediaUrl = (mediaType === 'image' ? imageUrl : videoUrl) || '';
+  const isDriveLink = isGoogleDriveUrl(activeMediaUrl);
+  const activePreviewUrl = mediaType === 'image'
+    ? normalizeMediaUrl(imageUrl, 'image')
+    : normalizeMediaUrl(thumbnailUrl || videoUrl, 'thumbnail');
 
   const handlePublish = async () => {
     if (mediaType === 'video' && !videoUrl.trim()) {
@@ -106,12 +110,16 @@ export default function ReelCreatorModal({
 
     setIsUploading(true);
     try {
-      const finalMediaUrl = (mediaType === 'image' ? imageUrl : videoUrl).trim();
+      const rawMedia = (mediaType === 'image' ? imageUrl : videoUrl).trim();
+      const finalMediaUrl = normalizeMediaUrl(rawMedia, mediaType);
       const safeThumbnail = mediaType === 'image'
-        ? finalMediaUrl
-        : (thumbnailUrl && !thumbnailUrl.toLowerCase().endsWith('.mp4') && !thumbnailUrl.toLowerCase().endsWith('.mov'))
-          ? thumbnailUrl.trim()
-          : 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800';
+        ? normalizeMediaUrl(rawMedia, 'image')
+        : normalizeMediaUrl(
+            (thumbnailUrl && !thumbnailUrl.toLowerCase().endsWith('.mp4') && !thumbnailUrl.toLowerCase().endsWith('.mov'))
+              ? thumbnailUrl.trim()
+              : rawMedia,
+            'thumbnail'
+          );
 
       const finalCaption = caption.trim() || (mediaType === 'image' ? 'My showcase photo reel 📸' : 'My showcase reel 🚀');
 
@@ -257,15 +265,26 @@ export default function ReelCreatorModal({
                 </View>
 
                 {/* Custom Image URL Input */}
-                <Text style={styles.sectionLabel}>Or Enter Direct Image URL (JPG / PNG / WebP)</Text>
+                <Text style={styles.sectionLabel}>Or Enter Image URL (Google Drive / Direct link)</Text>
                 <TextInput
                   style={styles.inputField}
                   value={imageUrl}
                   onChangeText={setImageUrl}
-                  placeholder="https://images.unsplash.com/... or direct image link"
+                  placeholder="Paste Google Drive image link or direct JPG/PNG URL"
                   placeholderTextColor="#64748b"
                   autoCapitalize="none"
                 />
+                {isGoogleDriveUrl(imageUrl) && (
+                  <View style={styles.driveNoticeBox}>
+                    <Text style={styles.driveNoticeIcon}>🟢</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.driveNoticeTitle}>Google Drive Image Auto-Converted!</Text>
+                      <Text style={styles.driveNoticeSub}>
+                        High-res image streaming & thumbnail preview active. Ensure Drive sharing is set to "Anyone with the link".
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </>
             ) : (
               /* If Video Reel: Video selection */
@@ -298,15 +317,26 @@ export default function ReelCreatorModal({
                 </View>
 
                 {/* Custom URL Input */}
-                <Text style={styles.sectionLabel}>Or Enter Direct Video URL (MP4 / WebM)</Text>
+                <Text style={styles.sectionLabel}>Or Enter Video URL (Google Drive / MP4 / WebM)</Text>
                 <TextInput
                   style={styles.inputField}
                   value={videoUrl}
                   onChangeText={setVideoUrl}
-                  placeholder="https://example.com/video.mp4"
+                  placeholder="Paste Google Drive video link or direct MP4 URL"
                   placeholderTextColor="#64748b"
                   autoCapitalize="none"
                 />
+                {isGoogleDriveUrl(videoUrl) && (
+                  <View style={styles.driveNoticeBox}>
+                    <Text style={styles.driveNoticeIcon}>🟢</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.driveNoticeTitle}>Google Drive Video Auto-Converted!</Text>
+                      <Text style={styles.driveNoticeSub}>
+                        Direct video stream & video thumbnail active. Ensure Drive sharing is set to "Anyone with the link".
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </>
             )}
 
@@ -506,6 +536,31 @@ const styles = StyleSheet.create({
   previewImage: {
     width: '100%',
     height: '100%',
+  },
+  driveNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    gap: 8,
+  },
+  driveNoticeIcon: {
+    fontSize: 14,
+  },
+  driveNoticeTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#34d399',
+  },
+  driveNoticeSub: {
+    fontSize: 10,
+    color: '#94a3b8',
+    marginTop: 2,
+    lineHeight: 14,
   },
   previewOverlay: {
     position: 'absolute',

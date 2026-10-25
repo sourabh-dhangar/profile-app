@@ -5,6 +5,7 @@ const Follow = require('../models/Follow');
 const Bookmark = require('../models/Bookmark');
 const { createNotificationHelper } = require('./notificationController');
 const config = require('../config/env');
+const { normalizeMediaUrl } = require('../utils/url');
 
 /**
  * Get Public Reels Feed
@@ -41,10 +42,18 @@ const getFeed = async (req, res, next) => {
 
     const total = await Reel.countDocuments(query);
 
+    const sanitizedReels = reels.map((r) => {
+      const obj = r.toObject ? r.toObject() : { ...r };
+      obj.videoUrl = normalizeMediaUrl(obj.videoUrl, obj.mediaType || 'video');
+      obj.mediaUrl = normalizeMediaUrl(obj.mediaUrl || obj.videoUrl, obj.mediaType || 'video');
+      obj.thumbnailUrl = normalizeMediaUrl(obj.thumbnailUrl, 'thumbnail');
+      return obj;
+    });
+
     res.status(200).json({
       success: true,
       data: {
-        reels,
+        reels: sanitizedReels,
         pagination: {
           page,
           limit,
@@ -123,6 +132,8 @@ const createReel = async (req, res, next) => {
       audioTrack,
     } = req.body;
 
+    videoUrl = normalizeMediaUrl(videoUrl, mediaType);
+
     // Sanitize duration safely
     let duration = parseFloat(durationSeconds);
     if (isNaN(duration) || duration <= 0) {
@@ -134,7 +145,7 @@ const createReel = async (req, res, next) => {
     // Sanitize thumbnail: ensure it is a valid image, NOT an .mp4 or empty
     let resolvedThumbnail = (thumbnailUrl && typeof thumbnailUrl === 'string') ? thumbnailUrl.trim() : '';
     if (mediaType === 'image') {
-      resolvedThumbnail = videoUrl;
+      resolvedThumbnail = normalizeMediaUrl(videoUrl, 'image');
     } else if (
       !resolvedThumbnail ||
       resolvedThumbnail.toLowerCase().endsWith('.mp4') ||
@@ -156,7 +167,7 @@ const createReel = async (req, res, next) => {
       mediaType,
       mediaUrl: videoUrl.trim(),
       videoUrl: videoUrl.trim(),
-      thumbnailUrl: resolvedThumbnail,
+      thumbnailUrl: normalizeMediaUrl(resolvedThumbnail, 'thumbnail'),
       caption: caption.trim() || (mediaType === 'image' ? 'My showcase post 📸' : 'My showcase reel 🚀'),
       durationSeconds: Math.round(duration),
       visibility: visibility || 'public',

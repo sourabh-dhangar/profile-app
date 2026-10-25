@@ -10,11 +10,13 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  FlatList,
   Platform,
   PanResponder,
   Share,
 } from 'react-native';
 import { COLORS } from '../theme';
+import { normalizeMediaUrl } from '../utils/media';
 import ReelCreatorModal from '../components/ReelCreatorModal';
 import {
   fetchReelComments,
@@ -61,6 +63,11 @@ export default function ReelsScreen({
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [imageError, setImageError] = useState(false);
+
+  const flatListRef = useRef(null);
+  const [feedHeight, setFeedHeight] = useState(
+    Math.round(Dimensions.get('window').height * 0.73)
+  );
 
   // Full-Screen Video Player Modal
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -208,18 +215,24 @@ export default function ReelsScreen({
     }
   };
 
-  const handleNext = () => {
-    if (currentIndex < reels.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
+  const scrollToReelIndex = (index) => {
+    if (index >= 0 && index < reels.length) {
+      setCurrentIndex(index);
       setIsPlaying(true);
+      flatListRef.current?.scrollToIndex({ index, animated: true });
     }
   };
 
+  const handleNext = () => {
+    const total = reels.length || 1;
+    const nextIndex = (currentIndex + 1) % total;
+    scrollToReelIndex(nextIndex);
+  };
+
   const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex((prev) => prev - 1);
-      setIsPlaying(true);
-    }
+    const total = reels.length || 1;
+    const prevIndex = (currentIndex - 1 + total) % total;
+    scrollToReelIndex(prevIndex);
   };
 
   const handleLikeToggle = () => {
@@ -237,7 +250,8 @@ export default function ReelsScreen({
     }
   };
 
-  const handleCardTap = () => {
+  const handleCardTap = (index = currentIndex) => {
+    setCurrentIndex(index);
     const now = Date.now();
     const diff = now - lastTapRef.current;
 
@@ -507,275 +521,336 @@ export default function ReelsScreen({
           )}
         </View>
       ) : (
-        /* Video Reel Chassis Card */
-        <TouchableOpacity
-          style={styles.reelChassis}
-          activeOpacity={0.95}
-          onPress={handleCardTap}
-          {...panResponder.panHandlers}
+        /* Scrollable Vertical Reels Feed (Instagram / TikTok Style) */
+        <View
+          style={styles.feedWrapper}
+          onLayout={(e) => {
+            const { height } = e.nativeEvent.layout;
+            if (height > 100 && Math.abs(height - feedHeight) > 2) {
+              setFeedHeight(Math.round(height));
+            }
+          }}
         >
-          {/* Floating Loop Controls */}
-          <View style={styles.loopPillContainer}>
-            <TouchableOpacity
-              style={styles.loopPillBtn}
-              onPress={() => {
-                const total = reels.length || 1;
-                setCurrentIndex((prev) => (prev - 1 + total) % total);
+          <FlatList
+            ref={flatListRef}
+            data={reels}
+            keyExtractor={(item, index) => item._id || `reel-${index}`}
+            pagingEnabled={true}
+            showsVerticalScrollIndicator={false}
+            snapToInterval={feedHeight}
+            snapToAlignment="start"
+            decelerationRate="fast"
+            onMomentumScrollEnd={(e) => {
+              const offsetY = e.nativeEvent.contentOffset.y;
+              const index = Math.round(offsetY / feedHeight);
+              if (index >= 0 && index < reels.length && index !== currentIndex) {
+                setCurrentIndex(index);
                 setIsPlaying(true);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.loopPillIcon}>▲</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.loopPillBtn}
-              onPress={() => {
-                const total = reels.length || 1;
-                setCurrentIndex((prev) => (prev + 1) % total);
-                setIsPlaying(true);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.loopPillIcon}>▼</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Cover Media Image */}
-          <Image
-            source={{
-              uri: (!imageError && reelThumbnailUri)
-                ? reelThumbnailUri
-                : 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
+              }
             }}
-            onError={() => setImageError(true)}
-            style={styles.reelImage}
-            resizeMode="cover"
-          />
+            getItemLayout={(data, index) => ({
+              length: feedHeight,
+              offset: feedHeight * index,
+              index,
+            })}
+            renderItem={({ item, index }) => {
+              const itemIsPhoto = Boolean(
+                item?.mediaType === 'image' ||
+                (item?.videoUrl && item.videoUrl.match(/\.(jpeg|jpg|png|webp|gif)/i))
+              );
+              const itemReelId = item?._id || `reel-${index}`;
+              const itemCreatorUsername = item?.profileId?.username || '';
+              const itemIsLiked = !!likedMap[itemReelId];
+              const itemIsBookmarked = bookmarkedMap[itemReelId] ?? Boolean(item?.isBookmarked);
+              const itemLikesCount = (likesCountMap[itemReelId] ?? item?.likesCount) || 0;
+              const itemBookmarksCount = (bookmarksCountMap[itemReelId] ?? item?.bookmarksCount) || 0;
+              const itemCommentsCount = (commentsCountMap[itemReelId] ?? item?.commentsCount) || 0;
+              const itemIsFollowing = !!followMap[itemCreatorUsername];
+              const itemIsOwnReel = Boolean(
+                currentUser?.profile?.username &&
+                itemCreatorUsername &&
+                currentUser.profile.username === itemCreatorUsername
+              );
 
-          {/* Vignette Gradients */}
-          <View style={styles.topVignette} pointerEvents="none" />
-          <View style={styles.bottomVignette} pointerEvents="none" />
+              const itemCoverUri = normalizeMediaUrl(
+                (item?.thumbnailUrl && typeof item.thumbnailUrl === 'string' && item.thumbnailUrl.trim().length > 0 && !item.thumbnailUrl.toLowerCase().endsWith('.mp4') && !item.thumbnailUrl.toLowerCase().endsWith('.mov'))
+                  ? item.thumbnailUrl
+                  : (item?.mediaUrl || item?.videoUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800'),
+                'image'
+              );
 
-          {/* Double-tap Heart Burst Overlay */}
-          {showHeartBurst && (
-            <View style={styles.centerOverlay}>
-              <Text style={styles.heartBurstIcon}>❤️</Text>
-            </View>
-          )}
-
-          {/* Tap Play Trigger Banner */}
-          <View style={styles.playHintBadge}>
-            <Text style={styles.playHintIcon}>{isPhotoReel ? '🖼️' : '▶'}</Text>
-            <Text style={styles.playHintText}>
-              {isPhotoReel ? 'Photo Reel • Tap to View Full' : 'Tap to Play Full Screen'}
-            </Text>
-          </View>
-
-          {/* Top Bar on Reel */}
-          <View style={styles.topBar}>
-            <View style={styles.counterPill}>
-              <Text style={styles.counterText}>
-                {currentIndex + 1} / {reels.length} • 🔄 Loop
-              </Text>
-            </View>
-
-            <View style={styles.liveTag}>
-              <View style={styles.pulseDot} />
-              <Text style={styles.liveTagText}>60 FPS</Text>
-            </View>
-          </View>
-
-          {/* Right Action Rail */}
-          <View style={styles.actionRail}>
-            {/* Like Button */}
-            <TouchableOpacity
-              style={[styles.actionBtn, isLiked && styles.actionBtnActive]}
-              onPress={handleLikeToggle}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.actionIcon}>{isLiked ? '❤️' : '🤍'}</Text>
-              <Text style={styles.actionCount}>{likesCount}</Text>
-            </TouchableOpacity>
-
-            {/* Comments Button */}
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => setShowCommentsModal(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.actionIcon}>💬</Text>
-              <Text style={styles.actionCount}>{commentsCount}</Text>
-            </TouchableOpacity>
-
-            {/* Bookmark / Saved Vault Button */}
-            <TouchableOpacity
-              style={[styles.actionBtn, isBookmarked && styles.actionBtnActive]}
-              onPress={handleToggleBookmark}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.actionIcon}>{isBookmarked ? '🔖' : '📑'}</Text>
-              <Text
-                style={[
-                  styles.actionCount,
-                  isBookmarked && { color: '#fbbf24', fontWeight: '800' },
-                ]}
-              >
-                {bookmarksCount > 0 ? bookmarksCount : 'Save'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* View Counter */}
-            <View style={styles.actionBtn}>
-              <Text style={styles.actionIcon}>👁️</Text>
-              <Text style={styles.actionCount}>
-                {currentReel.viewsCount !== undefined ? currentReel.viewsCount : 0}
-              </Text>
-            </View>
-
-            {/* Share Button */}
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={handleShare}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.actionIcon}>📤</Text>
-              <Text style={styles.actionCount}>Share</Text>
-            </TouchableOpacity>
-
-            {/* Profile Quick Jump */}
-            {Boolean(creatorUsername) && (
-              <TouchableOpacity
-                style={styles.creatorActionBtn}
-                onPress={() => onViewCreatorProfile(creatorUsername)}
-                activeOpacity={0.8}
-              >
-                <Image
-                  source={{
-                    uri:
-                      currentReel.profileId?.photoUrl ||
-                      'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
-                  }}
-                  style={styles.creatorMiniAvatar}
-                />
-                <View style={styles.creatorMiniTick}>
-                  <Text style={styles.miniTickText}>✓</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Bottom Drawer (Creator info & Caption) */}
-          <View style={styles.bottomDrawer}>
-            {/* Master Pitch Golden Pinned Badge */}
-            {Boolean(currentReel.isPinned) && (
-              <View style={styles.masterPitchBadge}>
-                <Text style={styles.masterPitchBadgeText}>📌 MASTER PITCH</Text>
-              </View>
-            )}
-
-            {Boolean(currentReel.profileId) && (
-              <View style={styles.creatorRow}>
-                <TouchableOpacity
-                  style={styles.creatorPill}
-                  onPress={() => onViewCreatorProfile(creatorUsername)}
-                  activeOpacity={0.8}
-                >
-                  <Image
-                    source={{
-                      uri:
-                        currentReel.profileId.photoUrl ||
-                        'https://ui-avatars.com/api/?name=User&background=1e293b&color=94a3b8&size=256',
-                    }}
-                    style={styles.creatorAvatar}
-                  />
-                  <View style={styles.creatorTexts}>
-                    <Text style={styles.creatorName}>
-                      {currentReel.profileId.name}{' '}
-                      <Text style={styles.verifiedCheck}>
-                        {currentReel.profileId.verifiedBadge === 'top_creator'
-                          ? '⭐'
-                          : currentReel.profileId.verifiedBadge === 'verified_engineer'
-                          ? '⚡'
-                          : '🛡️'}
-                      </Text>
-                    </Text>
-                    <Text style={styles.creatorHandle}>
-                      @{creatorUsername}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Follow Button */}
-                {!isOwnReel && creatorUsername ? (
+              return (
+                <View style={{ height: feedHeight, width: '100%', paddingBottom: 6 }}>
                   <TouchableOpacity
-                    style={[
-                      styles.followBtn,
-                      isFollowing && styles.followingBtn,
-                    ]}
-                    onPress={handleFollowToggle}
-                    disabled={followLoading}
-                    activeOpacity={0.8}
+                    style={styles.reelChassis}
+                    activeOpacity={0.95}
+                    onPress={() => handleCardTap(index)}
                   >
-                    <Text
-                      style={[
-                        styles.followBtnText,
-                        isFollowing && styles.followingBtnText,
-                      ]}
-                    >
-                      {isFollowing ? '✓ Following' : '+ Follow'}
-                    </Text>
+                    {/* Floating Loop Controls */}
+                    <View style={styles.loopPillContainer}>
+                      <TouchableOpacity
+                        style={styles.loopPillBtn}
+                        onPress={() => {
+                          const total = reels.length || 1;
+                          const prev = (index - 1 + total) % total;
+                          scrollToReelIndex(prev);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.loopPillIcon}>▲</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.loopPillBtn}
+                        onPress={() => {
+                          const total = reels.length || 1;
+                          const next = (index + 1) % total;
+                          scrollToReelIndex(next);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.loopPillIcon}>▼</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Cover Media Image */}
+                    <Image
+                      source={{ uri: itemCoverUri }}
+                      style={styles.reelImage}
+                      resizeMode="cover"
+                    />
+
+                    {/* Vignette Gradients */}
+                    <View style={styles.topVignette} pointerEvents="none" />
+                    <View style={styles.bottomVignette} pointerEvents="none" />
+
+                    {/* Double-tap Heart Burst Overlay */}
+                    {showHeartBurst && currentIndex === index && (
+                      <View style={styles.centerOverlay}>
+                        <Text style={styles.heartBurstIcon}>❤️</Text>
+                      </View>
+                    )}
+
+                    {/* Tap Play Trigger Banner */}
+                    <View style={styles.playHintBadge}>
+                      <Text style={styles.playHintIcon}>{itemIsPhoto ? '🖼️' : '▶'}</Text>
+                      <Text style={styles.playHintText}>
+                        {itemIsPhoto ? 'Photo Reel • Tap to View Full' : 'Tap to Play Full Screen'}
+                      </Text>
+                    </View>
+
+                    {/* Top Bar on Reel */}
+                    <View style={styles.topBar}>
+                      <View style={styles.counterPill}>
+                        <Text style={styles.counterText}>
+                          {index + 1} / {reels.length} • ↕️ Scroll to browse
+                        </Text>
+                      </View>
+
+                      <View style={styles.liveTag}>
+                        <View style={styles.pulseDot} />
+                        <Text style={styles.liveTagText}>60 FPS</Text>
+                      </View>
+                    </View>
+
+                    {/* Right Action Rail */}
+                    <View style={styles.actionRail}>
+                      {/* Like Button */}
+                      <TouchableOpacity
+                        style={[styles.actionBtn, itemIsLiked && styles.actionBtnActive]}
+                        onPress={() => handleLikeToggle(itemReelId)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.actionIcon}>{itemIsLiked ? '❤️' : '🤍'}</Text>
+                        <Text style={styles.actionCount}>{itemLikesCount}</Text>
+                      </TouchableOpacity>
+
+                      {/* Comments Button */}
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => {
+                          setCurrentIndex(index);
+                          setShowCommentsModal(true);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.actionIcon}>💬</Text>
+                        <Text style={styles.actionCount}>{itemCommentsCount}</Text>
+                      </TouchableOpacity>
+
+                      {/* Bookmark / Saved Vault Button */}
+                      <TouchableOpacity
+                        style={[styles.actionBtn, itemIsBookmarked && styles.actionBtnActive]}
+                        onPress={handleToggleBookmark}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.actionIcon}>{itemIsBookmarked ? '🔖' : '📑'}</Text>
+                        <Text
+                          style={[
+                            styles.actionCount,
+                            itemIsBookmarked && { color: '#fbbf24', fontWeight: '800' },
+                          ]}
+                        >
+                          {itemBookmarksCount > 0 ? itemBookmarksCount : 'Save'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* View Counter */}
+                      <View style={styles.actionBtn}>
+                        <Text style={styles.actionIcon}>👁️</Text>
+                        <Text style={styles.actionCount}>
+                          {item.viewsCount !== undefined ? item.viewsCount : 0}
+                        </Text>
+                      </View>
+
+                      {/* Share Button */}
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => handleShare(item)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.actionIcon}>📤</Text>
+                        <Text style={styles.actionCount}>Share</Text>
+                      </TouchableOpacity>
+
+                      {/* Profile Quick Jump */}
+                      {Boolean(itemCreatorUsername) && (
+                        <TouchableOpacity
+                          style={styles.creatorActionBtn}
+                          onPress={() => onViewCreatorProfile(itemCreatorUsername)}
+                          activeOpacity={0.8}
+                        >
+                          <Image
+                            source={{
+                              uri:
+                                item.profileId?.photoUrl ||
+                                `https://ui-avatars.com/api/?name=${encodeURIComponent(item.profileId?.name || 'User')}&background=1e293b&color=94a3b8&size=256`,
+                            }}
+                            style={styles.creatorMiniAvatar}
+                          />
+                          <View style={styles.creatorMiniTick}>
+                            <Text style={styles.miniTickText}>✓</Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {/* Bottom Drawer (Creator info & Caption) */}
+                    <View style={styles.bottomDrawer}>
+                      {/* Master Pitch Golden Pinned Badge */}
+                      {Boolean(item.isPinned) && (
+                        <View style={styles.masterPitchBadge}>
+                          <Text style={styles.masterPitchBadgeText}>📌 MASTER PITCH</Text>
+                        </View>
+                      )}
+
+                      {Boolean(item.profileId) && (
+                        <View style={styles.creatorRow}>
+                          <TouchableOpacity
+                            style={styles.creatorPill}
+                            onPress={() => onViewCreatorProfile(itemCreatorUsername)}
+                            activeOpacity={0.8}
+                          >
+                            <Image
+                              source={{
+                                uri:
+                                  item.profileId.photoUrl ||
+                                  `https://ui-avatars.com/api/?name=${encodeURIComponent(item.profileId.name || 'User')}&background=1e293b&color=94a3b8&size=256`,
+                              }}
+                              style={styles.creatorAvatar}
+                            />
+                            <View style={styles.creatorTexts}>
+                              <Text style={styles.creatorName}>
+                                {item.profileId.name}{' '}
+                                <Text style={styles.verifiedCheck}>
+                                  {item.profileId.verifiedBadge === 'top_creator'
+                                    ? '⭐'
+                                    : item.profileId.verifiedBadge === 'verified_engineer'
+                                    ? '⚡'
+                                    : '🛡️'}
+                                </Text>
+                              </Text>
+                              <Text style={styles.creatorHandle}>
+                                @{itemCreatorUsername}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+
+                          {/* Follow Button */}
+                          {!itemIsOwnReel && itemCreatorUsername ? (
+                            <TouchableOpacity
+                              style={[
+                                styles.followBtn,
+                                itemIsFollowing && styles.followingBtn,
+                              ]}
+                              onPress={() => handleFollowToggle(itemCreatorUsername)}
+                              disabled={followLoading}
+                              activeOpacity={0.8}
+                            >
+                              <Text
+                                style={[
+                                  styles.followBtnText,
+                                  itemIsFollowing && styles.followingBtnText,
+                                ]}
+                              >
+                                {itemIsFollowing ? '✓ Following' : '+ Follow'}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+                      )}
+
+                      {item.caption ? (
+                        <View style={styles.captionBox}>
+                          <Text style={styles.captionText} numberOfLines={2}>
+                            {item.caption}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {/* Audio Ticker & Spinning Vinyl Disc */}
+                      <View style={styles.audioContainer}>
+                        <View style={styles.audioRow}>
+                          <Text style={styles.audioIcon}>🎵</Text>
+                          <Text style={styles.audioText} numberOfLines={1}>
+                            {item.audioTrack?.title || 'Original Sound'} • {item.audioTrack?.artist || item.profileId?.name || 'Verified Creator'}
+                          </Text>
+                        </View>
+                        <View style={styles.vinylDisc}>
+                          <View style={styles.vinylInnerRing}>
+                            <View style={styles.vinylCenterHole} />
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Quick Chevrons for Prev/Next */}
+                    <View style={styles.navChevrons}>
+                      <TouchableOpacity
+                        style={[styles.chevronBtn, index === 0 && styles.chevronDisabled]}
+                        disabled={index === 0}
+                        onPress={() => scrollToReelIndex(Math.max(0, index - 1))}
+                      >
+                        <Text style={styles.chevronText}>▲</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.chevronBtn,
+                          index === reels.length - 1 && styles.chevronDisabled,
+                        ]}
+                        disabled={index === reels.length - 1}
+                        onPress={() => scrollToReelIndex(Math.min(reels.length - 1, index + 1))}
+                      >
+                        <Text style={styles.chevronText}>▼</Text>
+                      </TouchableOpacity>
+                    </View>
                   </TouchableOpacity>
-                ) : null}
-              </View>
-            )}
-
-            {currentReel.caption ? (
-              <View style={styles.captionBox}>
-                <Text style={styles.captionText} numberOfLines={2}>
-                  {currentReel.caption}
-                </Text>
-              </View>
-            ) : null}
-
-            {/* Audio Ticker & Spinning Vinyl Disc */}
-            <View style={styles.audioContainer}>
-              <View style={styles.audioRow}>
-                <Text style={styles.audioIcon}>🎵</Text>
-                <Text style={styles.audioText} numberOfLines={1}>
-                  {currentReel.audioTrack?.title || 'Original Sound'} • {currentReel.audioTrack?.artist || currentReel.profileId?.name || 'Verified Creator'}
-                </Text>
-              </View>
-              <View style={styles.vinylDisc}>
-                <View style={styles.vinylInnerRing}>
-                  <View style={styles.vinylCenterHole} />
                 </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Quick Chevrons for Prev/Next */}
-          <View style={styles.navChevrons}>
-            <TouchableOpacity
-              style={[styles.chevronBtn, currentIndex === 0 && styles.chevronDisabled]}
-              disabled={currentIndex === 0}
-              onPress={handlePrev}
-            >
-              <Text style={styles.chevronText}>▲</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.chevronBtn,
-                currentIndex === reels.length - 1 && styles.chevronDisabled,
-              ]}
-              disabled={currentIndex === reels.length - 1}
-              onPress={handleNext}
-            >
-              <Text style={styles.chevronText}>▼</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
       )}
 
       {/* ========================================================================= */}
@@ -833,11 +908,7 @@ export default function ReelsScreen({
             {isPhotoReel ? (
               <Image
                 source={{
-                  uri:
-                    currentReel?.mediaUrl ||
-                    currentReel?.videoUrl ||
-                    reelThumbnailUri ||
-                    'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1080',
+                  uri: normalizeMediaUrl(currentReel?.mediaUrl || currentReel?.videoUrl || currentReel?.thumbnailUrl, 'image'),
                 }}
                 style={styles.reelImage}
                 resizeMode="contain"
@@ -845,10 +916,7 @@ export default function ReelsScreen({
             ) : Platform.OS === 'web' ? (
               <video
                 ref={videoRef}
-                src={
-                  currentReel?.videoUrl ||
-                  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'
-                }
+                src={normalizeMediaUrl(currentReel?.videoUrl || currentReel?.mediaUrl, 'video') || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'}
                 autoPlay
                 loop
                 playsInline
@@ -863,9 +931,7 @@ export default function ReelsScreen({
             ) : (
               <Image
                 source={{
-                  uri:
-                    reelThumbnailUri ||
-                    'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
+                  uri: normalizeMediaUrl(currentReel?.thumbnailUrl || currentReel?.mediaUrl || currentReel?.videoUrl, 'image'),
                 }}
                 style={styles.reelImage}
                 resizeMode="cover"
@@ -1206,6 +1272,10 @@ const styles = StyleSheet.create({
     color: '#020617',
     fontWeight: '900',
     fontSize: 12,
+  },
+  feedWrapper: {
+    flex: 1,
+    width: '100%',
   },
   reelChassis: {
     flex: 1,
