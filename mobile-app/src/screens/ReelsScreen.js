@@ -15,21 +15,33 @@ import {
   Platform,
   Share,
   Linking,
+  UIManager,
+  PanResponder,
+  Animated,
 } from 'react-native';
 import { COLORS } from '../theme';
 import { normalizeMediaUrl, getGoogleDriveFileId } from '../utils/media';
 import ReelCreatorModal from '../components/ReelCreatorModal';
 
+const hasNativeVideoView = Boolean(
+  Platform.OS !== 'web' &&
+  UIManager &&
+  typeof UIManager.getViewManagerConfig === 'function' &&
+  (UIManager.getViewManagerConfig('ExponentVideoView') || UIManager.getViewManagerConfig('ExpoVideoView'))
+);
+
 let ExpoVideo = null;
 let ResizeMode = { COVER: 'cover', CONTAIN: 'contain' };
-try {
-  const expoAv = require('expo-av');
-  ExpoVideo = expoAv.Video;
-  if (expoAv.ResizeMode) {
-    ResizeMode = expoAv.ResizeMode;
+if (hasNativeVideoView) {
+  try {
+    const expoAv = require('expo-av');
+    ExpoVideo = expoAv.Video;
+    if (expoAv.ResizeMode) {
+      ResizeMode = expoAv.ResizeMode;
+    }
+  } catch (e) {
+    ExpoVideo = null;
   }
-} catch (e) {
-  ExpoVideo = null;
 }
 import {
   fetchReelComments,
@@ -136,6 +148,7 @@ export default function ReelsScreen({
   }, [activeIndex, currentReel?._id]);
 
   useEffect(() => {
+    if (!hasNativeVideoView) return;
     try {
       const expoAv = require('expo-av');
       if (expoAv?.Audio?.setAudioModeAsync) {
@@ -242,19 +255,43 @@ export default function ReelsScreen({
   };
 
   const scrollToReelIndex = (index) => {
-    if (index >= 0 && index < reels.length) {
-      setCurrentIndex(index);
-      setIsPlaying(true);
-      try {
-        flatListRef.current?.scrollToIndex({ index, animated: true });
-      } catch (e) {
-        flatListRef.current?.scrollToOffset({
-          offset: index * feedHeight,
-          animated: true,
-        });
-      }
+    const total = reels.length;
+    if (total === 0) return;
+    const safeIndex = (index + total) % total;
+    setCurrentIndex(safeIndex);
+    setIsPlaying(true);
+    try {
+      flatListRef.current?.scrollToIndex({ index: safeIndex, animated: true });
+    } catch (e) {
+      flatListRef.current?.scrollToOffset({
+        offset: safeIndex * feedHeight,
+        animated: true,
+      });
     }
   };
+
+  const createSwipePanResponder = (index) =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return (
+          Math.abs(gestureState.dy) > 20 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2
+        );
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const total = reelsLengthRef.current || 1;
+        if (gestureState.dy < -30) {
+          // Swipe up -> Next reel in infinite loop
+          const next = (index + 1) % total;
+          scrollToReelIndex(next);
+        } else if (gestureState.dy > 30) {
+          // Swipe down -> Prev reel in infinite loop
+          const prev = (index - 1 + total) % total;
+          scrollToReelIndex(prev);
+        }
+      },
+    });
 
   const handleNext = () => {
     const total = reels.length || 1;
@@ -296,6 +333,7 @@ export default function ReelsScreen({
       if (Platform.OS === 'web') {
         setShowVideoModal(true);
       } else {
+        onShowToast?.('Opening video stream... 🎬', 'info');
         Linking.openURL(targetUrl).catch(() => {
           onShowToast?.('Could not open video stream', 'error');
         });
@@ -318,12 +356,22 @@ export default function ReelsScreen({
       lastTapRef.current = 0;
     } else {
       lastTapRef.current = now;
-      // Single tap toggles inline Play / Pause (Instagram style - stays inside app!)
       setTimeout(() => {
         if (lastTapRef.current === now) {
-          setIsPlaying((prev) => !prev);
-          setShowPlayState(true);
-          setTimeout(() => setShowPlayState(false), 700);
+          if (Platform.OS === 'web' || (hasNativeVideoView && ExpoVideo)) {
+            setIsPlaying((prev) => !prev);
+            setShowPlayState(true);
+            setTimeout(() => setShowPlayState(false), 700);
+          } else if (
+            targetReel?.mediaType === 'image' ||
+            (targetReel?.videoUrl && targetReel.videoUrl.match(/\.(jpeg|jpg|png|webp|gif)/i))
+          ) {
+            setShowPlayState(true);
+            setTimeout(() => setShowPlayState(false), 700);
+          } else {
+            // Standalone APK without compiled ExpoVideo: play high definition stream immediately!
+            handlePlayReelVideo(targetReel);
+          }
         }
       }, 320);
     }
@@ -586,7 +634,7 @@ export default function ReelsScreen({
           style={styles.feedWrapper}
           onLayout={(e) => {
             const { height } = e.nativeEvent.layout;
-            if (height > 100 && Math.abs(height - feedHeight) > 1) {
+            if (height > 100 && Math.abs(height - feedHeight) > 6) {
               setFeedHeight(Math.round(height));
             }
           }}
@@ -597,11 +645,10 @@ export default function ReelsScreen({
             keyExtractor={(item, index) => item._id || `reel-${index}`}
             style={{ flex: 1, width: '100%' }}
             contentContainerStyle={{ flexGrow: 1 }}
-            pagingEnabled={false}
-            snapToInterval={feedHeight}
+            pagingEnabled={Platform.OS === 'android' ? true : false}
+            snapToInterval={Platform.OS === 'ios' ? feedHeight : undefined}
             snapToAlignment="start"
-            decelerationRate="fast"
-            disableIntervalMomentum={true}
+            decelerationRate={Platform.OS === 'ios' ? 'fast' : 'normal'}
             showsVerticalScrollIndicator={false}
             bounces={false}
             scrollEventThrottle={16}
@@ -662,12 +709,22 @@ export default function ReelsScreen({
 
               return (
                 <View style={{ height: feedHeight, width: '100%', paddingBottom: 6 }}>
-                  <View style={styles.reelChassis}>
-                    {/* Background Media Pressable: Tapping toggles inline play/pause, double tap likes */}
+                  <View
+                    style={styles.reelChassis}
+                    {...createSwipePanResponder(index).panHandlers}
+                  >
+                    {/* Active Reel Running Progress Bar */}
+                    {currentIndex === index && (
+                      <View style={styles.reelProgressBarContainer} pointerEvents="none">
+                        <View style={styles.reelProgressBarFill} />
+                      </View>
+                    )}
+
+                    {/* Background Media Pressable: Tapping toggles inline play/pause or streams, double tap likes */}
                     <Pressable
                       style={StyleSheet.absoluteFillObject}
                       onPress={() => handleCardTap(index)}
-                      delayPressIn={60}
+                      delayPressIn={100}
                     >
                       {itemIsPhoto ? (
                         <Image
@@ -684,6 +741,25 @@ export default function ReelsScreen({
                           loop
                           playsInline
                           muted={isMuted}
+                          onLoadedMetadata={(e) => {
+                            if (currentIndex === index && isPlaying) {
+                              e.currentTarget.muted = isMuted;
+                              const p = e.currentTarget.play();
+                              if (p !== undefined) {
+                                p.catch(() => {
+                                  e.currentTarget.muted = true;
+                                  setIsMuted(true);
+                                  e.currentTarget.play().catch(() => {});
+                                });
+                              }
+                            }
+                          }}
+                          onCanPlay={(e) => {
+                            if (currentIndex === index && isPlaying) {
+                              const p = e.currentTarget.play();
+                              if (p !== undefined) p.catch(() => {});
+                            }
+                          }}
                           style={{
                             width: '100%',
                             height: '100%',
@@ -691,7 +767,7 @@ export default function ReelsScreen({
                             backgroundColor: '#000000',
                           }}
                         />
-                      ) : ExpoVideo ? (
+                      ) : (hasNativeVideoView && ExpoVideo) ? (
                         <ExpoVideo
                           source={{ uri: itemVideoUri }}
                           posterSource={{ uri: itemCoverUri }}
@@ -733,14 +809,14 @@ export default function ReelsScreen({
                     )}
 
                     {/* Fallback button only if native module not compiled into this APK build */}
-                    {!ExpoVideo && Platform.OS !== 'web' && !itemIsPhoto && (
+                    {(!hasNativeVideoView || !ExpoVideo) && Platform.OS !== 'web' && !itemIsPhoto && (
                       <TouchableOpacity
                         style={styles.playHintBadge}
                         activeOpacity={0.8}
                         onPress={() => handlePlayReelVideo(item)}
                       >
                         <Text style={styles.playHintIcon}>▶</Text>
-                        <Text style={styles.playHintText}>Tap to Stream Video</Text>
+                        <Text style={styles.playHintText}>Stream HD Video</Text>
                       </TouchableOpacity>
                     )}
 
@@ -1070,6 +1146,23 @@ export default function ReelsScreen({
                   />
                 );
               })()
+            ) : (hasNativeVideoView && ExpoVideo) ? (
+              <ExpoVideo
+                source={{
+                  uri:
+                    currentReel?.streamUrl ||
+                    (currentReel?._id ? `https://myprofile-official-api.vercel.app/api/v1/reels/${currentReel._id}/stream` : null) ||
+                    normalizeMediaUrl(currentReel?.videoUrl || currentReel?.mediaUrl, 'video'),
+                }}
+                posterSource={{
+                  uri: normalizeMediaUrl(currentReel?.thumbnailUrl || currentReel?.mediaUrl || currentReel?.videoUrl, 'image'),
+                }}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={isPlaying}
+                isLooping
+                isMuted={isMuted}
+                style={StyleSheet.absoluteFillObject}
+              />
             ) : (
               <View style={StyleSheet.absoluteFillObject}>
                 <Image
@@ -1486,6 +1579,21 @@ const styles = StyleSheet.create({
   },
   heartBurstIcon: {
     fontSize: 72,
+  },
+  reelProgressBarContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    zIndex: 35,
+    overflow: 'hidden',
+  },
+  reelProgressBarFill: {
+    height: '100%',
+    width: '100%',
+    backgroundColor: '#38bdf8',
   },
   playHintBadge: {
     position: 'absolute',

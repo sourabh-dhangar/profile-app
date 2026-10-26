@@ -12,6 +12,8 @@ import {
   Modal,
   TextInput,
   Share,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { COLORS, THEME_ACCENTS } from '../theme';
 import { getVCardUrl, fetchProfileQR, getQRCodeUrl } from '../services/api';
@@ -19,16 +21,25 @@ import { normalizeMediaUrl } from '../utils/media';
 
 const { width } = Dimensions.get('window');
 
+const hasNativeVideoView = Boolean(
+  Platform.OS !== 'web' &&
+  UIManager &&
+  typeof UIManager.getViewManagerConfig === 'function' &&
+  (UIManager.getViewManagerConfig('ExponentVideoView') || UIManager.getViewManagerConfig('ExpoVideoView'))
+);
+
 let ExpoVideo = null;
 let ResizeMode = { COVER: 'cover', CONTAIN: 'contain' };
-try {
-  const expoAv = require('expo-av');
-  ExpoVideo = expoAv.Video;
-  if (expoAv.ResizeMode) {
-    ResizeMode = expoAv.ResizeMode;
+if (hasNativeVideoView) {
+  try {
+    const expoAv = require('expo-av');
+    ExpoVideo = expoAv.Video;
+    if (expoAv.ResizeMode) {
+      ResizeMode = expoAv.ResizeMode;
+    }
+  } catch (e) {
+    ExpoVideo = null;
   }
-} catch (e) {
-  ExpoVideo = null;
 }
 
 const SECTION_ICONS = {
@@ -3187,7 +3198,24 @@ export default function ProfileScreen({
             <TouchableOpacity
               style={styles.reelPlayerMediaWrapper}
               activeOpacity={0.9}
-              onPress={() => setViewingReelPlaying((prev) => !prev)}
+              onPress={() => {
+                if (Platform.OS === 'web' || (hasNativeVideoView && ExpoVideo)) {
+                  setViewingReelPlaying((prev) => !prev);
+                } else {
+                  const streamUrl =
+                    activeViewingReel?.streamUrl ||
+                    (activeViewingReel?._id
+                      ? `https://myprofile-official-api.vercel.app/api/v1/reels/${activeViewingReel._id}/stream`
+                      : null) ||
+                    activeViewingReel?.videoUrl;
+                  if (streamUrl) {
+                    onShowToast?.('Opening video stream... 🎬', 'info');
+                    Linking.openURL(streamUrl).catch(() => {
+                      onShowToast?.('Could not open video stream', 'error');
+                    });
+                  }
+                }
+              }}
             >
               {Platform.OS === 'web' ? (
                 <video
@@ -3198,6 +3226,15 @@ export default function ProfileScreen({
                   loop
                   playsInline
                   muted={false}
+                  onLoadedMetadata={(e) => {
+                    const p = e.currentTarget.play();
+                    if (p !== undefined) {
+                      p.catch(() => {
+                        e.currentTarget.muted = true;
+                        e.currentTarget.play().catch(() => {});
+                      });
+                    }
+                  }}
                   style={{
                     width: '100%',
                     height: '100%',
@@ -3205,7 +3242,7 @@ export default function ProfileScreen({
                     backgroundColor: '#000000',
                   }}
                 />
-              ) : ExpoVideo ? (
+              ) : (hasNativeVideoView && ExpoVideo) ? (
                 <ExpoVideo
                   source={{
                     uri: activeViewingReel?.streamUrl || (activeViewingReel?._id ? `https://myprofile-official-api.vercel.app/api/v1/reels/${activeViewingReel._id}/stream` : null) || activeViewingReel?.videoUrl,
@@ -3219,16 +3256,44 @@ export default function ProfileScreen({
                   style={StyleSheet.absoluteFillObject}
                 />
               ) : (
-                <Image
-                  source={{
-                    uri:
-                      activeViewingReel?.thumbnailUrl ||
-                      activeViewingReel?.videoUrl ||
-                      'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
-                  }}
-                  style={styles.reelPlayerMediaImg}
-                  resizeMode="cover"
-                />
+                <View style={StyleSheet.absoluteFillObject}>
+                  <Image
+                    source={{
+                      uri:
+                        activeViewingReel?.thumbnailUrl ||
+                        activeViewingReel?.videoUrl ||
+                        'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
+                    }}
+                    style={styles.reelPlayerMediaImg}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.nativePlayOverlay}>
+                    <TouchableOpacity
+                      style={styles.nativePlayBtn}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        const streamUrl =
+                          activeViewingReel?.streamUrl ||
+                          (activeViewingReel?._id
+                            ? `https://myprofile-official-api.vercel.app/api/v1/reels/${activeViewingReel._id}/stream`
+                            : null) ||
+                          activeViewingReel?.videoUrl;
+                        if (streamUrl) {
+                          onShowToast?.('Opening video stream... 🎬', 'info');
+                          Linking.openURL(streamUrl).catch(() => {
+                            onShowToast?.('Could not open video stream', 'error');
+                          });
+                        }
+                      }}
+                    >
+                      <View style={styles.nativePlayIconCircle}>
+                        <Text style={styles.nativePlayTriangle}>▶</Text>
+                      </View>
+                      <Text style={styles.nativePlayTitle}>Watch Reel Video</Text>
+                      <Text style={styles.nativePlaySub}>Tap to stream in high definition</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               )}
               <View style={styles.reelPlayerMediaVignette} />
 
@@ -7210,5 +7275,51 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 9,
     fontWeight: '800',
+  },
+  nativePlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  nativePlayBtn: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  nativePlayIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#0284c7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  nativePlayTriangle: {
+    color: '#ffffff',
+    fontSize: 22,
+    marginLeft: 3,
+  },
+  nativePlayTitle: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  nativePlaySub: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
