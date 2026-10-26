@@ -3,7 +3,12 @@
 node_modules/
 android/
 ios/
+.env
 .env.local
 .env.*.local
 *.log
 eas-log.*
+.vercel
+dist/
+web-build/
+!.env.example
