@@ -20,6 +20,7 @@ import {
 import { COLORS } from '../theme';
 import { normalizeMediaUrl, getGoogleDriveFileId } from '../utils/media';
 import ReelCreatorModal from '../components/ReelCreatorModal';
+import SafeVideoPlayer from '../components/SafeVideoPlayer';
 import {
   fetchReelComments,
   addReelComment,
@@ -295,20 +296,9 @@ export default function ReelsScreen({
       lastTapRef.current = now;
       setTimeout(() => {
         if (lastTapRef.current === now) {
-          if (Platform.OS === 'web') {
-            setIsPlaying((prev) => !prev);
-            setShowPlayState(true);
-            setTimeout(() => setShowPlayState(false), 700);
-          } else if (
-            targetReel?.mediaType === 'image' ||
-            (targetReel?.videoUrl && targetReel.videoUrl.match(/\.(jpeg|jpg|png|webp|gif)/i))
-          ) {
-            setShowPlayState(true);
-            setTimeout(() => setShowPlayState(false), 700);
-          } else {
-            // Native APK: play high definition stream immediately!
-            handlePlayReelVideo(targetReel);
-          }
+          setIsPlaying((prev) => !prev);
+          setShowPlayState(true);
+          setTimeout(() => setShowPlayState(false), 700);
         }
       }, 320);
     }
@@ -704,10 +694,13 @@ export default function ReelsScreen({
                           }}
                         />
                       ) : (
-                        <Image
-                          source={{ uri: itemCoverUri }}
-                          style={styles.reelImage}
-                          resizeMode="cover"
+                        <SafeVideoPlayer
+                          videoUri={itemVideoUri}
+                          coverUri={itemCoverUri}
+                          isActive={currentIndex === index}
+                          isPlaying={isPlaying}
+                          isMuted={isMuted}
+                          style={StyleSheet.absoluteFillObject}
                         />
                       )}
 
@@ -730,18 +723,6 @@ export default function ReelsScreen({
                           <Text style={styles.playStateIcon}>{isPlaying ? '▶' : '⏸'}</Text>
                         </View>
                       </View>
-                    )}
-
-                    {/* Fallback button only if native module not compiled into this APK build */}
-                    {Platform.OS !== 'web' && !itemIsPhoto && (
-                      <TouchableOpacity
-                        style={styles.playHintBadge}
-                        activeOpacity={0.8}
-                        onPress={() => handlePlayReelVideo(item)}
-                      >
-                        <Text style={styles.playHintIcon}>▶</Text>
-                        <Text style={styles.playHintText}>Stream HD Video</Text>
-                      </TouchableOpacity>
                     )}
 
                     {/* Floating Loop Controls */}
@@ -1071,28 +1052,18 @@ export default function ReelsScreen({
                 );
               })()
             ) : (
-              <View style={StyleSheet.absoluteFillObject}>
-                <Image
-                  source={{
-                    uri: normalizeMediaUrl(currentReel?.thumbnailUrl || currentReel?.mediaUrl || currentReel?.videoUrl, 'image'),
-                  }}
-                  style={styles.reelImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.nativePlayOverlay}>
-                  <TouchableOpacity
-                    style={styles.nativePlayBtn}
-                    activeOpacity={0.85}
-                    onPress={() => handlePlayReelVideo(currentReel)}
-                  >
-                    <View style={styles.nativePlayIconCircle}>
-                      <Text style={styles.nativePlayTriangle}>▶</Text>
-                    </View>
-                    <Text style={styles.nativePlayTitle}>Play Reel Video</Text>
-                    <Text style={styles.nativePlaySub}>Tap to watch in high definition stream</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              <SafeVideoPlayer
+                videoUri={
+                  currentReel?.streamUrl ||
+                  (currentReel?._id ? `https://myprofile-official-api.vercel.app/api/v1/reels/${currentReel._id}/stream` : null) ||
+                  normalizeMediaUrl(currentReel?.videoUrl || currentReel?.mediaUrl, 'video')
+                }
+                coverUri={normalizeMediaUrl(currentReel?.thumbnailUrl || currentReel?.mediaUrl || currentReel?.videoUrl, 'image')}
+                isActive={showVideoModal}
+                isPlaying={isPlaying}
+                isMuted={isMuted}
+                style={StyleSheet.absoluteFillObject}
+              />
             )}
 
             {/* Bottom Overlay on Player */}

@@ -13,11 +13,11 @@ import {
   TextInput,
   Share,
   Platform,
-  UIManager,
 } from 'react-native';
 import { COLORS, THEME_ACCENTS } from '../theme';
 import { getVCardUrl, fetchProfileQR, getQRCodeUrl } from '../services/api';
 import { normalizeMediaUrl } from '../utils/media';
+import SafeVideoPlayer from '../components/SafeVideoPlayer';
 
 const { width } = Dimensions.get('window');
 
@@ -3178,22 +3178,7 @@ export default function ProfileScreen({
               style={styles.reelPlayerMediaWrapper}
               activeOpacity={0.9}
               onPress={() => {
-                if (Platform.OS === 'web') {
-                  setViewingReelPlaying((prev) => !prev);
-                } else {
-                  const streamUrl =
-                    activeViewingReel?.streamUrl ||
-                    (activeViewingReel?._id
-                      ? `https://myprofile-official-api.vercel.app/api/v1/reels/${activeViewingReel._id}/stream`
-                      : null) ||
-                    activeViewingReel?.videoUrl;
-                  if (streamUrl) {
-                    onShowToast?.('Opening video stream... 🎬', 'info');
-                    Linking.openURL(streamUrl).catch(() => {
-                      onShowToast?.('Could not open video stream', 'error');
-                    });
-                  }
-                }
+                setViewingReelPlaying((prev) => !prev);
               }}
             >
               {Platform.OS === 'web' ? (
@@ -3222,44 +3207,24 @@ export default function ProfileScreen({
                   }}
                 />
               ) : (
-                <View style={StyleSheet.absoluteFillObject}>
-                  <Image
-                    source={{
-                      uri:
-                        activeViewingReel?.thumbnailUrl ||
-                        activeViewingReel?.videoUrl ||
-                        'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
-                    }}
-                    style={styles.reelPlayerMediaImg}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.nativePlayOverlay}>
-                    <TouchableOpacity
-                      style={styles.nativePlayBtn}
-                      activeOpacity={0.85}
-                      onPress={() => {
-                        const streamUrl =
-                          activeViewingReel?.streamUrl ||
-                          (activeViewingReel?._id
-                            ? `https://myprofile-official-api.vercel.app/api/v1/reels/${activeViewingReel._id}/stream`
-                            : null) ||
-                          activeViewingReel?.videoUrl;
-                        if (streamUrl) {
-                          onShowToast?.('Opening video stream... 🎬', 'info');
-                          Linking.openURL(streamUrl).catch(() => {
-                            onShowToast?.('Could not open video stream', 'error');
-                          });
-                        }
-                      }}
-                    >
-                      <View style={styles.nativePlayIconCircle}>
-                        <Text style={styles.nativePlayTriangle}>▶</Text>
-                      </View>
-                      <Text style={styles.nativePlayTitle}>Watch Reel Video</Text>
-                      <Text style={styles.nativePlaySub}>Tap to stream in high definition</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                <SafeVideoPlayer
+                  videoUri={
+                    activeViewingReel?.streamUrl ||
+                    (activeViewingReel?._id
+                      ? `https://myprofile-official-api.vercel.app/api/v1/reels/${activeViewingReel._id}/stream`
+                      : null) ||
+                    activeViewingReel?.videoUrl
+                  }
+                  coverUri={
+                    activeViewingReel?.thumbnailUrl ||
+                    activeViewingReel?.videoUrl ||
+                    'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800'
+                  }
+                  isActive={Boolean(activeViewingReel)}
+                  isPlaying={viewingReelPlaying}
+                  isMuted={false}
+                  style={styles.reelPlayerMediaImg}
+                />
               )}
               <View style={styles.reelPlayerMediaVignette} />
 

@@ -17,7 +17,7 @@ Component | Platform | URL
 **Web Application (Frontend)** | Vercel Global Edge | [https://myprofile-official-web.vercel.app](https://myprofile-official-web.vercel.app)
 **Backend API Gateway** | Vercel Serverless / Node | [https://myprofile-official-api.vercel.app](https://myprofile-official-api.vercel.app)
 **Mobile App (Web Preview)** | Vercel Global Edge | [https://mobile-app-alpha.vercel.app](https://mobile-app-alpha.vercel.app)
-**Android Standalone APK (v1.0)** | Expo EAS Artifacts | [Download Standalone APK](https://expo.dev/artifacts/eas/7KqmaUUROgg8JVlUPOSqTskBjQ_1B1WkpjkWF2nu6Jw.apk)
+**Android Standalone APK (v1.0)** | Expo EAS Artifacts | [Download Standalone APK](https://expo.dev/artifacts/eas/BTriQy5Kbe6WGM_HHyp2JU0bfWuGEdH8XeMEudm3JHY.apk)
 
 ---
 
