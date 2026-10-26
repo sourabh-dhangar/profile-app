@@ -15,34 +15,11 @@ import {
   Platform,
   Share,
   Linking,
-  UIManager,
-  PanResponder,
   Animated,
 } from 'react-native';
 import { COLORS } from '../theme';
 import { normalizeMediaUrl, getGoogleDriveFileId } from '../utils/media';
 import ReelCreatorModal from '../components/ReelCreatorModal';
-
-const hasNativeVideoView = Boolean(
-  Platform.OS !== 'web' &&
-  UIManager &&
-  typeof UIManager.getViewManagerConfig === 'function' &&
-  (UIManager.getViewManagerConfig('ExponentVideoView') || UIManager.getViewManagerConfig('ExpoVideoView'))
-);
-
-let ExpoVideo = null;
-let ResizeMode = { COVER: 'cover', CONTAIN: 'contain' };
-if (hasNativeVideoView) {
-  try {
-    const expoAv = require('expo-av');
-    ExpoVideo = expoAv.Video;
-    if (expoAv.ResizeMode) {
-      ResizeMode = expoAv.ResizeMode;
-    }
-  } catch (e) {
-    ExpoVideo = null;
-  }
-}
 import {
   fetchReelComments,
   addReelComment,
@@ -138,28 +115,11 @@ export default function ReelsScreen({
     currentUser?.role === 'admin'
   );
 
-  const currentIndexRef = useRef(activeIndex);
-  currentIndexRef.current = activeIndex;
-  const reelsLengthRef = useRef(reels.length);
-  reelsLengthRef.current = reels.length;
-
   useEffect(() => {
     setImageError(false);
   }, [activeIndex, currentReel?._id]);
 
-  useEffect(() => {
-    if (!hasNativeVideoView) return;
-    try {
-      const expoAv = require('expo-av');
-      if (expoAv?.Audio?.setAudioModeAsync) {
-        expoAv.Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-          shouldDuckAndroid: true,
-        }).catch(() => {});
-      }
-    } catch (e) {}
-  }, []);
+
 
   const reelThumbnailUri = (
     currentReel?.thumbnailUrl &&
@@ -270,29 +230,6 @@ export default function ReelsScreen({
     }
   };
 
-  const createSwipePanResponder = (index) =>
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return (
-          Math.abs(gestureState.dy) > 20 &&
-          Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2
-        );
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const total = reelsLengthRef.current || 1;
-        if (gestureState.dy < -30) {
-          // Swipe up -> Next reel in infinite loop
-          const next = (index + 1) % total;
-          scrollToReelIndex(next);
-        } else if (gestureState.dy > 30) {
-          // Swipe down -> Prev reel in infinite loop
-          const prev = (index - 1 + total) % total;
-          scrollToReelIndex(prev);
-        }
-      },
-    });
-
   const handleNext = () => {
     const total = reels.length || 1;
     const nextIndex = (currentIndex + 1) % total;
@@ -358,7 +295,7 @@ export default function ReelsScreen({
       lastTapRef.current = now;
       setTimeout(() => {
         if (lastTapRef.current === now) {
-          if (Platform.OS === 'web' || (hasNativeVideoView && ExpoVideo)) {
+          if (Platform.OS === 'web') {
             setIsPlaying((prev) => !prev);
             setShowPlayState(true);
             setTimeout(() => setShowPlayState(false), 700);
@@ -369,7 +306,7 @@ export default function ReelsScreen({
             setShowPlayState(true);
             setTimeout(() => setShowPlayState(false), 700);
           } else {
-            // Standalone APK without compiled ExpoVideo: play high definition stream immediately!
+            // Native APK: play high definition stream immediately!
             handlePlayReelVideo(targetReel);
           }
         }
@@ -711,7 +648,6 @@ export default function ReelsScreen({
                 <View style={{ height: feedHeight, width: '100%', paddingBottom: 6 }}>
                   <View
                     style={styles.reelChassis}
-                    {...createSwipePanResponder(index).panHandlers}
                   >
                     {/* Active Reel Running Progress Bar */}
                     {currentIndex === index && (
@@ -767,18 +703,6 @@ export default function ReelsScreen({
                             backgroundColor: '#000000',
                           }}
                         />
-                      ) : (hasNativeVideoView && ExpoVideo) ? (
-                        <ExpoVideo
-                          source={{ uri: itemVideoUri }}
-                          posterSource={{ uri: itemCoverUri }}
-                          usePoster={currentIndex !== index}
-                          posterStyle={styles.reelImage}
-                          resizeMode={ResizeMode.COVER}
-                          shouldPlay={currentIndex === index && isPlaying}
-                          isLooping
-                          isMuted={isMuted}
-                          style={StyleSheet.absoluteFillObject}
-                        />
                       ) : (
                         <Image
                           source={{ uri: itemCoverUri }}
@@ -809,7 +733,7 @@ export default function ReelsScreen({
                     )}
 
                     {/* Fallback button only if native module not compiled into this APK build */}
-                    {(!hasNativeVideoView || !ExpoVideo) && Platform.OS !== 'web' && !itemIsPhoto && (
+                    {Platform.OS !== 'web' && !itemIsPhoto && (
                       <TouchableOpacity
                         style={styles.playHintBadge}
                         activeOpacity={0.8}
@@ -980,18 +904,18 @@ export default function ReelsScreen({
                             <Image
                               source={{
                                 uri:
-                                  item.profileId.photoUrl ||
-                                  `https://ui-avatars.com/api/?name=${encodeURIComponent(item.profileId.name || 'User')}&background=1e293b&color=94a3b8&size=256`,
+                                  item.profileId?.photoUrl ||
+                                  `https://ui-avatars.com/api/?name=${encodeURIComponent(item.profileId?.name || 'User')}&background=1e293b&color=94a3b8&size=256`,
                               }}
                               style={styles.creatorAvatar}
                             />
                             <View style={styles.creatorTexts}>
                               <Text style={styles.creatorName}>
-                                {item.profileId.name}{' '}
+                                {item.profileId?.name || 'Creator'}{' '}
                                 <Text style={styles.verifiedCheck}>
-                                  {item.profileId.verifiedBadge === 'top_creator'
+                                  {item.profileId?.verifiedBadge === 'top_creator'
                                     ? '⭐'
-                                    : item.profileId.verifiedBadge === 'verified_engineer'
+                                    : item.profileId?.verifiedBadge === 'verified_engineer'
                                     ? '⚡'
                                     : '🛡️'}
                                 </Text>
@@ -1146,23 +1070,6 @@ export default function ReelsScreen({
                   />
                 );
               })()
-            ) : (hasNativeVideoView && ExpoVideo) ? (
-              <ExpoVideo
-                source={{
-                  uri:
-                    currentReel?.streamUrl ||
-                    (currentReel?._id ? `https://myprofile-official-api.vercel.app/api/v1/reels/${currentReel._id}/stream` : null) ||
-                    normalizeMediaUrl(currentReel?.videoUrl || currentReel?.mediaUrl, 'video'),
-                }}
-                posterSource={{
-                  uri: normalizeMediaUrl(currentReel?.thumbnailUrl || currentReel?.mediaUrl || currentReel?.videoUrl, 'image'),
-                }}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay={isPlaying}
-                isLooping
-                isMuted={isMuted}
-                style={StyleSheet.absoluteFillObject}
-              />
             ) : (
               <View style={StyleSheet.absoluteFillObject}>
                 <Image

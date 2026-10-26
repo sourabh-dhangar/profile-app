@@ -21,27 +21,6 @@ import { normalizeMediaUrl } from '../utils/media';
 
 const { width } = Dimensions.get('window');
 
-const hasNativeVideoView = Boolean(
-  Platform.OS !== 'web' &&
-  UIManager &&
-  typeof UIManager.getViewManagerConfig === 'function' &&
-  (UIManager.getViewManagerConfig('ExponentVideoView') || UIManager.getViewManagerConfig('ExpoVideoView'))
-);
-
-let ExpoVideo = null;
-let ResizeMode = { COVER: 'cover', CONTAIN: 'contain' };
-if (hasNativeVideoView) {
-  try {
-    const expoAv = require('expo-av');
-    ExpoVideo = expoAv.Video;
-    if (expoAv.ResizeMode) {
-      ResizeMode = expoAv.ResizeMode;
-    }
-  } catch (e) {
-    ExpoVideo = null;
-  }
-}
-
 const SECTION_ICONS = {
   about: '📖',
   experience: '🏢',
@@ -3199,7 +3178,7 @@ export default function ProfileScreen({
               style={styles.reelPlayerMediaWrapper}
               activeOpacity={0.9}
               onPress={() => {
-                if (Platform.OS === 'web' || (hasNativeVideoView && ExpoVideo)) {
+                if (Platform.OS === 'web') {
                   setViewingReelPlaying((prev) => !prev);
                 } else {
                   const streamUrl =
@@ -3241,19 +3220,6 @@ export default function ProfileScreen({
                     objectFit: 'cover',
                     backgroundColor: '#000000',
                   }}
-                />
-              ) : (hasNativeVideoView && ExpoVideo) ? (
-                <ExpoVideo
-                  source={{
-                    uri: activeViewingReel?.streamUrl || (activeViewingReel?._id ? `https://myprofile-official-api.vercel.app/api/v1/reels/${activeViewingReel._id}/stream` : null) || activeViewingReel?.videoUrl,
-                  }}
-                  posterSource={{ uri: activeViewingReel?.thumbnailUrl }}
-                  usePoster={!viewingReelPlaying}
-                  posterStyle={styles.reelPlayerMediaImg}
-                  resizeMode={ResizeMode.COVER}
-                  shouldPlay={viewingReelPlaying}
-                  isLooping
-                  style={StyleSheet.absoluteFillObject}
                 />
               ) : (
                 <View style={StyleSheet.absoluteFillObject}>
