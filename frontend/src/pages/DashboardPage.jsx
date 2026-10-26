@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import MobileDeviceFrame from '../components/MobileDeviceFrame';
+import { uploadToCloudinary } from '../utils/cloudinary';
 
 const DashboardPage = () => {
   const { user, profile, updateProfileState, logout } = useAuth();
@@ -112,10 +113,15 @@ const DashboardPage = () => {
   const [reelModal, setReelModal] = useState(false);
   const [reelForm, setReelForm] = useState({
     videoUrl: '',
+    thumbnailUrl: '',
+    mediaType: 'video',
     caption: '',
     durationSeconds: 15,
     visibility: 'public',
   });
+  const [uploadingReelFile, setUploadingReelFile] = useState(false);
+  const [reelUploadProgress, setReelUploadProgress] = useState(0);
+  const [uploadedReelFileName, setUploadedReelFileName] = useState('');
 
   // AI Bio Helper State
   const [aiBioModal, setAiBioModal] = useState(false);
@@ -422,11 +428,61 @@ const DashboardPage = () => {
     }
   };
 
+  const handleReelFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isVideo = file.type.startsWith('video/');
+    const isImage = file.type.startsWith('image/');
+
+    if (!isVideo && !isImage) {
+      toast.error('Please select a valid MP4/MOV video or image file');
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('File size cannot exceed 50MB');
+      return;
+    }
+
+    setUploadingReelFile(true);
+    setReelUploadProgress(0);
+    setUploadedReelFileName(file.name);
+
+    try {
+      toast.info('Uploading to Cloudinary CDN...');
+      const result = await uploadToCloudinary(file, (percent) => {
+        setReelUploadProgress(percent);
+      });
+
+      setReelForm((prev) => ({
+        ...prev,
+        videoUrl: result.url,
+        thumbnailUrl: result.thumbnailUrl,
+        mediaType: result.mediaType,
+        durationSeconds: result.duration || 15,
+      }));
+
+      toast.success('⚡ Uploaded to Cloudinary CDN successfully!');
+    } catch (err) {
+      console.error('Cloudinary upload error:', err);
+      toast.error(err.message || 'Failed to upload to Cloudinary');
+    } finally {
+      setUploadingReelFile(false);
+    }
+  };
+
   const handleCreateReel = async (e) => {
     e.preventDefault();
+    if (!reelForm.videoUrl) {
+      toast.error('Please upload a video or provide a media URL');
+      return;
+    }
     try {
       const res = await api.post('/reels', {
         videoUrl: reelForm.videoUrl,
+        thumbnailUrl: reelForm.thumbnailUrl,
+        mediaType: reelForm.mediaType || 'video',
         caption: reelForm.caption,
         durationSeconds: reelForm.durationSeconds,
         visibility: reelForm.visibility,
@@ -435,7 +491,7 @@ const DashboardPage = () => {
       if (res.data?.success) {
         toast.success('Reel published successfully!');
         setReelModal(false);
-        setReelForm({ videoUrl: '', caption: '', durationSeconds: 15, visibility: 'public' });
+        setReelForm({ videoUrl: '', thumbnailUrl: '', mediaType: 'video', caption: '', durationSeconds: 15, visibility: 'public' });
         // Refresh my reels
         const reelsRes = await api.get('/reels/my-reels');
         if (reelsRes.data?.success) {
@@ -829,6 +885,8 @@ const DashboardPage = () => {
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                       className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-emerald-500/40 text-emerald-300 font-semibold text-xs focus:outline-none focus:border-emerald-400"
                     >
+                      <option value="Real Estate">🏢 Real Estate & Property</option>
+                      <option value="Jobs & Employment">💼 Jobs & Recruitment</option>
                       <option value="IT & Software">💻 IT & Software / Freelancer</option>
                       <option value="Salon & Beauty">💇 Salon, Spa & Beauty Lounge</option>
                       <option value="Fitness & Health">🏋️ Gym, Fitness & Personal Trainer</option>
@@ -838,6 +896,7 @@ const DashboardPage = () => {
                       <option value="Education & Coaching">🎓 Teacher & Coaching Academy</option>
                       <option value="Retail & Commerce">🛍️ Retail Store & Boutique</option>
                       <option value="Content Creator & Artist">🎨 Content Creator & Digital Artist</option>
+                      <option value="Custom Category">✨ Custom Category</option>
                       <option value="Other Business">🏢 Other Business / Enterprise</option>
                     </select>
                   </div>
@@ -1781,8 +1840,55 @@ const DashboardPage = () => {
           <div className="w-full max-w-lg glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
             <h3 className="text-base font-bold text-white">Post Short-Form Reel</h3>
 
+            {/* Direct Device/Gallery Upload */}
+            <div className="p-4 rounded-xl border-2 border-dashed border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors text-center relative">
+              <input
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm,image/*"
+                onChange={handleReelFileSelect}
+                disabled={uploadingReelFile}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+              />
+              <div className="flex flex-col items-center justify-center space-y-1.5 pointer-events-none">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Video className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-bold text-white">
+                  {uploadingReelFile ? 'Uploading to Cloudinary CDN...' : 'Click to Pick Video or Image from Device'}
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  Supports MP4, MOV, WebM (under 60s) or JPG, PNG • High Speed CDN
+                </p>
+              </div>
+            </div>
+
+            {/* Upload Progress Bar */}
+            {uploadingReelFile && (
+              <div className="p-3 rounded-xl bg-slate-900 border border-cyan-500/30 space-y-1.5">
+                <div className="flex justify-between text-[11px] font-bold text-cyan-400">
+                  <span>Uploading to Cloudinary...</span>
+                  <span>{reelUploadProgress}%</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className="h-full bg-cyan-400 transition-all duration-200"
+                    style={{ width: `${reelUploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-[9px] text-slate-400 truncate">{uploadedReelFileName}</p>
+              </div>
+            )}
+
+            {/* Cloudinary CDN Active Badge */}
+            {reelForm.videoUrl && reelForm.videoUrl.includes('cloudinary.com') && (
+              <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold">
+                <span>⚡</span>
+                <span className="truncate">Cloudinary CDN Active: Fast Streaming (q_auto, f_auto)</span>
+              </div>
+            )}
+
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Video URL (MP4 / WebM)</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Video URL (Or Paste Link)</label>
               <input
                 type="url"
                 placeholder="https://... or video CDN URL"

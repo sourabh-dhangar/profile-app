@@ -43,11 +43,29 @@ function normalizeMediaUrl(url, type = 'video') {
     return trimmed.replace(/[\?&]dl=0/, '') + (trimmed.includes('?') ? '&raw=1' : '?raw=1');
   }
 
+  // Cloudinary optimization for video streaming (q_auto,f_auto)
+  if (trimmed.includes('cloudinary.com') && (type === 'video' || trimmed.includes('/video/upload/'))) {
+    if (!trimmed.includes('/q_auto')) {
+      return trimmed.replace('/video/upload/', '/video/upload/q_auto,f_auto/');
+    }
+  }
+
   return trimmed;
+}
+
+function getCloudinaryThumbnail(url) {
+  if (!url || typeof url !== 'string' || !url.includes('cloudinary.com')) return url;
+  const jpgUrl = url.replace(/\.(mp4|mov|webm|mkv|m4v)($|\?)/i, '.jpg$2');
+  if (jpgUrl.includes('/so_0')) return jpgUrl;
+  return jpgUrl.replace(
+    /\/video\/upload\/(?:q_auto,f_auto\/)?/,
+    '/video/upload/so_0,q_auto,f_auto,w_720/'
+  );
 }
 
 module.exports = {
   normalizeMediaUrl,
+  getCloudinaryThumbnail,
   getGoogleDriveFileId,
   getGoogleDrivePreviewUrl,
   isGoogleDriveUrl,

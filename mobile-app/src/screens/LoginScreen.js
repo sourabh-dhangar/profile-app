@@ -11,18 +11,22 @@ import {
 import { COLORS } from '../theme';
 
 const CATEGORIES = [
+  { id: 'Real Estate', label: '🏢 Real Estate & Property' },
+  { id: 'Jobs & Employment', label: '💼 Jobs & Hiring' },
   { id: 'IT & Software', label: '💻 IT & Tech' },
   { id: 'Salon & Beauty', label: '💇 Salon & Beauty' },
-  { id: 'Retail & Commerce', label: '🏪 Retail & Store' },
+  { id: 'Retail & Commerce', label: '🛍️ Retail & Store' },
   { id: 'Grocery & Supermarket', label: '🛒 Grocery & Mart' },
   { id: 'Restaurant & Food', label: '🍽️ Food & Dining' },
   { id: 'Doctor & Clinic', label: '🩺 Doctor & Clinic' },
-  { id: 'Fitness & Health', label: '💪 Gym & Fitness' },
+  { id: 'Fitness & Health', label: '🏋️ Gym & Fitness' },
   { id: 'Fashion & Apparel', label: '👗 Fashion & Boutique' },
   { id: 'Electronics & Mobile', label: '📱 Mobile & Electronics' },
   { id: 'Automobile & Garage', label: '🚗 Auto & Garage' },
-  { id: 'Professional Services', label: '💼 Professional Services' },
-  { id: 'Content Creator & Artist', label: '🎬 Creator & Artist' },
+  { id: 'Professional Services', label: '⚖️ Professional Services' },
+  { id: 'Education & Coaching', label: '🎓 Education & Coaching' },
+  { id: 'Content Creator & Artist', label: '🎨 Creator & Artist' },
+  { id: 'Custom', label: '✨ Custom Category' },
 ];
 
 export default function LoginScreen({
@@ -52,6 +56,7 @@ export default function LoginScreen({
   const [email, setEmail] = useState('');
   const [category, setCategory] = useState('IT & Software');
   const [bio, setBio] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
 
   const isStep1 = otpStep === 1;
 
@@ -98,12 +103,14 @@ export default function LoginScreen({
   // Handle Verify Submit with profile metadata
   const handleVerify = () => {
     if (authMode === 'signup') {
+      const effectiveCategory = category === 'Custom' ? (customCategory.trim() || 'Custom Category') : category;
       onVerifyOtp({
         name: fullName.trim(),
         email: email.trim(),
         bio: bio.trim(),
-        profileType: category,
-        category: category,
+        profileType: effectiveCategory,
+        category: effectiveCategory,
+        customCategory: category === 'Custom' ? customCategory.trim() : '',
       });
     } else {
       onVerifyOtp();
@@ -401,6 +408,22 @@ export default function LoginScreen({
                   })}
                 </ScrollView>
               </View>
+
+              {/* Custom Category Input if Custom Selected */}
+              {category === 'Custom' && (
+                <View style={[styles.fieldGroup, { marginTop: 4 }]}>
+                  <Text style={styles.inputLabel}>ENTER YOUR CUSTOM CATEGORY</Text>
+                  <View style={styles.standardInputWrapper}>
+                    <TextInput
+                      style={styles.standardInput}
+                      placeholder="e.g. Photography, Logistics, Event Planner, Interior..."
+                      placeholderTextColor="#64748b"
+                      value={customCategory}
+                      onChangeText={setCustomCategory}
+                    />
+                  </View>
+                </View>
+              )}
 
               {/* Field 5: About / Bio */}
               <View style={styles.fieldGroup}>

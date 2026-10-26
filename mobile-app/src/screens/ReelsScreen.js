@@ -31,13 +31,15 @@ import {
 } from '../services/api';
 
 const TOPIC_CHIPS = [
-  { key: 'all', label: '✨ All' },
+  { key: 'all', label: '🌐 All' },
+  { key: 'realestate', label: '🏢 Real Estate' },
+  { key: 'jobs', label: '💼 Jobs & Career' },
   { key: 'code', label: '💻 Code' },
   { key: 'uiux', label: '🎨 UI/UX' },
   { key: 'ai', label: '🤖 AI & ML' },
   { key: 'mobile', label: '📱 Mobile' },
-  { key: 'career', label: '💼 Career' },
-  { key: '3d', label: '🌐 3D & Cloud' },
+  { key: 'career', label: '📈 Career' },
+  { key: '3d', label: '☁️ 3D & Cloud' },
 ];
 
 export default function ReelsScreen({

@@ -9,21 +9,21 @@ export default function TabBar({
   isAdmin = false,
   isAuthenticated = false,
 }) {
-  const tabs = isAuthenticated
+    const tabs = isAuthenticated
     ? [
-        { id: 'profile', label: 'My Profile', icon: '👤', glyph: '●' },
-        { id: 'reels', label: 'Reels', icon: '🎬', glyph: '●' },
-        { id: 'discover', label: 'Discover', icon: '🔍', glyph: '●' },
+        { id: 'reels', label: 'Reels', icon: '🎬', glyph: '🎬' },
+        { id: 'discover', label: 'Discover', icon: '🔍', glyph: '🔍' },
+        { id: 'profile', label: 'My Profile', icon: '👤', glyph: '👤' },
         ...(isAdmin || activeTab === 'admin'
-          ? [{ id: 'admin', label: 'Admin', icon: '👑', glyph: '●' }]
+          ? [{ id: 'admin', label: 'Admin', icon: '⚡', glyph: '⚡' }]
           : []),
-        { id: 'login', label: 'Account', icon: '⚙️', glyph: '●' },
+        { id: 'login', label: 'Account', icon: '⚙️', glyph: '⚙️' },
       ]
     : [
-        { id: 'login', label: 'Sign Up / In', icon: '✨', glyph: '●' },
-        { id: 'profile', label: 'Profile', icon: '🔒', glyph: '●', isLocked: true },
-        { id: 'reels', label: 'Reels', icon: '🔒', glyph: '●', isLocked: true },
-        { id: 'discover', label: 'Discover', icon: '🔍', glyph: '●' },
+        { id: 'reels', label: 'Reels', icon: '🎬', glyph: '🎬' },
+        { id: 'discover', label: 'Discover', icon: '🔍', glyph: '🔍' },
+        { id: 'profile', label: 'Profile', icon: '👤', glyph: '👤', isLocked: true },
+        { id: 'login', label: 'Sign In', icon: '🔑', glyph: '🔑' },
       ];
 
   return (

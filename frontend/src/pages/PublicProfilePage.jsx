@@ -44,6 +44,9 @@ import { useToast } from '../components/Toast';
 
 
 const CATEGORY_ICONS = {
+  'Real Estate': '🏢',
+  'Jobs & Employment': '💼',
+  'Custom Category': '✨',
   'IT & Software': '💻',
   'Salon & Beauty': '💇',
   'Fitness & Health': '🏋️',

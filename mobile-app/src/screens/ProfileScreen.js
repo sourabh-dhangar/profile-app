@@ -69,19 +69,22 @@ const PROFILE_TYPES = [
 ];
 
 const BUSINESS_CATEGORIES = [
-  { id: 'Salon & Beauty', label: '💇 Salon & Beauty' },
-  { id: 'Retail & Commerce', label: '🏪 Retail & Store' },
-  { id: 'Grocery & Supermarket', label: '🛒 Grocery & Mart' },
-  { id: 'Restaurant & Food', label: '🍽️ Food & Dining' },
-  { id: 'Doctor & Clinic', label: '🩺 Doctor & Clinic' },
-  { id: 'Fitness & Health', label: '💪 Gym & Fitness' },
-  { id: 'Fashion & Apparel', label: '👗 Fashion & Clothing' },
-  { id: 'Electronics & Mobile', label: '📱 Mobile & Electronics' },
-  { id: 'Automobile & Garage', label: '🚗 Auto & Garage' },
-  { id: 'IT & Software', label: '💻 IT & Tech' },
-  { id: 'Professional Services', label: '💼 Professional Services' },
-  { id: 'Content Creator & Artist', label: '🎬 Creator & Artist' },
-  { id: 'Other Business', label: '🏢 Other Business' },
+  { id: 'Real Estate', name: 'Real Estate', label: '🏢 Real Estate & Property', icon: '🏢' },
+  { id: 'Jobs & Employment', name: 'Jobs & Employment', label: '💼 Jobs & Hiring', icon: '💼' },
+  { id: 'IT & Software', name: 'IT & Software', label: '💻 IT & Tech', icon: '💻' },
+  { id: 'Salon & Beauty', name: 'Salon & Beauty', label: '💇 Salon & Beauty', icon: '💇' },
+  { id: 'Retail & Commerce', name: 'Retail & Commerce', label: '🛍️ Retail & Store', icon: '🛍️' },
+  { id: 'Grocery & Supermarket', name: 'Grocery & Supermarket', label: '🛒 Grocery & Mart', icon: '🛒' },
+  { id: 'Restaurant & Food', name: 'Restaurant & Food', label: '🍽️ Food & Dining', icon: '🍽️' },
+  { id: 'Doctor & Clinic', name: 'Doctor & Clinic', label: '🩺 Doctor & Clinic', icon: '🩺' },
+  { id: 'Fitness & Health', name: 'Fitness & Health', label: '🏋️ Gym & Fitness', icon: '🏋️' },
+  { id: 'Fashion & Apparel', name: 'Fashion & Apparel', label: '👗 Fashion & Clothing', icon: '👗' },
+  { id: 'Electronics & Mobile', name: 'Electronics & Mobile', label: '📱 Mobile & Electronics', icon: '📱' },
+  { id: 'Automobile & Garage', name: 'Automobile & Garage', label: '🚗 Auto & Garage', icon: '🚗' },
+  { id: 'Professional Services', name: 'Professional Services', label: '⚖️ Professional Services', icon: '⚖️' },
+  { id: 'Education & Coaching', name: 'Education & Coaching', label: '🎓 Education & Coaching', icon: '🎓' },
+  { id: 'Content Creator & Artist', name: 'Content Creator & Artist', label: '🎨 Creator & Artist', icon: '🎨' },
+  { id: 'Custom', name: 'Custom Category', label: '✨ Custom Category', icon: '✨' },
 ];
 
 const SECTION_TYPES = [
@@ -2673,10 +2676,10 @@ export default function ProfileScreen({
               <Text style={styles.modalInputLabel}>BUSINESS / INDUSTRY CATEGORY</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryChipsScrollRow}>
                 {BUSINESS_CATEGORIES.map((cat) => {
-                  const isSelected = editForm.category === cat.name;
+                  const isSelected = editForm.category === cat.name || editForm.category === cat.id;
                   return (
                     <TouchableOpacity
-                      key={cat.name}
+                      key={cat.id}
                       style={[
                         styles.categoryChipOption,
                         isSelected && {
@@ -2700,6 +2703,26 @@ export default function ProfileScreen({
                   );
                 })}
               </ScrollView>
+
+              {/* Custom Category Input if Custom Selected */}
+              {(editForm.category === 'Custom Category' || editForm.category === 'Custom' || (editForm.category && !BUSINESS_CATEGORIES.some((c) => c.name === editForm.category && c.id !== 'Custom'))) && (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={styles.modalInputLabel}>SPECIFY CUSTOM CATEGORY</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={editForm.customCategory || (editForm.category !== 'Custom Category' && editForm.category !== 'Custom' ? editForm.category : '')}
+                    onChangeText={(text) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        customCategory: text,
+                        category: text.trim() ? text.trim() : 'Custom Category',
+                      }))
+                    }
+                    placeholder="e.g. Real Estate Consultant, Jobs Placement, Logistics..."
+                    placeholderTextColor="#64748b"
+                  />
+                </View>
+              )}
 
               {/* Sub-Category / Niche */}
               <Text style={styles.modalInputLabel}>SUB-CATEGORY / SPECIALTY</Text>

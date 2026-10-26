@@ -167,7 +167,7 @@ class ErrorBoundary extends React.Component {
 }
 
 function MainApp() {
-  const [activeTab, setActiveTab] = useState('login'); // 'login' | 'profile' | 'reels' | 'discover' | 'admin'
+  const [activeTab, setActiveTab] = useState('reels'); // 'login' | 'profile' | 'reels' | 'discover' | 'admin'
 
   // Toast Notification State
   const [toast, setToast] = useState({ message: '', type: 'info', visible: false });
@@ -249,7 +249,7 @@ function MainApp() {
               }));
             }
           }
-          const targetTab = user?.user?.role === 'admin' ? 'admin' : 'profile';
+          const targetTab = user?.user?.role === 'admin' ? 'admin' : 'reels';
           setActiveTab(targetTab);
           setIsRestoringSession(false);
 
@@ -262,8 +262,8 @@ function MainApp() {
       } finally {
         setIsRestoringSession(false);
       }
-      // Guarantee unauthenticated users land on login
-      setActiveTab('login');
+      // Direct reel section opens immediately on the app
+      setActiveTab('reels');
     };
     restoreSession();
   }, []);
@@ -286,7 +286,7 @@ function MainApp() {
   useEffect(() => {
     if (isRestoringSession) return;
     const isAuth = Boolean(authToken || currentUser?.token);
-    if (!isAuth && ((activeTab === 'profile' && !profileUsername) || activeTab === 'reels' || activeTab === 'admin')) {
+    if (!isAuth && ((activeTab === 'profile' && !profileUsername) || activeTab === 'admin')) {
       setActiveTab('login');
       return;
     }
@@ -301,7 +301,7 @@ function MainApp() {
           loadNotifications(effectiveToken);
         }
       }
-    } else if (activeTab === 'reels' && isAuth) {
+    } else if (activeTab === 'reels') {
       loadReels();
     } else if (activeTab === 'admin' && isAuth) {
       loadAdminData(currentUser?.token || authToken);
@@ -1233,8 +1233,8 @@ function MainApp() {
 
   const handleTabPress = (tabId) => {
     const isAuth = Boolean(authToken || currentUser?.token);
-    if (!isAuth && (tabId === 'profile' || tabId === 'reels' || tabId === 'admin')) {
-      showToast(`🔒 Sign in required to access ${tabId === 'reels' ? 'Reels' : 'Profile'}`, 'info');
+    if (!isAuth && (tabId === 'profile' || tabId === 'admin')) {
+      showToast(`🔒 Sign in required to access ${tabId === 'admin' ? 'Admin' : 'Profile'}`, 'info');
       setActiveTab('login');
       return;
     }
@@ -1410,7 +1410,7 @@ function MainApp() {
               <ActivityIndicator size="large" color={COLORS.primary} />
               <Text style={styles.restoringSessionText}>Syncing Digital Identity...</Text>
             </View>
-          ) : (!authToken && !currentUser?.token && activeTab !== 'login' && activeTab !== 'discover') ? (
+          ) : (!authToken && !currentUser?.token && activeTab !== 'login' && activeTab !== 'discover' && activeTab !== 'reels') ? (
             <LoginScreen
               mobileInput={mobileInput}
               setMobileInput={setMobileInput}

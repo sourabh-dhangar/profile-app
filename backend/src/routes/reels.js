@@ -18,15 +18,21 @@ const {
   getMyReels,
   updateReelVisibility,
   streamReelVideo,
+  uploadMedia,
+  getCloudinaryConfig,
 } = require('../controllers/reelController');
 const { authenticate, optionalAuth } = require('../middleware/auth');
 const { uploadReel: reelUploader } = require('../middleware/upload');
 
 // Public feed & specific feeds (MUST be before /:id)
+router.get('/cloudinary-config', getCloudinaryConfig);
 router.get('/my-reels', authenticate, getMyReels);
 router.get('/feed', getFeed);
 router.get('/feed/following', authenticate, getFollowingFeed);
 router.get('/feed/saved', authenticate, getSavedReels);
+
+// Cloudinary media direct upload endpoint
+router.post('/upload', authenticate, reelUploader.single('media'), uploadMedia);
 
 // Comments routes
 router.get('/:id/comments', getComments);

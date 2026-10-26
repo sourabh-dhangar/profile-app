@@ -10,8 +10,10 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../theme';
-import { normalizeMediaUrl, isGoogleDriveUrl } from '../utils/media';
+import { normalizeMediaUrl, isGoogleDriveUrl, getCloudinaryThumbnail } from '../utils/media';
+import { uploadToCloudinary } from '../services/cloudinary';
 
 const SAMPLE_CLIPS = [
   {
@@ -85,12 +87,75 @@ export default function ReelCreatorModal({
   const [duration, setDuration] = useState(15);
   const [visibility, setVisibility] = useState('public'); // 'public' | 'profile-only' | 'private'
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingToCloud, setIsUploadingToCloud] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedFileName, setUploadedFileName] = useState('');
 
   const activeMediaUrl = (mediaType === 'image' ? imageUrl : videoUrl) || '';
   const isDriveLink = isGoogleDriveUrl(activeMediaUrl);
   const activePreviewUrl = mediaType === 'image'
     ? normalizeMediaUrl(imageUrl, 'image')
     : normalizeMediaUrl(thumbnailUrl || videoUrl, 'thumbnail');
+
+  const handlePickFromGallery = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        onShowToast?.('Permission to access device media is required', 'error');
+        return;
+      }
+
+      const pickerMediaType = mediaType === 'image'
+        ? ImagePicker.MediaTypeOptions.Images
+        : ImagePicker.MediaTypeOptions.Videos;
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: pickerMediaType,
+        allowsEditing: true,
+        quality: 0.85,
+        videoMaxDuration: 60,
+      });
+
+      if (result.canceled || !result.assets || !result.assets[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      // Duration validation for videos
+      if (mediaType === 'video' && asset.duration && asset.duration > 61000) {
+        onShowToast?.('Video duration exceeds 60s. Please pick a clip under 60 seconds.', 'error');
+        return;
+      }
+
+      setIsUploadingToCloud(true);
+      setUploadProgress(0);
+      setUploadedFileName(asset.fileName || (mediaType === 'video' ? 'reel_video.mp4' : 'reel_photo.jpg'));
+
+      onShowToast?.('⏳ Uploading to Cloudinary fast CDN...', 'info');
+
+      const cloudRes = await uploadToCloudinary(asset, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      if (cloudRes.mediaType === 'video') {
+        setVideoUrl(cloudRes.url);
+        setThumbnailUrl(cloudRes.thumbnailUrl);
+        if (cloudRes.duration) {
+          setDuration(cloudRes.duration);
+        }
+      } else {
+        setImageUrl(cloudRes.url);
+      }
+
+      onShowToast?.('⚡ Uploaded to Cloudinary CDN! Ready to publish.', 'success');
+    } catch (err) {
+      console.error('Gallery pick & upload error:', err);
+      onShowToast?.(err.message || 'Failed to upload from gallery', 'error');
+    } finally {
+      setIsUploadingToCloud(false);
+    }
+  };
 
   const handlePublish = async () => {
     if (mediaType === 'video' && !videoUrl.trim()) {
@@ -234,6 +299,65 @@ export default function ReelCreatorModal({
                 </View>
               </View>
             </View>
+
+            {/* Direct Device Gallery Upload (Cloudinary Powered) */}
+            <TouchableOpacity
+              style={[styles.galleryPickerCard, isUploadingToCloud && styles.galleryPickerCardDisabled]}
+              onPress={handlePickFromGallery}
+              disabled={isUploadingToCloud}
+              activeOpacity={0.85}
+            >
+              <View style={styles.galleryIconWrapper}>
+                <Text style={styles.galleryIconText}>
+                  {mediaType === 'video' ? '🎬' : '📷'}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.galleryCardTitle}>
+                  {mediaType === 'video' ? 'Upload Video from Gallery' : 'Upload Photo from Gallery'}
+                </Text>
+                <Text style={styles.galleryCardSubtitle}>
+                  {mediaType === 'video'
+                    ? 'Select up to 60s clip • Fast Cloudinary CDN storage'
+                    : 'Select high-res image • Fast Cloudinary CDN storage'}
+                </Text>
+              </View>
+              <View style={styles.galleryActionBadge}>
+                {isUploadingToCloud ? (
+                  <ActivityIndicator size="small" color="#10b981" />
+                ) : (
+                  <Text style={styles.galleryActionText}>Choose ➔</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+
+            {/* Live Cloudinary Upload Progress Bar */}
+            {isUploadingToCloud && (
+              <View style={styles.uploadProgressBox}>
+                <View style={styles.uploadProgressHeader}>
+                  <Text style={styles.uploadProgressTitle}>Uploading to Cloudinary CDN...</Text>
+                  <Text style={styles.uploadProgressPercent}>{uploadProgress}%</Text>
+                </View>
+                <View style={styles.uploadProgressBarTrack}>
+                  <View style={[styles.uploadProgressBarFill, { width: `${uploadProgress}%` }]} />
+                </View>
+                {Boolean(uploadedFileName) && (
+                  <Text style={styles.uploadProgressFileName} numberOfLines={1}>
+                    📁 {uploadedFileName}
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {/* Cloudinary CDN Active Badge */}
+            {activeMediaUrl && activeMediaUrl.includes('cloudinary.com') && (
+              <View style={styles.cloudSuccessBadge}>
+                <Text style={styles.cloudSuccessIcon}>⚡</Text>
+                <Text style={styles.cloudSuccessText}>
+                  Cloudinary CDN Active: Fast playback & auto-optimized (q_auto, f_auto)
+                </Text>
+              </View>
+            )}
 
             {/* If Photo Reel: Image selection */}
             {mediaType === 'image' ? (
@@ -748,5 +872,115 @@ const styles = StyleSheet.create({
     color: '#020617',
     fontSize: 13,
     fontWeight: '800',
+  },
+  galleryPickerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#10b981',
+    padding: 14,
+    gap: 12,
+    marginBottom: 16,
+  },
+  galleryPickerCardDisabled: {
+    opacity: 0.6,
+  },
+  galleryIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  galleryIconText: {
+    fontSize: 22,
+  },
+  galleryCardTitle: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  galleryCardSubtitle: {
+    color: '#94a3b8',
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  galleryActionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#10b981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  galleryActionText: {
+    color: '#020617',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  uploadProgressBox: {
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    padding: 12,
+    marginBottom: 16,
+  },
+  uploadProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  uploadProgressTitle: {
+    color: '#38bdf8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  uploadProgressPercent: {
+    color: '#38bdf8',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  uploadProgressBarTrack: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  uploadProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#38bdf8',
+    borderRadius: 3,
+  },
+  uploadProgressFileName: {
+    color: '#94a3b8',
+    fontSize: 10,
+  },
+  cloudSuccessBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    marginBottom: 16,
+  },
+  cloudSuccessIcon: {
+    fontSize: 12,
+  },
+  cloudSuccessText: {
+    color: '#34d399',
+    fontSize: 10.5,
+    fontWeight: '700',
+    flex: 1,
   },
 });

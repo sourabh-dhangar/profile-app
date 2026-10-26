@@ -14,17 +14,20 @@ import { COLORS } from '../theme';
 import { browseProfilesApi } from '../services/api';
 
 const CATEGORIES = [
-  { id: 'All', label: '🌟 All Profiles' },
+  { id: 'All', label: '🌐 All Profiles' },
+  { id: 'Real Estate', label: '🏢 Real Estate', color: '#14b8a6' },
+  { id: 'Jobs & Employment', label: '💼 Jobs & Hiring', color: '#3b82f6' },
   { id: 'Doctor & Clinic', label: '🩺 Doctor & Clinic', color: '#10b981' },
   { id: 'Salon & Beauty', label: '💇 Salon & Beauty', color: '#ec4899' },
   { id: 'IT & Software', label: '💻 IT & Tech', color: '#06b6d4' },
-  { id: 'Content Creator & Artist', label: '🎬 Creator & Artist', color: '#a855f7' },
-  { id: 'Fitness & Health', label: '💪 Gym & Fitness', color: '#f59e0b' },
+  { id: 'Content Creator & Artist', label: '🎨 Creator & Artist', color: '#a855f7' },
+  { id: 'Fitness & Health', label: '🏋️ Gym & Fitness', color: '#f59e0b' },
   { id: 'Restaurant & Food', label: '🍽️ Food & Dining', color: '#f97316' },
   { id: 'Fashion & Apparel', label: '👗 Fashion & Boutique', color: '#e11d48' },
-  { id: 'Professional Services', label: '💼 Professional Services', color: '#3b82f6' },
+  { id: 'Professional Services', label: '⚖️ Professional Services', color: '#6366f1' },
   { id: 'Grocery & Supermarket', label: '🛒 Grocery & Mart', color: '#22c55e' },
-  { id: 'Electronics & Mobile', label: '📱 Mobile & Electronics', color: '#6366f1' },
+  { id: 'Electronics & Mobile', label: '📱 Mobile & Electronics', color: '#8b5cf6' },
+  { id: 'Custom Category', label: '✨ Custom Category', color: '#eab308' },
 ];
 
 const SAMPLE_NUMBERS = [

@@ -6,6 +6,11 @@ const Bookmark = require('../models/Bookmark');
 const { createNotificationHelper } = require('./notificationController');
 const config = require('../config/env');
 const { normalizeMediaUrl } = require('../utils/url');
+const {
+  cloudinary,
+  optimizeCloudinaryVideoUrl,
+  getCloudinaryVideoThumbnail,
+} = require('../config/cloudinary');
 
 /**
  * Instagram-Style Discovery & Algorithmic Ranking for Reels
@@ -162,10 +167,45 @@ const createReel = async (req, res, next) => {
 
     let mediaType = req.body.mediaType || 'video';
     let videoUrl = req.body.videoUrl || req.body.mediaUrl || '';
+    let durationSeconds = req.body.durationSeconds || 15;
+    let thumbnailUrl = req.body.thumbnailUrl || '';
+
     if (req.file) {
-      videoUrl = `${config.publicUrl}/uploads/reels/${req.file.filename}`;
-      if (req.file.mimetype && req.file.mimetype.startsWith('image/')) {
-        mediaType = 'image';
+      try {
+        const isImage = req.file.mimetype && req.file.mimetype.startsWith('image/');
+        const cloudUpload = await cloudinary.uploader.upload(req.file.path, {
+          resource_type: isImage ? 'image' : 'video',
+          folder: 'reels',
+        });
+        videoUrl = cloudUpload.secure_url;
+        if (isImage) {
+          mediaType = 'image';
+        } else {
+          mediaType = 'video';
+          videoUrl = optimizeCloudinaryVideoUrl(videoUrl);
+          if (!thumbnailUrl) {
+            thumbnailUrl = getCloudinaryVideoThumbnail(videoUrl);
+          }
+          if (cloudUpload.duration) {
+            durationSeconds = Math.min(60, Math.round(cloudUpload.duration));
+          }
+        }
+      } catch (cloudErr) {
+        console.warn('⚠️ Cloudinary direct upload failed, fallback to local:', cloudErr.message);
+        videoUrl = `${config.publicUrl}/uploads/reels/${req.file.filename}`;
+        if (req.file.mimetype && req.file.mimetype.startsWith('image/')) {
+          mediaType = 'image';
+        }
+      }
+    }
+
+    // Auto-optimize Cloudinary URLs if sent directly from client
+    if (videoUrl && videoUrl.includes('cloudinary.com')) {
+      if (mediaType === 'video') {
+        videoUrl = optimizeCloudinaryVideoUrl(videoUrl);
+        if (!thumbnailUrl || thumbnailUrl.includes('unsplash.com') || thumbnailUrl.endsWith('.mp4')) {
+          thumbnailUrl = getCloudinaryVideoThumbnail(videoUrl);
+        }
       }
     }
 
@@ -186,9 +226,7 @@ const createReel = async (req, res, next) => {
 
     const {
       caption = '',
-      durationSeconds = 15,
       visibility = 'public',
-      thumbnailUrl = '',
       audioTitle,
       audioArtist,
       audioTrack,
@@ -953,6 +991,48 @@ const streamReelVideo = async (req, res, next) => {
   }
 };
 
+const uploadMedia = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No media file attached' });
+    }
+    const isImage = req.file.mimetype && req.file.mimetype.startsWith('image/');
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      resource_type: isImage ? 'image' : 'video',
+      folder: 'reels',
+    });
+
+    const optimizedUrl = isImage ? result.secure_url : optimizeCloudinaryVideoUrl(result.secure_url);
+    const thumbnail = isImage ? result.secure_url : getCloudinaryVideoThumbnail(result.secure_url);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        rawUrl: result.secure_url,
+        url: optimizedUrl,
+        thumbnailUrl: thumbnail,
+        mediaType: isImage ? 'image' : 'video',
+        duration: result.duration ? Math.min(60, Math.round(result.duration)) : 15,
+        publicId: result.public_id,
+        bytes: result.bytes,
+      },
+    });
+  } catch (err) {
+    console.error('Error in uploadMedia:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Media upload failed' });
+  }
+};
+
+const getCloudinaryConfig = (req, res) => {
+  return res.status(200).json({
+    success: true,
+    data: {
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME || 'gphexfmz',
+      uploadPreset: process.env.CLOUDINARY_UPLOAD_PRESET || 'myprofile_reels',
+    },
+  });
+};
+
 module.exports = {
   getFeed,
   getFollowingFeed,
@@ -971,5 +1051,7 @@ module.exports = {
   getMyReels,
   updateReelVisibility,
   streamReelVideo,
+  uploadMedia,
+  getCloudinaryConfig,
 };
 

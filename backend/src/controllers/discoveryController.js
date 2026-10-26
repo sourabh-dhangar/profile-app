@@ -174,8 +174,27 @@ const browseProfiles = async (req, res, next) => {
   try {
     const { category, search, city, limit = 20, page = 1 } = req.query;
     const query = { status: 'published' };
-    if (category) {
-      query.category = category;
+    if (category && category !== 'All') {
+      if (/real\s*estate/i.test(category)) {
+        query.category = { $regex: /real\s*estate/i };
+      } else if (/job|employment|recruitment/i.test(category)) {
+        query.category = { $regex: /job|employment|recruitment/i };
+      } else if (/custom/i.test(category)) {
+        const standardCategories = [
+          'IT & Software', 'Salon & Beauty', 'Fitness & Health', 'Doctor & Clinic',
+          'Restaurant & Food', 'Professional Services', 'Education & Coaching',
+          'Retail & Commerce', 'Grocery & Supermarket', 'Fashion & Apparel',
+          'Electronics & Mobile', 'Automobile & Garage', 'Content Creator & Artist',
+          'Real Estate', 'Jobs & Employment'
+        ];
+        query.$or = [
+          { category: 'Custom Category' },
+          { customCategory: { $exists: true, $ne: '' } },
+          { category: { $nin: standardCategories } }
+        ];
+      } else {
+        query.category = category;
+      }
     }
     if (city) {
       query.city = new RegExp(city, 'i');

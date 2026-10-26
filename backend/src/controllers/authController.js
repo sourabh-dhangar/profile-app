@@ -112,6 +112,7 @@ const verifyOtp = async (req, res, next) => {
       bio,
       profileType,
       category,
+      customCategory,
     } = req.body;
     if (!mobile || !otp) {
       return res.status(400).json({
@@ -177,10 +178,11 @@ const verifyOtp = async (req, res, next) => {
       'Engineer', 'Designer', 'StoreOwner', 'Businessman'
     ];
     const validCategories = [
-      'IT & Software', 'Salon & Beauty', 'Fitness & Health', 'Doctor & Clinic',
+      'Real Estate', 'Jobs & Employment', 'IT & Software', 'Salon & Beauty', 'Fitness & Health', 'Doctor & Clinic',
       'Restaurant & Food', 'Professional Services', 'Education & Coaching',
       'Retail & Commerce', 'Grocery & Supermarket', 'Fashion & Apparel',
-      'Electronics & Mobile', 'Automobile & Garage', 'Content Creator & Artist', 'Other Business'
+      'Electronics & Mobile', 'Automobile & Garage', 'Content Creator & Artist',
+      'Custom Category', 'Other Business'
     ];
 
     let resolvedProfileType = 'Creator';
@@ -194,11 +196,15 @@ const verifyOtp = async (req, res, next) => {
       resolvedProfileType = 'Professional';
     } else if (category === 'SmallBusiness' || category === 'Business & Storefront') {
       resolvedProfileType = 'SmallBusiness';
+    } else if (category === 'Real Estate') {
+      resolvedProfileType = 'Businessman';
+    } else if (category === 'Jobs & Employment') {
+      resolvedProfileType = 'ServiceProvider';
     }
 
     let resolvedCategory = 'IT & Software';
-    if (category && validCategories.includes(category)) {
-      resolvedCategory = category;
+    if (category && category.trim()) {
+      resolvedCategory = category.trim();
     } else if (resolvedProfileType === 'Designer' || resolvedProfileType === 'Creator') {
       resolvedCategory = 'Content Creator & Artist';
     } else if (resolvedProfileType === 'Professional') {
@@ -225,6 +231,7 @@ const verifyOtp = async (req, res, next) => {
         username: defaultSlug,
         profileType: resolvedProfileType,
         category: resolvedCategory,
+        customCategory: customCategory?.trim() || '',
         status: 'published',
         bio: resolvedBio,
         city: 'India',
@@ -320,6 +327,7 @@ const verifyOtp = async (req, res, next) => {
       if (profileType || category) {
         profile.profileType = resolvedProfileType;
         profile.category = resolvedCategory;
+        if (customCategory !== undefined) profile.customCategory = customCategory.trim();
         updated = true;
       }
       if (email) {
@@ -363,6 +371,7 @@ const verifyOtp = async (req, res, next) => {
           photoUrl: profile.photoUrl || '',
           profileType: profile.profileType,
           category: profile.category || 'IT & Software',
+          customCategory: profile.customCategory || '',
           subCategory: profile.subCategory || '',
           bio: profile.bio || '',
           city: profile.city || 'India',

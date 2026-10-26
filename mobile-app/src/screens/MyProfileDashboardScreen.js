@@ -66,6 +66,9 @@ export default function MyProfileDashboardScreen({
   const [editCategory, setEditCategory] = useState(
     profileData?.profile?.category || 'Content Creator & Artist'
   );
+  const [editCustomCategory, setEditCustomCategory] = useState(
+    profileData?.profile?.customCategory || ''
+  );
   const [editSubCategory, setEditSubCategory] = useState(
     profileData?.profile?.subCategory || ''
   );
@@ -163,6 +166,7 @@ export default function MyProfileDashboardScreen({
       profileType: editProfileType,
       city: editCity.trim(),
       category: editCategory,
+      customCategory: editCustomCategory.trim(),
       subCategory: editSubCategory.trim(),
       businessDetails: {
         timing: editTiming.trim(),

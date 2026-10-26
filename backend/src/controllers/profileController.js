@@ -93,6 +93,7 @@ const updateMyProfile = async (req, res, next) => {
       city,
       profileType,
       category,
+      customCategory,
       subCategory,
       businessDetails,
       socialLinks,

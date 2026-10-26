@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { StyleSheet, View, Image, Platform } from 'react-native';
+import { normalizeMediaUrl, getCloudinaryThumbnail } from '../utils/media';
 
 let ExpoVideo = null;
 let ResizeMode = { COVER: 'cover', CONTAIN: 'contain' };
@@ -97,10 +98,13 @@ export default class SafeVideoPlayer extends Component {
       resizeMode = ResizeMode.COVER,
     } = this.props;
 
-    if (!ExpoVideo || this.state.hasError || !videoUri) {
+    const streamableVideoUri = normalizeMediaUrl(videoUri, 'video');
+    const effectiveCoverUri = coverUri || (streamableVideoUri?.includes('cloudinary.com') ? getCloudinaryThumbnail(streamableVideoUri) : null);
+
+    if (!ExpoVideo || this.state.hasError || !streamableVideoUri) {
       return (
         <Image
-          source={{ uri: coverUri }}
+          source={{ uri: effectiveCoverUri || coverUri }}
           style={style || styles.defaultStyle}
           resizeMode="cover"
         />
@@ -111,7 +115,7 @@ export default class SafeVideoPlayer extends Component {
       <VideoErrorBoundary
         fallback={
           <Image
-            source={{ uri: coverUri }}
+            source={{ uri: effectiveCoverUri || coverUri }}
             style={style || styles.defaultStyle}
             resizeMode="cover"
           />
@@ -120,9 +124,9 @@ export default class SafeVideoPlayer extends Component {
       >
         <ExpoVideo
           ref={this.videoRef}
-          source={{ uri: videoUri }}
-          posterSource={{ uri: coverUri }}
-          usePoster={!isActive}
+          source={{ uri: streamableVideoUri }}
+          posterSource={{ uri: effectiveCoverUri }}
+          usePoster={true}
           posterStyle={style || styles.defaultStyle}
           resizeMode={resizeMode}
           shouldPlay={isActive && isPlaying}

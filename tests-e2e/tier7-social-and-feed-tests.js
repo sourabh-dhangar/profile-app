@@ -84,6 +84,20 @@ async function runTier7Tests() {
     const reelId = createReelRes.data.data._id;
     assert(createReelRes.data.data.commentsCount === 0, 'New reel initializes with commentsCount: 0');
 
+    // 4b. Cloudinary Config & Streaming Optimization Verification
+    const cloudConfigRes = await clientA.get('/api/v1/reels/cloudinary-config');
+    assert(cloudConfigRes.status === 200 && cloudConfigRes.data.data.cloudName, 'GET /reels/cloudinary-config returns 200 and valid cloudName');
+
+    const createCloudReelRes = await clientA.post('/api/v1/reels', {
+      caption: 'Cloudinary fast CDN reel #fast #cdn',
+      videoUrl: 'https://res.cloudinary.com/gphexfmz/video/upload/v12345/reels/sample_clip.mp4',
+      durationSeconds: 20,
+      visibility: 'public',
+    });
+    assert(createCloudReelRes.status === 201 && createCloudReelRes.data.success, 'Creator A posts Cloudinary reel (201 Created)');
+    assert(createCloudReelRes.data.data.videoUrl.includes('q_auto,f_auto'), 'Cloudinary videoUrl automatically optimized with q_auto,f_auto');
+    assert(createCloudReelRes.data.data.thumbnailUrl.includes('so_0'), 'Cloudinary thumbnailUrl automatically generated with so_0 poster frame');
+
     // 5. Check Follow Status before following
     const checkBeforeRes = await clientB.get(`/api/v1/profiles/${slugA}/follow-status`);
     assert(checkBeforeRes.status === 200 && checkBeforeRes.data.data.isFollowing === false, 'Follow status before following is false');

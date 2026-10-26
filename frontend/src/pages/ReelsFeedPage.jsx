@@ -14,9 +14,11 @@ import {
   ExternalLink,
   Film,
   Sparkles,
-  User
+  User,
+  Plus,
 } from 'lucide-react';
 import { useToast } from '../components/Toast';
+import { optimizeCloudinaryVideoUrl, getCloudinaryThumbnail } from '../utils/cloudinary';
 
 const ReelsFeedPage = () => {
   const [reels, setReels] = useState([]);
@@ -221,43 +223,61 @@ const ReelsFeedPage = () => {
 
   return (
     <div className="min-h-[85vh] flex flex-col items-center justify-center px-4 py-4 select-none">
-      {/* Keyboard hints banner (Desktop) */}
-      <div className="hidden md:flex items-center space-x-4 mb-3 text-[11px] text-slate-500 font-mono">
-        <span>Use <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">↑</kbd> <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">↓</kbd> to navigate</span>
-        <span>•</span>
-        <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">Space</kbd> to play/pause</span>
-        <span>•</span>
-        <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">M</kbd> to mute</span>
+      {/* Header bar: Keyboard hints & Upload Reel CTA */}
+      <div className="flex items-center justify-between w-full max-w-[370px] mb-3">
+        <div className="hidden md:flex items-center space-x-2 text-[11px] text-slate-500 font-mono">
+          <span>Use <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">↑</kbd> <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">↓</kbd> to scroll</span>
+          <span>•</span>
+          <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">M</kbd> mute</span>
+        </div>
+        <Link
+          to="/dashboard"
+          className="ml-auto inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-400 text-xs font-bold transition-all shadow-sm"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>Upload Reel</span>
+        </Link>
       </div>
 
       <div className="relative w-full max-w-[370px] aspect-[9/16] rounded-[36px] overflow-hidden glass-panel border border-slate-800/90 shadow-2xl bg-black">
-        {/* Direct Auto-Streaming Video Player */}
-        <video
-          ref={videoRef}
-          key={currentReel._id}
-          src={currentReel.streamUrl || currentReel.videoUrl}
-          poster={currentReel.thumbnailUrl}
-          autoPlay
-          loop
-          muted={isMuted}
-          playsInline
-          onLoadedMetadata={(e) => {
-            e.currentTarget.muted = isMuted;
-            const p = e.currentTarget.play();
-            if (p !== undefined) {
-              p.catch(() => {
-                e.currentTarget.muted = true;
-                e.currentTarget.play().catch(() => {});
-              });
-            }
-          }}
-          onCanPlay={(e) => {
-            const p = e.currentTarget.play();
-            if (p !== undefined) p.catch(() => {});
-          }}
-          onClick={handleVideoTap}
-          className="w-full h-full object-cover cursor-pointer"
-        />
+        {/* Direct Auto-Streaming Media Player (Cloudinary Fast Stream & Poster) */}
+        {currentReel.mediaType === 'image' ? (
+          <img
+            key={currentReel._id}
+            src={currentReel.videoUrl || currentReel.mediaUrl}
+            alt={currentReel.caption || 'Reel showcase'}
+            onClick={handleVideoTap}
+            className="w-full h-full object-cover cursor-pointer select-none"
+          />
+        ) : (
+          <video
+            ref={videoRef}
+            key={currentReel._id}
+            src={currentReel.streamUrl || optimizeCloudinaryVideoUrl(currentReel.videoUrl)}
+            poster={currentReel.thumbnailUrl || getCloudinaryThumbnail(currentReel.videoUrl)}
+            autoPlay
+            loop
+            muted={isMuted}
+            playsInline
+            preload="auto"
+            onLoadedMetadata={(e) => {
+              e.currentTarget.muted = isMuted;
+              const p = e.currentTarget.play();
+              if (p !== undefined) {
+                p.catch(() => {
+                  e.currentTarget.muted = true;
+                  e.currentTarget.play().catch(() => {});
+                });
+              }
+            }}
+            onCanPlay={(e) => {
+              const p = e.currentTarget.play();
+              if (p !== undefined) p.catch(() => {});
+            }}
+            onClick={handleVideoTap}
+            className="w-full h-full object-cover cursor-pointer"
+          />
+        )}
 
         {/* Double-tap burst heart animation */}
         {showHeartAnim && (

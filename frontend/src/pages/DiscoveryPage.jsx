@@ -30,11 +30,16 @@ import {
   Check,
   ArrowRight,
   TrendingUp,
-  UserCheck
+  UserCheck,
+  Home,
+  Briefcase,
+  Layers
 } from 'lucide-react';
 
 const CATEGORIES = [
   { label: 'All Industries', value: '', icon: Sparkles, color: 'text-emerald-400', badgeBg: 'bg-emerald-500/10' },
+  { label: 'Real Estate', value: 'Real Estate', icon: Home, color: 'text-teal-400', badgeBg: 'bg-teal-500/10' },
+  { label: 'Jobs & Employment', value: 'Jobs & Employment', icon: Briefcase, color: 'text-blue-400', badgeBg: 'bg-blue-500/10' },
   { label: 'Salon & Beauty', value: 'Salon & Beauty', icon: Scissors, color: 'text-pink-400', badgeBg: 'bg-pink-500/10' },
   { label: 'IT & Software', value: 'IT & Software', icon: Code2, color: 'text-cyan-400', badgeBg: 'bg-cyan-500/10' },
   { label: 'Fitness & Health', value: 'Fitness & Health', icon: Dumbbell, color: 'text-amber-400', badgeBg: 'bg-amber-500/10' },
@@ -44,6 +49,7 @@ const CATEGORIES = [
   { label: 'Education & Coaching', value: 'Education & Coaching', icon: GraduationCap, color: 'text-purple-400', badgeBg: 'bg-purple-500/10' },
   { label: 'Retail & Commerce', value: 'Retail & Commerce', icon: ShoppingBag, color: 'text-teal-400', badgeBg: 'bg-teal-500/10' },
   { label: 'Content Creator & Artist', value: 'Content Creator & Artist', icon: Palette, color: 'text-rose-400', badgeBg: 'bg-rose-500/10' },
+  { label: 'Custom Category', value: 'Custom Category', icon: Layers, color: 'text-amber-400', badgeBg: 'bg-amber-500/10' },
   { label: 'Other Business', value: 'Other Business', icon: Building2, color: 'text-slate-400', badgeBg: 'bg-slate-500/10' }
 ];
 
