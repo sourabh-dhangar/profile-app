@@ -18,7 +18,7 @@
     "expo-av": "~13.10.6",
     "expo-file-system": "~16.0.9",
     "expo-font": "~11.10.3",
-    "expo-image-picker": "^58.0.10",
+    "expo-image-picker": "~14.7.1",
     "expo-status-bar": "~1.11.1",
     "expo-updates": "~0.24.13",
     "react": "18.2.0",
