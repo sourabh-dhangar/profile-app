@@ -249,8 +249,8 @@ function MainApp() {
               }));
             }
           }
-          const targetTab = user?.user?.role === 'admin' ? 'admin' : 'reels';
-          setActiveTab(targetTab);
+          // Direct reel section opens immediately on app open for all users
+          setActiveTab('reels');
           setIsRestoringSession(false);
 
           // Background sync fresh data from server without disrupting view
@@ -266,21 +266,22 @@ function MainApp() {
       setActiveTab('reels');
     };
     restoreSession();
+    // Pre-fetch reels immediately so the feed is instant
+    loadReels('forYou');
   }, []);
 
-  // Handle Android Hardware Back Button safely without resetting session
+  // Handle Android Hardware Back Button safely without resetting session (returns to Reels home)
   useEffect(() => {
     const onBackPress = () => {
-      const isAuth = Boolean(authToken || currentUser?.token);
-      if (isAuth && activeTab !== 'profile') {
-        setActiveTab('profile');
+      if (activeTab !== 'reels') {
+        setActiveTab('reels');
         return true;
       }
       return false;
     };
     const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backSub.remove();
-  }, [activeTab, authToken, currentUser]);
+  }, [activeTab]);
 
   // Strict Authentication Guard when activeTab changes
   useEffect(() => {
@@ -1405,7 +1406,7 @@ function MainApp() {
 
         {/* Main Screen Body */}
         <View style={styles.bodyContainer}>
-          {isRestoringSession ? (
+          {isRestoringSession && activeTab !== 'reels' ? (
             <View style={styles.centerLoadingContainer}>
               <ActivityIndicator size="large" color={COLORS.primary} />
               <Text style={styles.restoringSessionText}>Syncing Digital Identity...</Text>
