@@ -1386,23 +1386,25 @@ function MainApp() {
       />
 
       <View style={styles.appShell}>
-        {/* Top Header */}
-        <Header
-          activeTab={activeTab}
-          currentUser={currentUser}
-          onSignIn={() => setActiveTab('login')}
-          onLogoPress={() => {
-            const isAuth = Boolean(authToken || currentUser?.token);
-            if (isAuth && currentUser?.profile?.username) {
-              setProfileUsername(currentUser.profile.username);
-              loadMyProfile(currentUser.token);
-              setActiveTab('profile');
-            } else {
-              setActiveTab('login');
-              showToast('Please sign in or create an account to view profiles', 'info');
-            }
-          }}
-        />
+        {/* Top Header - Hidden in Reels tab for immersive 100% full-screen playback */}
+        {activeTab !== 'reels' && (
+          <Header
+            activeTab={activeTab}
+            currentUser={currentUser}
+            onSignIn={() => setActiveTab('login')}
+            onLogoPress={() => {
+              const isAuth = Boolean(authToken || currentUser?.token);
+              if (isAuth && currentUser?.profile?.username) {
+                setProfileUsername(currentUser.profile.username);
+                loadMyProfile(currentUser.token);
+                setActiveTab('profile');
+              } else {
+                setActiveTab('login');
+                showToast('Please sign in or create an account to view profiles', 'info');
+              }
+            }}
+          />
+        )}
 
         {/* Main Screen Body */}
         <View style={styles.bodyContainer}>

@@ -133,7 +133,12 @@ export default class SafeVideoPlayer extends Component {
           isLooping
           isMuted={isMuted}
           style={style || StyleSheet.absoluteFillObject}
-          onLoad={() => this.setState({ isLoaded: true })}
+          onLoad={() => {
+            this.setState({ isLoaded: true });
+            if (this.props.isActive && this.props.isPlaying) {
+              this.videoRef.current?.playAsync?.().catch(() => {});
+            }
+          }}
           onError={(err) => {
             console.log('[SafeVideoPlayer] Video playback error:', err);
             this.setState({ hasError: true });

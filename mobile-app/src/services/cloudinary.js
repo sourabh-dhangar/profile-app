@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { getCloudinaryThumbnail, normalizeMediaUrl } from '../utils/media';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || 'gphexfmz';
@@ -81,14 +82,36 @@ export const uploadToCloudinary = (fileAsset, onProgress) => {
     const fileName = fileAsset.fileName || `reel_${Date.now()}.${fileExt}`;
     const mimeType = fileAsset.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg');
 
-    formData.append('file', {
-      uri: fileAsset.uri,
-      type: mimeType,
-      name: fileName,
-    });
-    formData.append('upload_preset', UPLOAD_PRESET);
-    formData.append('folder', 'reels');
+    const sendRequest = (filePayload) => {
+      formData.append('file', filePayload);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', 'reels');
+      xhr.send(formData);
+    };
 
-    xhr.send(formData);
+    if (Platform.OS === 'web') {
+      if (fileAsset.file) {
+        sendRequest(fileAsset.file);
+      } else {
+        fetch(fileAsset.uri)
+          .then((res) => res.blob())
+          .then((blob) => {
+            sendRequest(blob);
+          })
+          .catch(() => {
+            sendRequest({
+              uri: fileAsset.uri,
+              type: mimeType,
+              name: fileName,
+            });
+          });
+      }
+    } else {
+      sendRequest({
+        uri: fileAsset.uri,
+        type: mimeType,
+        name: fileName,
+      });
+    }
   });
 };

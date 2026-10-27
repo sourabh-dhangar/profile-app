@@ -42,6 +42,113 @@ const TOPIC_CHIPS = [
   { key: '3d', label: '☁️ 3D & Cloud' },
 ];
 
+function ReelMediaItem({
+  videoUri,
+  coverUri,
+  itemIsPhoto,
+  isActive,
+  isPlaying,
+  isMuted,
+}) {
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const vid = videoRef.current;
+      if (!vid) return;
+
+      if (isActive && isPlaying) {
+        vid.muted = isMuted;
+        const playPromise = vid.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.log('[ReelMediaItem] Autoplay blocked, trying muted:', err?.message);
+            if (vid) {
+              vid.muted = true;
+              vid.play().catch(() => {});
+            }
+          });
+        }
+      } else {
+        vid.pause();
+        try {
+          vid.currentTime = 0;
+        } catch (e) {}
+      }
+    }
+  }, [isActive, isPlaying]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && videoRef.current) {
+      videoRef.current.muted = isMuted;
+    }
+  }, [isMuted]);
+
+  if (itemIsPhoto) {
+    return (
+      <Image
+        source={{ uri: coverUri }}
+        style={styles.reelImage}
+        resizeMode="cover"
+      />
+    );
+  }
+
+  if (Platform.OS === 'web') {
+    return (
+      <video
+        ref={videoRef}
+        src={videoUri}
+        poster={coverUri}
+        loop
+        playsInline
+        muted={isMuted}
+        onLoadedData={(e) => {
+          if (isActive && isPlaying) {
+            e.currentTarget.muted = isMuted;
+            const p = e.currentTarget.play();
+            if (p !== undefined) {
+              p.catch(() => {
+                e.currentTarget.muted = true;
+                e.currentTarget.play().catch(() => {});
+              });
+            }
+          }
+        }}
+        onCanPlay={(e) => {
+          if (isActive && isPlaying) {
+            e.currentTarget.muted = isMuted;
+            const p = e.currentTarget.play();
+            if (p !== undefined) {
+              p.catch(() => {
+                e.currentTarget.muted = true;
+                e.currentTarget.play().catch(() => {});
+              });
+            }
+          }
+        }}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          backgroundColor: '#000000',
+        }}
+      />
+    );
+  }
+
+  return (
+    <SafeVideoPlayer
+      videoUri={videoUri}
+      coverUri={coverUri}
+      isActive={isActive}
+      isPlaying={isPlaying}
+      isMuted={isMuted}
+      style={StyleSheet.absoluteFillObject}
+    />
+  );
+}
+
 export default function ReelsScreen({
   reels = [],
   loading = false,
@@ -72,7 +179,7 @@ export default function ReelsScreen({
 
   const flatListRef = useRef(null);
   const [feedHeight, setFeedHeight] = useState(
-    Math.round(Dimensions.get('window').height * 0.73)
+    Math.round(Dimensions.get('window').height)
   );
 
   // Full-Screen Video Player Modal
@@ -140,8 +247,8 @@ export default function ReelsScreen({
 
   const onViewableItemsChangedRef = useRef(({ viewableItems }) => {
     if (viewableItems && viewableItems.length > 0) {
-      const activeItem = viewableItems[0];
-      if (typeof activeItem.index === 'number') {
+      const activeItem = viewableItems.find((v) => v.isViewable) || viewableItems[0];
+      if (activeItem && typeof activeItem.index === 'number') {
         setCurrentIndex(activeItem.index);
         setIsPlaying(true);
       }
@@ -424,115 +531,117 @@ export default function ReelsScreen({
 
   return (
     <View style={styles.container}>
-      {/* Top Feed Tabs: For You vs Following vs Saved */}
-      <View style={styles.feedTabsHeader}>
-        <TouchableOpacity
-          style={[styles.feedTabBtn, activeFeedTab === 'forYou' && styles.feedTabBtnActive]}
-          onPress={() => onSwitchFeedTab && onSwitchFeedTab('forYou', selectedTopic === 'all' ? '' : selectedTopic, searchQuery)}
-          activeOpacity={0.8}
-        >
-          <Text
-            style={[styles.feedTabText, activeFeedTab === 'forYou' && styles.feedTabTextActive]}
+      {/* Top Floating Feed Tabs & Categories (Instagram Overlay Style) */}
+      <View style={styles.topFloatingOverlay} pointerEvents="box-none">
+        <View style={styles.feedTabsHeader}>
+          <TouchableOpacity
+            style={[styles.feedTabBtn, activeFeedTab === 'forYou' && styles.feedTabBtnActive]}
+            onPress={() => onSwitchFeedTab && onSwitchFeedTab('forYou', selectedTopic === 'all' ? '' : selectedTopic, searchQuery)}
+            activeOpacity={0.8}
           >
-            🌍 For You
-          </Text>
-          {activeFeedTab === 'forYou' && <View style={styles.activeTabIndicator} />}
-        </TouchableOpacity>
+            <Text
+              style={[styles.feedTabText, activeFeedTab === 'forYou' && styles.feedTabTextActive]}
+            >
+              🌍 For You
+            </Text>
+            {activeFeedTab === 'forYou' && <View style={styles.activeTabIndicator} />}
+          </TouchableOpacity>
 
-        <View style={styles.feedTabSeparator} />
+          <View style={styles.feedTabSeparator} />
 
-        <TouchableOpacity
-          style={[styles.feedTabBtn, activeFeedTab === 'following' && styles.feedTabBtnActive]}
-          onPress={() => {
-            if (!authToken) {
-              onShowToast('Sign in to view your Following feed', 'info');
-              if (onNavigateToAuth) onNavigateToAuth();
-              return;
-            }
-            if (onSwitchFeedTab) onSwitchFeedTab('following');
-          }}
-          activeOpacity={0.8}
-        >
-          <Text
-            style={[styles.feedTabText, activeFeedTab === 'following' && styles.feedTabTextActive]}
+          <TouchableOpacity
+            style={[styles.feedTabBtn, activeFeedTab === 'following' && styles.feedTabBtnActive]}
+            onPress={() => {
+              if (!authToken) {
+                onShowToast('Sign in to view your Following feed', 'info');
+                if (onNavigateToAuth) onNavigateToAuth();
+                return;
+              }
+              if (onSwitchFeedTab) onSwitchFeedTab('following');
+            }}
+            activeOpacity={0.8}
           >
-            👥 Following
-          </Text>
-          {activeFeedTab === 'following' && <View style={styles.activeTabIndicator} />}
-        </TouchableOpacity>
+            <Text
+              style={[styles.feedTabText, activeFeedTab === 'following' && styles.feedTabTextActive]}
+            >
+              👥 Following
+            </Text>
+            {activeFeedTab === 'following' && <View style={styles.activeTabIndicator} />}
+          </TouchableOpacity>
 
-        <View style={styles.feedTabSeparator} />
+          <View style={styles.feedTabSeparator} />
 
-        <TouchableOpacity
-          style={[styles.feedTabBtn, activeFeedTab === 'saved' && styles.feedTabBtnActive]}
-          onPress={() => {
-            if (!authToken) {
-              onShowToast('Sign in to view your Saved Vault', 'info');
-              if (onNavigateToAuth) onNavigateToAuth();
-              return;
-            }
-            if (onSwitchFeedTab) onSwitchFeedTab('saved');
-          }}
-          activeOpacity={0.8}
-        >
-          <Text
-            style={[styles.feedTabText, activeFeedTab === 'saved' && styles.feedTabTextActive]}
+          <TouchableOpacity
+            style={[styles.feedTabBtn, activeFeedTab === 'saved' && styles.feedTabBtnActive]}
+            onPress={() => {
+              if (!authToken) {
+                onShowToast('Sign in to view your Saved Vault', 'info');
+                if (onNavigateToAuth) onNavigateToAuth();
+                return;
+              }
+              if (onSwitchFeedTab) onSwitchFeedTab('saved');
+            }}
+            activeOpacity={0.8}
           >
-            🔖 Saved
-          </Text>
-          {activeFeedTab === 'saved' && <View style={styles.activeTabIndicator} />}
-        </TouchableOpacity>
+            <Text
+              style={[styles.feedTabText, activeFeedTab === 'saved' && styles.feedTabTextActive]}
+            >
+              🔖 Saved
+            </Text>
+            {activeFeedTab === 'saved' && <View style={styles.activeTabIndicator} />}
+          </TouchableOpacity>
 
-        <View style={styles.feedTabSeparator} />
+          <View style={styles.feedTabSeparator} />
 
-        <TouchableOpacity
-          style={styles.postReelHeaderBtn}
-          onPress={() => {
-            if (!authToken && !currentUser?.token) {
-              onShowToast('Sign in to post video reels 🎬', 'info');
-              if (onNavigateToAuth) onNavigateToAuth();
-              return;
-            }
-            setShowCreateModal(true);
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.postReelHeaderText}>+ Post</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Topic Filter Chips & Search Bar (Active on For You tab) */}
-      {activeFeedTab === 'forYou' && (
-        <View style={styles.topicFilterContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.topicScrollView}
-            contentContainerStyle={styles.topicChipsScroll}
+          <TouchableOpacity
+            style={styles.postReelHeaderBtn}
+            onPress={() => {
+              if (!authToken && !currentUser?.token) {
+                onShowToast('Sign in to post video reels 🎬', 'info');
+                if (onNavigateToAuth) onNavigateToAuth();
+                return;
+              }
+              setShowCreateModal(true);
+            }}
+            activeOpacity={0.8}
           >
-            {TOPIC_CHIPS.map((chip) => {
-              const isSelected = selectedTopic === chip.key;
-              return (
-                <TouchableOpacity
-                  key={chip.key}
-                  style={[styles.topicChip, isSelected && styles.topicChipActive]}
-                  onPress={() => handleSelectTopic(chip.key)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.topicChipText,
-                      isSelected && styles.topicChipTextActive,
-                    ]}
-                  >
-                    {chip.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+            <Text style={styles.postReelHeaderText}>+ Post</Text>
+          </TouchableOpacity>
         </View>
-      )}
+
+        {/* Topic Filter Chips & Search Bar (Active on For You tab) */}
+        {activeFeedTab === 'forYou' && (
+          <View style={styles.topicFilterContainer} pointerEvents="box-none">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.topicScrollView}
+              contentContainerStyle={styles.topicChipsScroll}
+            >
+              {TOPIC_CHIPS.map((chip) => {
+                const isSelected = selectedTopic === chip.key;
+                return (
+                  <TouchableOpacity
+                    key={chip.key}
+                    style={[styles.topicChip, isSelected && styles.topicChipActive]}
+                    onPress={() => handleSelectTopic(chip.key)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.topicChipText,
+                        isSelected && styles.topicChipTextActive,
+                      ]}
+                    >
+                      {chip.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+      </View>
 
       {/* Empty State for current feed */}
       {reels.length === 0 ? (
@@ -563,7 +672,7 @@ export default function ReelsScreen({
           style={styles.feedWrapper}
           onLayout={(e) => {
             const { height } = e.nativeEvent.layout;
-            if (height > 100 && Math.abs(height - feedHeight) > 6) {
+            if (height > 100 && Math.abs(height - feedHeight) > 2) {
               setFeedHeight(Math.round(height));
             }
           }}
@@ -572,12 +681,12 @@ export default function ReelsScreen({
             ref={flatListRef}
             data={reels}
             keyExtractor={(item, index) => item._id || `reel-${index}`}
-            style={{ flex: 1, width: '100%' }}
+            style={{ flex: 1, width: '100%', height: '100%' }}
             contentContainerStyle={{ flexGrow: 1 }}
-            pagingEnabled={Platform.OS === 'android' ? true : false}
-            snapToInterval={Platform.OS === 'ios' ? feedHeight : undefined}
+            pagingEnabled={true}
+            snapToInterval={feedHeight}
             snapToAlignment="start"
-            decelerationRate={Platform.OS === 'ios' ? 'fast' : 'normal'}
+            decelerationRate="fast"
             showsVerticalScrollIndicator={false}
             bounces={false}
             scrollEventThrottle={16}
@@ -593,12 +702,24 @@ export default function ReelsScreen({
                 animated: true,
               });
             }}
+            onScroll={(e) => {
+              const offsetY = e.nativeEvent.contentOffset.y;
+              if (feedHeight > 0) {
+                const index = Math.round(offsetY / feedHeight);
+                if (index >= 0 && index < reels.length && index !== currentIndex) {
+                  setCurrentIndex(index);
+                  setIsPlaying(true);
+                }
+              }
+            }}
             onMomentumScrollEnd={(e) => {
               const offsetY = e.nativeEvent.contentOffset.y;
-              const index = Math.round(offsetY / feedHeight);
-              if (index >= 0 && index < reels.length && index !== currentIndex) {
-                setCurrentIndex(index);
-                setIsPlaying(true);
+              if (feedHeight > 0) {
+                const index = Math.round(offsetY / feedHeight);
+                if (index >= 0 && index < reels.length && index !== currentIndex) {
+                  setCurrentIndex(index);
+                  setIsPlaying(true);
+                }
               }
             }}
             getItemLayout={(data, index) => ({
@@ -632,12 +753,13 @@ export default function ReelsScreen({
                 'image'
               );
 
-              const itemVideoUri = item?.streamUrl ||
-                (item?._id ? `https://myprofile-official-api.vercel.app/api/v1/reels/${item._id}/stream` : null) ||
-                normalizeMediaUrl(item?.videoUrl || item?.mediaUrl, 'video');
+              const rawVideo = item?.videoUrl || item?.mediaUrl;
+              const itemVideoUri = (rawVideo && typeof rawVideo === 'string' && rawVideo.trim().length > 0)
+                ? normalizeMediaUrl(rawVideo, 'video')
+                : (item?.streamUrl || '');
 
               return (
-                <View style={{ height: feedHeight, width: '100%', paddingBottom: 6 }}>
+                <View style={{ height: feedHeight, width: '100%', paddingBottom: 0 }}>
                   <View
                     style={styles.reelChassis}
                   >
@@ -654,61 +776,14 @@ export default function ReelsScreen({
                       onPress={() => handleCardTap(index)}
                       delayPressIn={100}
                     >
-                      {itemIsPhoto ? (
-                        <Image
-                          source={{ uri: itemCoverUri }}
-                          style={styles.reelImage}
-                          resizeMode="cover"
-                        />
-                      ) : Platform.OS === 'web' ? (
-                        <video
-                          key={itemReelId}
-                          src={itemVideoUri}
-                          poster={itemCoverUri}
-                          autoPlay={currentIndex === index && isPlaying}
-                          loop
-                          playsInline
-                          muted={isMuted}
-                          onLoadedMetadata={(e) => {
-                            if (currentIndex === index && isPlaying) {
-                              e.currentTarget.muted = isMuted;
-                              const p = e.currentTarget.play();
-                              if (p !== undefined) {
-                                p.catch(() => {
-                                  e.currentTarget.muted = true;
-                                  setIsMuted(true);
-                                  e.currentTarget.play().catch(() => {});
-                                });
-                              }
-                            }
-                          }}
-                          onCanPlay={(e) => {
-                            if (currentIndex === index && isPlaying) {
-                              const p = e.currentTarget.play();
-                              if (p !== undefined) p.catch(() => {});
-                            }
-                          }}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            backgroundColor: '#000000',
-                          }}
-                        />
-                      ) : (
-                        <SafeVideoPlayer
-                          videoUri={itemVideoUri}
-                          coverUri={itemCoverUri}
-                          isActive={currentIndex === index}
-                          isPlaying={isPlaying}
-                          isMuted={isMuted}
-                          style={StyleSheet.absoluteFillObject}
-                        />
-                      )}
-
-                      {/* Vignette Gradients */}
-                      <View style={styles.topVignette} pointerEvents="none" />
-                      <View style={styles.bottomVignette} pointerEvents="none" />
+                      <ReelMediaItem
+                        videoUri={itemVideoUri}
+                        coverUri={itemCoverUri}
+                        itemIsPhoto={itemIsPhoto}
+                        isActive={currentIndex === index}
+                        isPlaying={isPlaying}
+                        isMuted={isMuted}
+                      />
                     </Pressable>
 
                     {/* Double-tap Heart Burst Overlay */}
@@ -754,8 +829,8 @@ export default function ReelsScreen({
                       </TouchableOpacity>
                     </View>
 
-                    {/* Top Bar on Reel - Reel count shown strictly for Admin; clean Instagram badge for regular users */}
-                    <View style={styles.topBar} pointerEvents="box-none">
+                    {/* Top Bar on Reel - Positioned smoothly below floating controls */}
+                    <View style={[styles.topBar, { top: activeFeedTab === 'forYou' ? 95 : 56 }]} pointerEvents="box-none">
                       <View style={styles.counterPill}>
                         <Text style={styles.counterText}>
                           {userIsAdmin
@@ -1265,15 +1340,26 @@ export default function ReelsScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#000000',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  topFloatingOverlay: {
+    position: 'absolute',
+    top: 8,
+    left: 0,
+    right: 0,
+    zIndex: 35,
+    alignItems: 'center',
   },
   loopPillContainer: {
     position: 'absolute',
     left: 12,
-    top: '42%',
+    top: '48%',
     zIndex: 25,
     gap: 10,
   },
@@ -1410,17 +1496,12 @@ const styles = StyleSheet.create({
   reelChassis: {
     flex: 1,
     width: '100%',
-    borderRadius: 24,
+    height: '100%',
+    borderRadius: 0,
     overflow: 'hidden',
-    backgroundColor: '#0a0f1d',
+    backgroundColor: '#000000',
     position: 'relative',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 8,
+    borderWidth: 0,
   },
   reelImage: {
     position: 'absolute',
@@ -1430,22 +1511,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
-  },
-  topVignette: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 90,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-  },
-  bottomVignette: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 200,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
   },
   centerOverlay: {
     position: 'absolute',
