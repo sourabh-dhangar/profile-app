@@ -18,6 +18,9 @@ import { COLORS, THEME_ACCENTS } from '../theme';
 import { getVCardUrl, fetchProfileQR, getQRCodeUrl } from '../services/api';
 import { normalizeMediaUrl } from '../utils/media';
 import SafeVideoPlayer from '../components/SafeVideoPlayer';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadToCloudinary } from '../services/cloudinary';
+import ReelCreatorModal from '../components/ReelCreatorModal';
 
 const { width } = Dimensions.get('window');
 
@@ -329,6 +332,9 @@ export default function ProfileScreen({
   const [inlineSkillInput, setInlineSkillInput] = useState('');
   const [activeSkillSecId, setActiveSkillSecId] = useState(null);
 
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarUploadProgress, setAvatarUploadProgress] = useState(0);
+
   // Edit Profile Form State
   const [editForm, setEditForm] = useState({
     photoUrl: '',
@@ -415,6 +421,46 @@ export default function ProfileScreen({
       });
     } catch (e) {}
     onShowToast(`Copied @${profile.username} profile link: ${url}`, 'success');
+  };
+
+  const handlePickAvatarFromGallery = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        onShowToast?.('Permission to access photos is required', 'error');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (result.canceled || !result.assets || !result.assets[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      setIsUploadingAvatar(true);
+      setAvatarUploadProgress(0);
+      onShowToast?.('⏳ Uploading Profile Photo to Cloudinary...', 'info');
+
+      const cloudRes = await uploadToCloudinary(asset, (p) => {
+        setAvatarUploadProgress(p);
+      });
+
+      if (cloudRes.url) {
+        setEditForm((prev) => ({ ...prev, photoUrl: cloudRes.url }));
+        onShowToast?.('📸 Profile Photo uploaded from Gallery!', 'success');
+      }
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+      onShowToast?.(err.message || 'Failed to upload photo', 'error');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const openEditModal = () => {
@@ -2470,9 +2516,32 @@ export default function ProfileScreen({
                     </View>
                   </View>
                   <Text style={styles.avatarPreviewHint}>
-                    Instant 1-Tap Avatar Presets or enter custom image URL below
+                    Pick from device gallery, instant 1-tap presets, or enter custom URL
                   </Text>
                 </View>
+
+                {/* Choose Avatar from Gallery Button */}
+                <TouchableOpacity
+                  style={[styles.galleryAvatarBtn, isUploadingAvatar && styles.galleryAvatarBtnDisabled]}
+                  onPress={handlePickAvatarFromGallery}
+                  disabled={isUploadingAvatar}
+                  activeOpacity={0.8}
+                >
+                  {isUploadingAvatar ? (
+                    <ActivityIndicator size="small" color="#10b981" />
+                  ) : (
+                    <>
+                      <Text style={styles.galleryAvatarBtnIcon}>📷</Text>
+                      <Text style={styles.galleryAvatarBtnText}>Upload Photo from Gallery</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {isUploadingAvatar && (
+                  <View style={styles.avatarUploadBar}>
+                    <View style={[styles.avatarUploadFill, { width: `${avatarUploadProgress}%` }]} />
+                  </View>
+                )}
 
                 {/* 6 Curated Designer/Developer Avatar Presets */}
                 <Text style={styles.presetsHeaderLabel}>6 CURATED DESIGNER & DEVELOPER PRESETS</Text>
@@ -3004,161 +3073,20 @@ export default function ProfileScreen({
       </Modal>
 
       {/* 4. Create / Post Reel Modal */}
-      <Modal
+      <ReelCreatorModal
         visible={isCreateReelModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsCreateReelModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>🎬 Create & Publish Reel</Text>
-                <Text style={styles.modalSubtitle}>
-                  Publish a video post visible to everyone on your profile & the global feed
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setIsCreateReelModalVisible(false)}
-                style={styles.modalCloseBtn}
-              >
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.modalScrollView}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              {/* Quick Template Presets */}
-              <Text style={styles.modalInputLabel}>QUICK DEMO TEMPLATES (1-TAP AUTO-FILL)</Text>
-              <View style={styles.presetPillsScroll}>
-                {REEL_PRESETS.map((preset, pIdx) => (
-                  <TouchableOpacity
-                    key={pIdx}
-                    style={styles.presetPill}
-                    onPress={() => applyReelPreset(preset)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.presetPillText}>{preset.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Caption */}
-              <Text style={styles.modalInputLabel}>CAPTION & HASHTAGS</Text>
-              <TextInput
-                style={[styles.modalInput, styles.modalBioInput]}
-                value={reelForm.caption}
-                onChangeText={(text) =>
-                  setReelForm((prev) => ({ ...prev, caption: text }))
-                }
-                placeholder="What are you showcasing? (e.g. Building next-gen mobile experience with dark neon UI #tech #dev)"
-                placeholderTextColor="#64748b"
-                multiline
-                numberOfLines={3}
-              />
-
-              {/* Video URL */}
-              <Text style={styles.modalInputLabel}>VIDEO STREAM / MEDIA URL (MP4 / HTTPS)</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={reelForm.videoUrl}
-                onChangeText={(text) =>
-                  setReelForm((prev) => ({ ...prev, videoUrl: text }))
-                }
-                placeholder="https://example.com/video.mp4"
-                placeholderTextColor="#64748b"
-                autoCapitalize="none"
-              />
-
-              {/* Thumbnail URL */}
-              <Text style={styles.modalInputLabel}>COVER / POSTER IMAGE URL (OPTIONAL)</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={reelForm.thumbnailUrl}
-                onChangeText={(text) =>
-                  setReelForm((prev) => ({ ...prev, thumbnailUrl: text }))
-                }
-                placeholder="https://images.unsplash.com/photo-..."
-                placeholderTextColor="#64748b"
-                autoCapitalize="none"
-              />
-
-              {/* Duration Pills */}
-              <Text style={styles.modalInputLabel}>DURATION</Text>
-              <View style={styles.durationOptionsRow}>
-                {[15, 30, 45, 60].map((dur) => {
-                  const isSel = reelForm.durationSeconds === dur;
-                  return (
-                    <TouchableOpacity
-                      key={dur}
-                      style={[
-                        styles.durationPillOption,
-                        isSel && {
-                          borderColor: theme.primary,
-                          backgroundColor: theme.badgeBg,
-                        },
-                      ]}
-                      onPress={() =>
-                        setReelForm((prev) => ({ ...prev, durationSeconds: dur }))
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.durationPillOptionText,
-                          isSel && { color: theme.text, fontWeight: '800' },
-                        ]}
-                      >
-                        ⏱️ {dur} Seconds
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Visibility note */}
-              <View style={styles.visibilityNoteBox}>
-                <Text style={styles.visibilityNoteEmoji}>🌐</Text>
-                <Text style={styles.visibilityNoteText}>
-                  This post will be Public and visible on your profile page and in the Community Reels Feed.
-                </Text>
-              </View>
-
-              <View style={{ height: 20 }} />
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setIsCreateReelModalVisible(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalSaveBtn,
-                  { backgroundColor: theme.primary },
-                  savingReel && styles.modalSaveBtnDisabled,
-                ]}
-                onPress={handleSaveReel}
-                disabled={savingReel}
-                activeOpacity={0.8}
-              >
-                {savingReel ? (
-                  <ActivityIndicator size="small" color="#020617" />
-                ) : (
-                  <Text style={styles.modalSaveText}>Publish Reel 🚀</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setIsCreateReelModalVisible(false)}
+        onSubmitReel={async (data) => {
+          if (onCreateReel) {
+            const ok = await onCreateReel(data);
+            if (ok !== false) {
+              setIsCreateReelModalVisible(false);
+            }
+            return ok;
+          }
+        }}
+        onShowToast={onShowToast}
+      />
 
       {/* 5. Interactive Reel Viewer / Player Modal */}
       <Modal
@@ -6047,6 +5975,43 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     marginTop: 8,
+  },
+  galleryAvatarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1.5,
+    borderColor: '#10b981',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  galleryAvatarBtnDisabled: {
+    opacity: 0.6,
+  },
+  galleryAvatarBtnIcon: {
+    fontSize: 16,
+  },
+  galleryAvatarBtnText: {
+    color: '#34d399',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  avatarUploadBar: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  avatarUploadFill: {
+    height: '100%',
+    backgroundColor: '#10b981',
   },
   presetsHeaderLabel: {
     color: '#64748b',

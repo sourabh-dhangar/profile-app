@@ -90,6 +90,8 @@ export default function ReelCreatorModal({
   const [isUploadingToCloud, setIsUploadingToCloud] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [coverUploadProgress, setCoverUploadProgress] = useState(0);
 
   const activeMediaUrl = (mediaType === 'image' ? imageUrl : videoUrl) || '';
   const isDriveLink = isGoogleDriveUrl(activeMediaUrl);
@@ -154,6 +156,45 @@ export default function ReelCreatorModal({
       onShowToast?.(err.message || 'Failed to upload from gallery', 'error');
     } finally {
       setIsUploadingToCloud(false);
+    }
+  };
+
+  const handlePickCoverFromGallery = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        onShowToast?.('Permission to access device photos is required', 'error');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.85,
+      });
+
+      if (result.canceled || !result.assets || !result.assets[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      setIsUploadingCover(true);
+      setCoverUploadProgress(0);
+      onShowToast?.('⏳ Uploading Cover Photo to Cloudinary...', 'info');
+
+      const cloudRes = await uploadToCloudinary(asset, (progress) => {
+        setCoverUploadProgress(progress);
+      });
+
+      if (cloudRes.url) {
+        setThumbnailUrl(cloudRes.url);
+        onShowToast?.('🖼️ Cover Photo uploaded from Gallery!', 'success');
+      }
+    } catch (err) {
+      console.error('Cover upload error:', err);
+      onShowToast?.(err.message || 'Failed to upload cover photo', 'error');
+    } finally {
+      setIsUploadingCover(false);
     }
   };
 
@@ -358,6 +399,64 @@ export default function ReelCreatorModal({
                 </Text>
               </View>
             )}
+
+            {/* Dedicated Cover Photo from Gallery Card */}
+            <View style={styles.coverCardContainer}>
+              <View style={styles.coverCardHeader}>
+                <Text style={styles.sectionLabel}>Reel Cover Photo (Thumbnail)</Text>
+                {thumbnailUrl && thumbnailUrl.includes('cloudinary.com') && (
+                  <View style={styles.customCoverBadge}>
+                    <Text style={styles.customCoverBadgeText}>✓ Custom Cover</Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.coverCardBody}>
+                <Image
+                  source={{
+                    uri: normalizeMediaUrl(
+                      mediaType === 'image'
+                        ? (imageUrl || 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800')
+                        : (thumbnailUrl || videoUrl || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800'),
+                      'thumbnail'
+                    ),
+                  }}
+                  style={styles.coverPreviewThumb}
+                  resizeMode="cover"
+                />
+
+                <View style={styles.coverActionCol}>
+                  <Text style={styles.coverActionTitle}>
+                    {mediaType === 'video' ? 'Video Cover / Poster' : 'Photo Reel Cover'}
+                  </Text>
+                  <Text style={styles.coverActionDesc}>
+                    Select a custom cover photo directly from your device gallery
+                  </Text>
+
+                  <TouchableOpacity
+                    style={[styles.coverPickerButton, isUploadingCover && styles.galleryPickerCardDisabled]}
+                    onPress={handlePickCoverFromGallery}
+                    disabled={isUploadingCover}
+                    activeOpacity={0.8}
+                  >
+                    {isUploadingCover ? (
+                      <ActivityIndicator size="small" color="#10b981" />
+                    ) : (
+                      <>
+                        <Text style={styles.coverPickerBtnIcon}>🖼️</Text>
+                        <Text style={styles.coverPickerBtnText}>Upload Cover from Gallery</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  {isUploadingCover && (
+                    <View style={styles.coverProgressTrack}>
+                      <View style={[styles.coverProgressFill, { width: `${coverUploadProgress}%` }]} />
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
 
             {/* If Photo Reel: Image selection */}
             {mediaType === 'image' ? (
@@ -982,5 +1081,91 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '700',
     flex: 1,
+  },
+  coverCardContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 16,
+  },
+  coverCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  customCoverBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#10b981',
+  },
+  customCoverBadgeText: {
+    color: '#34d399',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  coverCardBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  coverPreviewThumb: {
+    width: 64,
+    height: 84,
+    borderRadius: 10,
+    backgroundColor: '#020617',
+    borderWidth: 1.5,
+    borderColor: '#10b981',
+  },
+  coverActionCol: {
+    flex: 1,
+  },
+  coverActionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 2,
+  },
+  coverActionDesc: {
+    fontSize: 10,
+    color: '#94a3b8',
+    lineHeight: 14,
+    marginBottom: 8,
+  },
+  coverPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+  coverPickerBtnIcon: {
+    fontSize: 13,
+  },
+  coverPickerBtnText: {
+    color: '#34d399',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  coverProgressTrack: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: 6,
+  },
+  coverProgressFill: {
+    height: '100%',
+    backgroundColor: '#10b981',
   },
 });
