@@ -54,7 +54,7 @@ const Footer = () => {
             <ul className="space-y-2 text-xs text-slate-400">
               <li>
                 <a
-                  href="https://expo.dev/artifacts/eas/HGuyumyw8sYrP43V-wsN8BjrZrVpZurcNlqPCSr96ro.apk"
+                  href="https://expo.dev/artifacts/eas/NjnLkCez5bqVeS3Yfy9lvzQRjsKU_FM7Ljz_bEPm558.apk"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center space-x-1.5 text-emerald-300 font-bold hover:text-emerald-200 transition-colors"

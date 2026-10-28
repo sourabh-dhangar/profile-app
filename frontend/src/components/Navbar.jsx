@@ -142,7 +142,7 @@ const Navbar = () => {
 
             {/* Direct Mobile App APK Download CTA */}
             <a
-              href="https://expo.dev/artifacts/eas/HGuyumyw8sYrP43V-wsN8BjrZrVpZurcNlqPCSr96ro.apk"
+              href="https://expo.dev/artifacts/eas/NjnLkCez5bqVeS3Yfy9lvzQRjsKU_FM7Ljz_bEPm558.apk"
               target="_blank"
               rel="noopener noreferrer"
               className="relative flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs lg:text-sm font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition-all shadow-sm shadow-emerald-500/10 group"
@@ -456,7 +456,7 @@ const Navbar = () => {
             {/* Direct Mobile App APK Download Banner */}
             <div className="pt-1">
               <a
-                href="https://expo.dev/artifacts/eas/HGuyumyw8sYrP43V-wsN8BjrZrVpZurcNlqPCSr96ro.apk"
+                href="https://expo.dev/artifacts/eas/NjnLkCez5bqVeS3Yfy9lvzQRjsKU_FM7Ljz_bEPm558.apk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-slate-900/60 border border-emerald-500/30 hover:border-emerald-500/50 transition-all group"

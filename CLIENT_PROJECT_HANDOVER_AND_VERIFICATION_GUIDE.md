@@ -18,9 +18,9 @@ Everything is live, deployed on serverless infrastructure, and ready for immedia
 | **Backend API Gateway** | Vercel Serverless | **[https://myprofile-official-api.vercel.app](https://myprofile-official-api.vercel.app)** | 🟢 Live |
 | **API Health Check** | REST / Serverless | **[https://myprofile-official-api.vercel.app/health](https://myprofile-official-api.vercel.app/health)** | 🟢 200 OK |
 | **Category Discovery API** | REST / Serverless | **[https://myprofile-official-api.vercel.app/api/v1/discovery/browse](https://myprofile-official-api.vercel.app/api/v1/discovery/browse)** | 🟢 200 OK |
-| **Android APK Direct Download** | Android (Arm64/x86_64) | **[Download New Android APK (v2.3 Direct)](https://expo.dev/artifacts/eas/KLP3pwnFneQdiPg7Lsy2tsPqrYTtEmbVlsuFnMn4g6A.apk)** | 🟢 Fresh Build |
+| **Android APK Direct Download** | Android (Arm64/x86_64) | **[Download Latest Android APK (Build 470c8255)](https://expo.dev/artifacts/eas/NjnLkCez5bqVeS3Yfy9lvzQRjsKU_FM7Ljz_bEPm558.apk)** | 🟢 Fresh Build |
 | **Expo EAS Project Dashboard** | Expo Cloud | **[https://expo.dev/accounts/sourabh-dhangar/projects/myprofile](https://expo.dev/accounts/sourabh-dhangar/projects/myprofile)** | 🟢 Active |
-| **Expo EAS Build Details** | EAS Cloud Build | **[EAS Build Page (34b05cd5)](https://expo.dev/accounts/sourabh-dhangar/projects/myprofile/builds/34b05cd5-9a1d-4642-a247-175257425af6)** | 🟢 Finished |
+| **Expo EAS Build Details** | EAS Cloud Build | **[EAS Build Page (470c8255)](https://expo.dev/accounts/sourabh-dhangar/projects/myprofile/builds/470c8255-2a03-4658-8cce-7a3d539d0bd1)** | 🟢 Finished |
 | **GitHub Source Code Repository** | GitHub Cloud | **[https://github.com/sourabh-dhangar/profile-app](https://github.com/sourabh-dhangar/profile-app)** | 🟢 Synced |
 
 ---
@@ -137,7 +137,7 @@ The platform features a secure, passwordless mobile OTP authentication system:
 ---
 
 ### Verification Checklist 2: Android APK Mobile Testing
-1. **Download the APK:** Tap [Download Android APK (Direct APK)](https://expo.dev/artifacts/eas/KLP3pwnFneQdiPg7Lsy2tsPqrYTtEmbVlsuFnMn4g6A.apk) on your Android device.
+1. **Download the APK:** Tap [Download Android APK (Direct APK)](https://expo.dev/artifacts/eas/NjnLkCez5bqVeS3Yfy9lvzQRjsKU_FM7Ljz_bEPm558.apk) on your Android device.
 2. **Install & Launch:** Open the app and test the vertical 60fps reels, bottom tabs, and login using OTP `123456`.
 
 ---
