@@ -70,6 +70,7 @@ function ReelMediaItem({
           });
         }
       } else {
+        vid.muted = true;
         vid.pause();
         try {
           vid.currentTime = 0;
@@ -701,16 +702,6 @@ export default function ReelsScreen({
                 offset: info.index * feedHeight,
                 animated: true,
               });
-            }}
-            onScroll={(e) => {
-              const offsetY = e.nativeEvent.contentOffset.y;
-              if (feedHeight > 0) {
-                const index = Math.round(offsetY / feedHeight);
-                if (index >= 0 && index < reels.length && index !== currentIndex) {
-                  setCurrentIndex(index);
-                  setIsPlaying(true);
-                }
-              }
             }}
             onMomentumScrollEnd={(e) => {
               const offsetY = e.nativeEvent.contentOffset.y;

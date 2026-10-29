@@ -23,9 +23,11 @@ export const initAudioMode = async () => {
     const expoAv = require('expo-av');
     if (expoAv?.Audio?.setAudioModeAsync) {
       await expoAv.Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
         shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
       });
     }
   } catch (e) {}
@@ -76,12 +78,14 @@ export default class SafeVideoPlayer extends Component {
     if (this.videoRef.current) {
       if (prevProps.isPlaying !== this.props.isPlaying || prevProps.isActive !== this.props.isActive) {
         if (this.props.isActive && this.props.isPlaying) {
+          this.videoRef.current.setIsMutedAsync?.(this.props.isMuted).catch(() => {});
           this.videoRef.current.playAsync?.().catch(() => {});
         } else {
+          this.videoRef.current.setIsMutedAsync?.(true).catch(() => {});
           this.videoRef.current.pauseAsync?.().catch(() => {});
         }
       }
-      if (prevProps.isMuted !== this.props.isMuted) {
+      if (prevProps.isMuted !== this.props.isMuted && this.props.isActive) {
         this.videoRef.current.setIsMutedAsync?.(this.props.isMuted).catch(() => {});
       }
     }
@@ -131,12 +135,16 @@ export default class SafeVideoPlayer extends Component {
           resizeMode={resizeMode}
           shouldPlay={isActive && isPlaying}
           isLooping
-          isMuted={isMuted}
+          isMuted={!isActive || isMuted}
           style={style || StyleSheet.absoluteFillObject}
           onLoad={() => {
             this.setState({ isLoaded: true });
             if (this.props.isActive && this.props.isPlaying) {
+              this.videoRef.current?.setIsMutedAsync?.(this.props.isMuted).catch(() => {});
               this.videoRef.current?.playAsync?.().catch(() => {});
+            } else {
+              this.videoRef.current?.setIsMutedAsync?.(true).catch(() => {});
+              this.videoRef.current?.pauseAsync?.().catch(() => {});
             }
           }}
           onError={(err) => {
