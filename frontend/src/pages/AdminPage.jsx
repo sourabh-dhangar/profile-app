@@ -18,6 +18,9 @@ const AdminPage = () => {
   const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState('reports'); // reports | users
   const [loading, setLoading] = useState(true);
+  const [reportFilter, setReportFilter] = useState('all'); // all | pending | resolved
+  const [userSearch, setUserSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // all | active | suspended
 
   useEffect(() => {
     fetchAdminData();
@@ -65,6 +68,22 @@ const AdminPage = () => {
       alert('Failed to update user status');
     }
   };
+
+  const filteredReports = reports.filter((r) => {
+    if (reportFilter === 'all') return true;
+    return r.status === reportFilter;
+  });
+
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
+      !userSearch.trim() ||
+      (u.mobile && u.mobile.toLowerCase().includes(userSearch.toLowerCase())) ||
+      (u._id && u._id.toLowerCase().includes(userSearch.toLowerCase())) ||
+      (u.role && u.role.toLowerCase().includes(userSearch.toLowerCase()));
+    const matchesStatus =
+      statusFilter === 'all' || u.accountStatus === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   if (loading) {
     return (
@@ -142,12 +161,31 @@ const AdminPage = () => {
       {/* Reports Tab */}
       {activeTab === 'reports' ? (
         <div className="space-y-4">
-          {reports.length === 0 ? (
+          <div className="flex items-center justify-between pb-2">
+            <span className="text-xs text-slate-400 font-medium">Filter Queue:</span>
+            <div className="flex items-center space-x-2">
+              {['all', 'pending', 'resolved'].map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setReportFilter(filter)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all ${
+                    reportFilter === filter
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                      : 'bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700/60'
+                  }`}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredReports.length === 0 ? (
             <div className="glass-card p-10 rounded-2xl text-center text-slate-400 text-sm">
-              No reports in moderation queue.
+              No {reportFilter !== 'all' ? reportFilter : ''} reports in moderation queue.
             </div>
           ) : (
-            reports.map((report) => (
+            filteredReports.map((report) => (
               <div
                 key={report._id}
                 className="glass-card p-6 rounded-2xl border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
@@ -157,8 +195,11 @@ const AdminPage = () => {
                     <span className="text-xs px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 font-mono uppercase">
                       {report.targetType}
                     </span>
-                    <span className="text-xs text-slate-400">
-                      Status: <strong className="text-white">{report.status}</strong>
+                    <span className="text-xs text-slate-400 flex items-center space-x-1">
+                      <span>Status:</span>
+                      <strong className={`font-semibold capitalize ${report.status === 'resolved' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {report.status}
+                      </strong>
                     </span>
                   </div>
                   <p className="text-sm font-medium text-white">{report.reason}</p>
@@ -167,11 +208,11 @@ const AdminPage = () => {
                   </p>
                 </div>
 
-                {report.status === 'pending' && (
+                {report.status === 'pending' ? (
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => handleResolveReport(report._id, 'takedown')}
-                      className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs"
+                      className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-sm"
                     >
                       Takedown Target
                     </button>
@@ -182,6 +223,11 @@ const AdminPage = () => {
                       Dismiss
                     </button>
                   </div>
+                ) : (
+                  <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs text-slate-300">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Resolved: <strong className="text-white capitalize">{report.actionTaken || 'None'}</strong></span>
+                  </div>
                 )}
               </div>
             ))
@@ -190,55 +236,86 @@ const AdminPage = () => {
       ) : (
         /* Users Tab */
         <div className="glass-card rounded-2xl overflow-hidden border-slate-800">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-slate-900/60 border-b border-slate-800">
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by mobile or ID..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-800/80 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-amber-400"
+              />
+            </div>
+            <div className="flex items-center space-x-2 self-end sm:self-auto text-xs">
+              <span className="text-slate-400 font-medium">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1 text-xs focus:outline-none"
+              >
+                <option value="all">All Statuses ({users.length})</option>
+                <option value="active">Active Only</option>
+                <option value="suspended">Suspended Only</option>
+              </select>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-900 text-slate-400 uppercase font-semibold">
-                <tr>
-                  <th className="p-4">User ID</th>
-                  <th className="p-4">Mobile</th>
-                  <th className="p-4">Role</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {users.map((u) => (
-                  <tr key={u._id} className="hover:bg-slate-900/50">
-                    <td className="p-4 font-mono text-[11px] text-slate-400">{u._id}</td>
-                    <td className="p-4 font-semibold text-white">{u.mobile}</td>
-                    <td className="p-4 font-medium">{u.role}</td>
-                    <td className="p-4">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          u.accountStatus === 'active'
-                            ? 'bg-emerald-500/10 text-emerald-400'
-                            : 'bg-rose-500/10 text-rose-400'
-                        }`}
-                      >
-                        {u.accountStatus}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      {u.accountStatus === 'active' ? (
-                        <button
-                          onClick={() => handleUpdateUserStatus(u._id, 'suspended')}
-                          className="px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-[11px]"
-                        >
-                          Suspend
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleUpdateUserStatus(u._id, 'active')}
-                          className="px-2.5 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-semibold text-[11px]"
-                        >
-                          Reactivate
-                        </button>
-                      )}
-                    </td>
+            {filteredUsers.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs">
+                No matching user accounts found.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-900 text-slate-400 uppercase font-semibold">
+                  <tr>
+                    <th className="p-4">User ID</th>
+                    <th className="p-4">Mobile</th>
+                    <th className="p-4">Role</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {filteredUsers.map((u) => (
+                    <tr key={u._id} className="hover:bg-slate-900/50">
+                      <td className="p-4 font-mono text-[11px] text-slate-400">{u._id}</td>
+                      <td className="p-4 font-semibold text-white">{u.mobile}</td>
+                      <td className="p-4 font-medium capitalize">{u.role}</td>
+                      <td className="p-4">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            u.accountStatus === 'active'
+                              ? 'bg-emerald-500/10 text-emerald-400'
+                              : 'bg-rose-500/10 text-rose-400'
+                          }`}
+                        >
+                          {u.accountStatus}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        {u.accountStatus === 'active' ? (
+                          <button
+                            onClick={() => handleUpdateUserStatus(u._id, 'suspended')}
+                            className="px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-[11px]"
+                          >
+                            Suspend
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleUpdateUserStatus(u._id, 'active')}
+                            className="px-2.5 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-semibold text-[11px]"
+                          >
+                            Reactivate
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
