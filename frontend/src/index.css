@@ -77,7 +77,7 @@
 }
 
 /* ===================================================
-   Print / PDF Resume Export Styles
+   Print / PDF Resume & Counter Stand Export Styles
    =================================================== */
 @media print {
   body {
@@ -106,11 +106,58 @@
     background: transparent !important;
   }
 
-  .print-card {
+  .print-card,
+  .glass-panel,
+  .glass-card {
     background: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
     color: #0f172a !important;
     box-shadow: none !important;
+    backdrop-filter: none !important;
+    break-inside: avoid;
+  }
+
+  .text-slate-100,
+  .text-slate-200,
+  .text-slate-300,
+  .text-white {
+    color: #0f172a !important;
+  }
+
+  .text-slate-400,
+  .text-slate-500 {
+    color: #475569 !important;
+  }
+
+  /* Counter stand card isolated print layout */
+  body:has(.counter-stand-modal) .profile-page-content,
+  body:has(.counter-stand-modal) .profile-hero-section {
+    display: none !important;
+  }
+
+  .counter-stand-modal {
+    position: static !important;
+    background: transparent !important;
+    padding: 30px 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  .counter-stand-panel {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 400px !important;
+  }
+
+  .counter-stand-card {
+    border: 4px solid #0f172a !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    page-break-inside: avoid;
     break-inside: avoid;
   }
 }

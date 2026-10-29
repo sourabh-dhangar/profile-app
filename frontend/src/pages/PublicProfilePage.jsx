@@ -292,9 +292,9 @@ const PublicProfilePage = () => {
   const currentTheme = THEMES[profile.theme] || THEMES.default;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 pb-28 sm:pb-10 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 pb-28 sm:pb-10 space-y-8 profile-page-content">
       {/* Profile Card Header with Theme */}
-      <div className={`p-8 sm:p-10 rounded-3xl relative overflow-hidden border backdrop-blur-xl transition-colors duration-500 ${currentTheme.card}`}>
+      <div className={`p-8 sm:p-10 rounded-3xl relative overflow-hidden border backdrop-blur-xl transition-colors duration-500 profile-hero-section ${currentTheme.card}`}>
         {/* Ambient Top Glow */}
         <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-28 bg-gradient-to-b ${currentTheme.glow} to-transparent blur-3xl pointer-events-none`} />
 
@@ -926,10 +926,10 @@ const PublicProfilePage = () => {
       
       {/* QR Code & Printable Business Counter Stand Modal */}
       {qrModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="w-full max-w-sm glass-panel p-6 rounded-3xl border border-slate-800 text-center space-y-4 my-auto">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto counter-stand-modal">
+          <div className="w-full max-w-sm glass-panel p-6 rounded-3xl border border-slate-800 text-center space-y-4 my-auto counter-stand-panel">
             {/* Printable Counter Stand Card */}
-            <div className="bg-white text-slate-900 p-6 rounded-2xl shadow-2xl border-4 border-slate-900 mx-auto text-center">
+            <div className="bg-white text-slate-900 p-6 rounded-2xl shadow-2xl border-4 border-slate-900 mx-auto text-center counter-stand-card">
               <div className="inline-block px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 border border-emerald-300 mb-2">
                 {CATEGORY_ICONS[profile.category] || '🏷️'} {profile.category || 'Digital Identity'}
               </div>
