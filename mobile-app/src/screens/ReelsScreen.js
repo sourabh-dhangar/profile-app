@@ -13,6 +13,7 @@ import {
   ScrollView,
   FlatList,
   Platform,
+  StatusBar,
   Share,
   Linking,
   Animated,
@@ -41,6 +42,8 @@ const TOPIC_CHIPS = [
   { key: 'career', label: '📈 Career' },
   { key: '3d', label: '☁️ 3D & Cloud' },
 ];
+
+const ANDROID_STATUS_BAR = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0;
 
 function ReelMediaItem({
   videoUri,
@@ -821,7 +824,7 @@ export default function ReelsScreen({
                     </View>
 
                     {/* Top Bar on Reel - Positioned smoothly below floating controls */}
-                    <View style={[styles.topBar, { top: activeFeedTab === 'forYou' ? 95 : 56 }]} pointerEvents="box-none">
+                    <View style={[styles.topBar, { top: (activeFeedTab === 'forYou' ? 95 : 56) + ANDROID_STATUS_BAR }]} pointerEvents="box-none">
                       <View style={styles.counterPill}>
                         <Text style={styles.counterText}>
                           {userIsAdmin
@@ -1341,7 +1344,7 @@ const styles = StyleSheet.create({
   },
   topFloatingOverlay: {
     position: 'absolute',
-    top: 8,
+    top: 8 + ANDROID_STATUS_BAR,
     left: 0,
     right: 0,
     zIndex: 35,

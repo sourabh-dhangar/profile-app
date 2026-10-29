@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, View, StatusBar, Text, TouchableOpacity, ActivityIndicator, BackHandler } from 'react-native';
+import { StyleSheet, SafeAreaView, View, StatusBar, Text, TouchableOpacity, ActivityIndicator, BackHandler, Platform } from 'react-native';
 import { COLORS } from './src/theme';
 import Header from './src/components/Header';
 import TabBar from './src/components/TabBar';
@@ -1375,8 +1375,19 @@ function MainApp() {
   };
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#030712" />
+    <SafeAreaView
+      style={[
+        styles.safeContainer,
+        Platform.OS === 'android' && activeTab !== 'reels' && {
+          paddingTop: StatusBar.currentHeight || 24,
+        },
+      ]}
+    >
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={activeTab === 'reels' ? 'transparent' : '#030712'}
+        translucent={activeTab === 'reels'}
+      />
 
       {/* Floating Toast Notification */}
       <Toast
