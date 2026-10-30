@@ -172,7 +172,14 @@ const AdminPage = () => {
           </div>
           <div className="glass-card p-5 rounded-2xl border-slate-800">
             <p className="text-xs font-medium text-slate-400">Platform Reels</p>
-            <p className="text-2xl font-extrabold text-cyan-400 mt-1">{reels.length}</p>
+            <div className="flex items-baseline space-x-2 mt-1">
+              <p className="text-2xl font-extrabold text-cyan-400">{reels.length}</p>
+              {analytics?.reels?.suspended > 0 && (
+                <span className="text-[11px] font-bold text-rose-400 font-mono">
+                  ({analytics.reels.suspended} suspended)
+                </span>
+              )}
+            </div>
           </div>
           <div className="glass-card p-5 rounded-2xl border-slate-800">
             <p className="text-xs font-medium text-slate-400">Pending Reports</p>

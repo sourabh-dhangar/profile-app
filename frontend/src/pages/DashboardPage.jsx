@@ -1317,9 +1317,26 @@ const DashboardPage = () => {
                             <span>•</span>
                             <span>{reel.likesCount || 0} likes</span>
                           </div>
-                          <span className="inline-block mt-1 text-[10px] font-bold text-slate-400">
-                            ⏱️ {reel.durationSeconds || 15}s
-                          </span>
+                          <div className="flex items-center space-x-2 mt-1.5 flex-wrap gap-y-1">
+                            <span className="text-[10px] font-bold text-slate-400 font-mono">
+                              ⏱️ {reel.durationSeconds || 15}s
+                            </span>
+                            {reel.status === 'taken_down' && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                                Suspended
+                              </span>
+                            )}
+                            {reel.status === 'flagged' && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                Under Review
+                              </span>
+                            )}
+                            {reel.status === 'active' && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                Active
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 

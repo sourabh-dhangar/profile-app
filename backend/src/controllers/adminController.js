@@ -238,24 +238,30 @@ const getAnalytics = async (req, res, next) => {
   try {
     const [
       totalUsers,
+      suspendedUsers,
       totalProfiles,
       publishedProfiles,
-      totalReels,
+      activeReels,
+      suspendedReels,
+      flaggedReels,
       pendingReports,
     ] = await Promise.all([
       User.countDocuments(),
+      User.countDocuments({ accountStatus: 'suspended' }),
       Profile.countDocuments(),
       Profile.countDocuments({ status: 'published' }),
       Reel.countDocuments({ status: 'active' }),
+      Reel.countDocuments({ status: 'taken_down' }),
+      Reel.countDocuments({ status: 'flagged' }),
       Report.countDocuments({ status: 'pending' }),
     ]);
 
     res.status(200).json({
       success: true,
       data: {
-        users: { total: totalUsers },
+        users: { total: totalUsers, suspended: suspendedUsers },
         profiles: { total: totalProfiles, published: publishedProfiles },
-        reels: { total: totalReels },
+        reels: { total: activeReels + suspendedReels + flaggedReels, active: activeReels, suspended: suspendedReels, flagged: flaggedReels },
         reports: { pending: pendingReports },
       },
     });
