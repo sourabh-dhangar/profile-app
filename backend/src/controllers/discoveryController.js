@@ -43,7 +43,7 @@ const searchByPhone = async (req, res, next) => {
       profile = await Profile.findOne({
         _id: lookup.profileId,
         status: 'published',
-      });
+      }).populate('userId', 'accountStatus');
     }
 
     // Dynamic fallback: matches last 10 digits only if user opted in
@@ -63,13 +63,14 @@ const searchByPhone = async (req, res, next) => {
             profileId: candidateProfile._id,
           });
           if (candidateLookup && candidateLookup.allowDiscovery) {
+            await candidateProfile.populate('userId', 'accountStatus');
             profile = candidateProfile;
           }
         }
       }
     }
 
-    if (!profile) {
+    if (!profile || (profile.userId && profile.userId.accountStatus && profile.userId.accountStatus !== 'active')) {
       return res.status(404).json({
         success: false,
         message: 'No discoverable profile found for this phone number',
@@ -208,16 +209,21 @@ const browseProfiles = async (req, res, next) => {
       ];
     }
     const profiles = await Profile.find(query)
-      .select('name username photoUrl profileType category subCategory city theme verifiedBadge followersCount businessDetails bio contactDetails completionPercentage')
+      .select('name username photoUrl profileType category subCategory city theme verifiedBadge followersCount businessDetails bio contactDetails completionPercentage userId')
+      .populate('userId', 'accountStatus')
       .sort({ followersCount: -1, updatedAt: -1 })
       .skip((Number(page) - 1) * Number(limit))
       .limit(Number(limit));
+
+    const activeProfiles = profiles.filter(
+      (p) => !p.userId || !p.userId.accountStatus || p.userId.accountStatus === 'active'
+    );
 
     const total = await Profile.countDocuments(query);
     res.status(200).json({
       success: true,
       data: {
-        profiles,
+        profiles: activeProfiles,
         total,
         page: Number(page),
         pages: Math.ceil(total / Number(limit)),

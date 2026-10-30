@@ -91,13 +91,28 @@ const getFeed = async (req, res, next) => {
     const allCandidates = await Reel.find(query)
       .populate({
         path: 'profileId',
-        select: 'name username photoUrl profileType city verifiedBadge isVerifiedBadge',
+        select: 'name username photoUrl profileType city verifiedBadge isVerifiedBadge userId',
+        populate: {
+          path: 'userId',
+          select: 'accountStatus role',
+        },
       });
 
-    const total = allCandidates.length;
+    // Filter out reels whose creator user account is suspended or inactive
+    const validCandidates = allCandidates.filter((r) => {
+      if (!r.profileId) return false;
+      if (!r.profileId.userId) return false;
+      const accountStatus = r.profileId.userId.accountStatus;
+      if (accountStatus && accountStatus !== 'active') {
+        return false;
+      }
+      return true;
+    });
+
+    const total = validCandidates.length;
 
     // Apply Instagram Discovery & Ranking Algorithm
-    const scoredReels = allCandidates
+    const scoredReels = validCandidates
       .map((r) => {
         const obj = r.toObject ? r.toObject() : { ...r };
         obj.streamUrl = `${config.publicUrl}/api/v1/reels/${obj._id}/stream`;
@@ -307,10 +322,18 @@ const getReelById = async (req, res, next) => {
     const { id } = req.params;
     const reel = await Reel.findById(id).populate({
       path: 'profileId',
-      select: 'name username photoUrl profileType',
+      select: 'name username photoUrl profileType userId',
+      populate: {
+        path: 'userId',
+        select: 'accountStatus role',
+      },
     });
 
-    if (!reel || reel.status === 'taken_down') {
+    if (
+      !reel ||
+      reel.status === 'taken_down' ||
+      (reel.profileId?.userId?.accountStatus && reel.profileId.userId.accountStatus !== 'active')
+    ) {
       return res.status(404).json({ success: false, message: 'Reel not found' });
     }
 
@@ -444,22 +467,26 @@ const shareReel = async (req, res, next) => {
 const deleteReel = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const profile = await Profile.findOne({ userId: req.user._id });
-
-    const reel = await Reel.findById(id);
+    const reel = await Reel.findById(id).populate('profileId');
     if (!reel) {
       return res.status(404).json({ success: false, message: 'Reel not found' });
     }
 
-    // Check ownership or admin
-    const isOwner = profile && reel.profileId.toString() === profile._id.toString();
+    const profile = await Profile.findOne({ userId: req.user._id });
+    const isOwner =
+      (profile && reel.profileId && reel.profileId._id.toString() === profile._id.toString()) ||
+      (reel.profileId && reel.profileId.userId && reel.profileId.userId.toString() === req.user._id.toString());
     const isAdmin = req.user.role === 'admin';
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ success: false, message: 'Unauthorized to delete this reel' });
     }
 
-    await Reel.findByIdAndDelete(id);
+    await Promise.all([
+      Reel.findByIdAndDelete(id),
+      Comment.deleteMany({ reelId: id }),
+      Bookmark.deleteMany({ reelId: id }),
+    ]);
 
     res.status(200).json({
       success: true,
@@ -496,12 +523,24 @@ const getFollowingFeed = async (req, res, next) => {
       .limit(limit)
       .populate({
         path: 'profileId',
-        select: 'name username photoUrl profileType city followersCount verifiedBadge isVerifiedBadge',
+        select: 'name username photoUrl profileType city followersCount verifiedBadge isVerifiedBadge userId',
+        populate: {
+          path: 'userId',
+          select: 'accountStatus',
+        },
       });
+
+    const activeReels = reels.filter((r) => {
+      if (!r.profileId) return false;
+      if (r.profileId.userId && r.profileId.userId.accountStatus && r.profileId.userId.accountStatus !== 'active') {
+        return false;
+      }
+      return true;
+    });
 
     const total = await Reel.countDocuments(query);
 
-    const mappedReels = reels.map((r) => {
+    const mappedReels = activeReels.map((r) => {
       const obj = r.toObject ? r.toObject() : { ...r };
       obj.streamUrl = `${config.publicUrl}/api/v1/reels/${obj._id}/stream`;
       obj.videoUrl = normalizeMediaUrl(obj.videoUrl, obj.mediaType || 'video');
@@ -823,8 +862,8 @@ const togglePinReel = async (req, res, next) => {
  */
 const getMyReels = async (req, res, next) => {
   try {
-    const profile = await Profile.findOne({ userId: req.user._id });
-    if (!profile) {
+    const profiles = await Profile.find({ userId: req.user._id });
+    if (!profiles || profiles.length === 0) {
       return res.status(200).json({
         success: true,
         data: {
@@ -834,9 +873,9 @@ const getMyReels = async (req, res, next) => {
       });
     }
 
+    const profileIds = profiles.map((p) => p._id);
     const reels = await Reel.find({
-      profileId: profile._id,
-      status: { $ne: 'taken_down' },
+      profileId: { $in: profileIds },
     })
       .sort({ createdAt: -1 })
       .populate({
@@ -866,6 +905,75 @@ const getMyReels = async (req, res, next) => {
 };
 
 /**
+ * Update Reel details (Caption, Visibility, Thumbnail)
+ * PUT /api/v1/reels/:id
+ * Body: { caption, visibility, thumbnailUrl }
+ */
+const updateReel = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { caption, visibility, thumbnailUrl } = req.body;
+
+    const reel = await Reel.findById(id).populate('profileId');
+    if (!reel) {
+      return res.status(404).json({ success: false, message: 'Reel not found' });
+    }
+
+    const profile = await Profile.findOne({ userId: req.user._id });
+    const isOwner =
+      (profile && reel.profileId && reel.profileId._id.toString() === profile._id.toString()) ||
+      (reel.profileId && reel.profileId.userId && reel.profileId.userId.toString() === req.user._id.toString());
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized to edit this reel. Only the creator or administrator can edit.',
+      });
+    }
+
+    if (caption !== undefined) {
+      if (typeof caption !== 'string') {
+        return res.status(400).json({ success: false, message: 'Caption must be a string' });
+      }
+      if (caption.length > 300) {
+        return res.status(400).json({ success: false, message: 'Caption cannot exceed 300 characters' });
+      }
+      reel.caption = caption.trim();
+    }
+
+    if (visibility !== undefined) {
+      const validVisibilities = ['public', 'profile-only', 'private'];
+      if (!validVisibilities.includes(visibility)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid visibility. Must be one of: ${validVisibilities.join(', ')}`,
+        });
+      }
+      reel.visibility = visibility;
+    }
+
+    if (thumbnailUrl !== undefined) {
+      reel.thumbnailUrl = thumbnailUrl;
+    }
+
+    await reel.save();
+    await reel.populate({
+      path: 'profileId',
+      select: 'name username photoUrl profileType',
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Reel updated successfully',
+      data: reel,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Update Reel Visibility
  * PUT /api/v1/reels/:id/visibility
  */
@@ -882,9 +990,7 @@ const updateReelVisibility = async (req, res, next) => {
       });
     }
 
-    const profile = await Profile.findOne({ userId: req.user._id });
-    const reel = await Reel.findById(id);
-
+    const reel = await Reel.findById(id).populate('profileId');
     if (!reel) {
       return res.status(404).json({
         success: false,
@@ -892,7 +998,10 @@ const updateReelVisibility = async (req, res, next) => {
       });
     }
 
-    const isOwner = profile && reel.profileId.toString() === profile._id.toString();
+    const profile = await Profile.findOne({ userId: req.user._id });
+    const isOwner =
+      (profile && reel.profileId && reel.profileId._id.toString() === profile._id.toString()) ||
+      (reel.profileId && reel.profileId.userId && reel.profileId.userId.toString() === req.user._id.toString());
     const isAdmin = req.user.role === 'admin';
 
     if (!isOwner && !isAdmin) {
@@ -927,9 +1036,19 @@ const updateReelVisibility = async (req, res, next) => {
 const streamReelVideo = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const reel = await Reel.findById(id);
+    const reel = await Reel.findById(id).populate({
+      path: 'profileId',
+      populate: { path: 'userId', select: 'accountStatus' },
+    });
     if (!reel) {
       return res.status(404).json({ success: false, message: 'Reel not found' });
+    }
+
+    if (
+      reel.status === 'taken_down' ||
+      (reel.profileId?.userId?.accountStatus && reel.profileId.userId.accountStatus !== 'active')
+    ) {
+      return res.status(403).json({ success: false, message: 'This video has been suspended by administration' });
     }
 
     const rawUrl = reel.videoUrl || reel.mediaUrl;
@@ -1049,6 +1168,7 @@ module.exports = {
   getComments,
   deleteComment,
   getMyReels,
+  updateReel,
   updateReelVisibility,
   streamReelVideo,
   uploadMedia,

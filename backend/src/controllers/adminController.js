@@ -3,6 +3,8 @@ const Profile = require('../models/Profile');
 const Reel = require('../models/Reel');
 const Report = require('../models/Report');
 const AuditLog = require('../models/AuditLog');
+const Comment = require('../models/Comment');
+const Bookmark = require('../models/Bookmark');
 
 /**
  * File a report (accessible to authenticated users)
@@ -186,6 +188,21 @@ const updateUserStatus = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
+    if (accountStatus === 'suspended') {
+      if (user.mobile === '+919999999999' || user.mobile.endsWith('9999999999')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot suspend the root platform administrator account.',
+        });
+      }
+      if (user._id.toString() === req.user._id.toString()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Administrators cannot suspend their own account.',
+        });
+      }
+    }
+
     if (accountStatus) user.accountStatus = accountStatus;
     if (role) user.role = role;
     await user.save();
@@ -247,6 +264,150 @@ const getAnalytics = async (req, res, next) => {
   }
 };
 
+/**
+ * List all platform reels with creator details, status, views, and filter support (Admin/Moderator only)
+ * GET /api/v1/admin/reels?page=1&limit=20&status=all&search=...
+ */
+const getAdminReels = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, status, search } = req.query;
+    const query = {};
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    if (search && search.trim()) {
+      const term = search.trim();
+      const matchingProfiles = await Profile.find({
+        $or: [
+          { name: { $regex: term, $options: 'i' } },
+          { username: { $regex: term, $options: 'i' } },
+        ],
+      }).select('_id');
+      const profileIds = matchingProfiles.map((p) => p._id);
+
+      query.$or = [
+        { caption: { $regex: term, $options: 'i' } },
+        { profileId: { $in: profileIds } },
+      ];
+    }
+
+    const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const reels = await Reel.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit, 10))
+      .populate({
+        path: 'profileId',
+        select: 'name username photoUrl profileType category city userId',
+        populate: {
+          path: 'userId',
+          select: 'mobile accountStatus role',
+        },
+      });
+
+    const total = await Reel.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        reels,
+        pagination: {
+          page: parseInt(page, 10),
+          limit: parseInt(limit, 10),
+          total,
+          pages: Math.ceil(total / parseInt(limit, 10)),
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Moderate / suspend / restore reel status (Admin/Moderator only)
+ * PUT /api/v1/admin/reels/:id/status
+ * Body: { status, reason }
+ */
+const updateReelStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, reason } = req.body;
+
+    const validStatuses = ['active', 'flagged', 'taken_down'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      });
+    }
+
+    const reel = await Reel.findById(id).populate({
+      path: 'profileId',
+      select: 'name username',
+    });
+
+    if (!reel) {
+      return res.status(404).json({ success: false, message: 'Reel not found' });
+    }
+
+    const previousStatus = reel.status;
+    reel.status = status;
+    await reel.save();
+
+    await AuditLog.create({
+      adminId: req.user._id,
+      action: `MODERATE_REEL_${status.toUpperCase()}`,
+      targetType: 'reel',
+      targetId: reel._id,
+      details: { previousStatus, newStatus: status, reason: reason || 'Admin moderation' },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Reel status updated to ${status}`,
+      data: reel,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin permanently delete reel (Admin only)
+ * DELETE /api/v1/admin/reels/:id
+ */
+const deleteAdminReel = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const reel = await Reel.findById(id);
+    if (!reel) {
+      return res.status(404).json({ success: false, message: 'Reel not found' });
+    }
+
+    await Promise.all([
+      Reel.findByIdAndDelete(id),
+      Comment.deleteMany({ reelId: id }),
+      Bookmark.deleteMany({ reelId: id }),
+    ]);
+
+    await AuditLog.create({
+      adminId: req.user._id,
+      action: 'ADMIN_DELETE_REEL',
+      targetType: 'reel',
+      targetId: id,
+      details: { caption: reel.caption, profileId: reel.profileId },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Reel deleted permanently by administrator',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createReport,
   getReports,
@@ -254,4 +415,7 @@ module.exports = {
   getUsers,
   updateUserStatus,
   getAnalytics,
+  getAdminReels,
+  updateReelStatus,
+  deleteAdminReel,
 };

@@ -16,6 +16,7 @@ const {
   getComments,
   deleteComment,
   getMyReels,
+  updateReel,
   updateReelVisibility,
   streamReelVideo,
   uploadMedia,
@@ -51,6 +52,7 @@ router.post('/:id/pin', authenticate, togglePinReel);
 // Authenticated endpoints
 router.post('/', authenticate, reelUploader.single('video'), createReel);
 router.put('/:id/visibility', authenticate, updateReelVisibility);
+router.put('/:id', authenticate, updateReel);
 router.delete('/:id', authenticate, deleteReel);
 
 module.exports = router;

@@ -37,6 +37,7 @@ import {
   Play,
   Heart,
   Download,
+  Pencil,
 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import MobileDeviceFrame from '../components/MobileDeviceFrame';
@@ -122,6 +123,15 @@ const DashboardPage = () => {
   const [uploadingReelFile, setUploadingReelFile] = useState(false);
   const [reelUploadProgress, setReelUploadProgress] = useState(0);
   const [uploadedReelFileName, setUploadedReelFileName] = useState('');
+
+  // Edit Reel modal state
+  const [editReelModal, setEditReelModal] = useState(false);
+  const [editingReel, setEditingReel] = useState(null);
+  const [editReelForm, setEditReelForm] = useState({
+    caption: '',
+    visibility: 'public',
+    thumbnailUrl: '',
+  });
 
   // AI Bio Helper State
   const [aiBioModal, setAiBioModal] = useState(false);
@@ -514,6 +524,34 @@ const DashboardPage = () => {
       }
     } catch (err) {
       toast.error('Failed to update reel visibility');
+    }
+  };
+
+  const handleOpenEditReel = (reel) => {
+    setEditingReel(reel);
+    setEditReelForm({
+      caption: reel.caption || '',
+      visibility: reel.visibility || 'public',
+      thumbnailUrl: reel.thumbnailUrl || '',
+    });
+    setEditReelModal(true);
+  };
+
+  const handleSaveEditReel = async (e) => {
+    e.preventDefault();
+    if (!editingReel) return;
+    try {
+      const res = await api.put(`/reels/${editingReel._id}`, editReelForm);
+      if (res.data?.success) {
+        setMyReels((prev) =>
+          prev.map((r) => (r._id === editingReel._id ? { ...r, ...editReelForm } : r))
+        );
+        toast.success('Reel updated successfully!');
+        setEditReelModal(false);
+        setEditingReel(null);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update reel');
     }
   };
 
@@ -1300,14 +1338,24 @@ const DashboardPage = () => {
                           </select>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteReel(reel._id)}
-                          className="p-1.5 rounded-lg hover:bg-rose-500/10 text-rose-400 transition-colors"
-                          title="Delete Reel"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditReel(reel)}
+                            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+                            title="Edit Reel"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteReel(reel._id)}
+                            className="p-1.5 rounded-lg hover:bg-rose-500/10 text-rose-400 transition-colors"
+                            title="Delete Reel"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1961,6 +2009,104 @@ const DashboardPage = () => {
                 className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs"
               >
                 Post Reel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Edit Reel Modal */}
+      {editReelModal && editingReel && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="w-full max-w-md glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                <Pencil className="w-4 h-4 text-emerald-400" />
+                <span>Edit Reel Details</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditReelModal(false);
+                  setEditingReel(null);
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center space-x-3 p-3 rounded-2xl bg-slate-900/90 border border-slate-800">
+              <div className="w-14 h-20 rounded-xl overflow-hidden bg-black flex-shrink-0">
+                <img
+                  src={editingReel.thumbnailUrl || editingReel.videoUrl}
+                  alt={editingReel.caption}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="text-[11px] text-slate-400 space-y-1 overflow-hidden">
+                <p className="font-bold text-white truncate">{editingReel.caption || 'Reel showcase'}</p>
+                <p>Views: <span className="font-mono text-emerald-400">{editingReel.viewsCount || 0}</span></p>
+                <p>Duration: <span className="font-mono text-cyan-400">{editingReel.durationSeconds || 15}s</span></p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Caption</label>
+              <textarea
+                rows={3}
+                placeholder="Update reel caption..."
+                value={editReelForm.caption}
+                onChange={(e) => setEditReelForm({ ...editReelForm, caption: e.target.value })}
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                maxLength={300}
+              />
+              <span className="text-[10px] text-slate-500 float-right mt-1">
+                {editReelForm.caption.length}/300 characters
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Visibility</label>
+              <select
+                value={editReelForm.visibility}
+                onChange={(e) => setEditReelForm({ ...editReelForm, visibility: e.target.value })}
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+              >
+                <option value="public">Public (Feed & Profile)</option>
+                <option value="profile-only">Profile Only</option>
+                <option value="private">Private (Owner Only)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Custom Thumbnail URL (Optional)</label>
+              <input
+                type="url"
+                placeholder="https://images.unsplash.com/..."
+                value={editReelForm.thumbnailUrl}
+                onChange={(e) => setEditReelForm({ ...editReelForm, thumbnailUrl: e.target.value })}
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+              />
+            </div>
+
+            <div className="flex items-center justify-end space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditReelModal(false);
+                  setEditingReel(null);
+                }}
+                className="px-4 py-2 text-xs text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditReel}
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20"
+              >
+                Save Changes
               </button>
             </div>
           </div>

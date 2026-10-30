@@ -6,6 +6,9 @@ const {
   getUsers,
   updateUserStatus,
   getAnalytics,
+  getAdminReels,
+  updateReelStatus,
+  deleteAdminReel,
 } = require('../controllers/adminController');
 const { authenticate } = require('../middleware/auth');
 const { authorize } = require('../middleware/rbac');
@@ -16,6 +19,11 @@ router.use(authenticate);
 // Reports moderation
 router.get('/reports', authorize('admin', 'moderator'), getReports);
 router.put('/reports/:id', authorize('admin', 'moderator'), resolveReport);
+
+// Reels moderation
+router.get('/reels', authorize('admin', 'moderator'), getAdminReels);
+router.put('/reels/:id/status', authorize('admin', 'moderator'), updateReelStatus);
+router.delete('/reels/:id', authorize('admin'), deleteAdminReel);
 
 // User management (admin only)
 router.get('/users', authorize('admin'), getUsers);

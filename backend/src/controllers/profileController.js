@@ -297,9 +297,9 @@ const getPublicProfile = async (req, res, next) => {
     const profile = await Profile.findOne({
       username: username.toLowerCase().trim(),
       status: 'published',
-    });
+    }).populate('userId', 'accountStatus');
 
-    if (!profile) {
+    if (!profile || (profile.userId && profile.userId.accountStatus && profile.userId.accountStatus !== 'active')) {
       return res.status(404).json({
         success: false,
         message: 'Profile not found or is currently private/draft',
@@ -312,11 +312,11 @@ const getPublicProfile = async (req, res, next) => {
       visibility: 'public',
     }).sort({ order: 1 });
 
-    // Active public reels only
+    // Active reels for profile display (public and profile-only)
     const reels = await Reel.find({
       profileId: profile._id,
       status: 'active',
-      visibility: 'public',
+      visibility: { $in: ['public', 'profile-only'] },
     }).sort({ isPinned: -1, createdAt: -1 });
 
     // Sanitize contact details based on show* flags

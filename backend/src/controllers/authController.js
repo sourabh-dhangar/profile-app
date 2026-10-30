@@ -62,10 +62,10 @@ const requestOtp = async (req, res, next) => {
       });
     }
 
-    if (user.accountStatus === 'suspended') {
+    if (user.accountStatus && user.accountStatus !== 'active') {
       return res.status(403).json({
         success: false,
-        message: 'Your account has been suspended. Please contact support.',
+        message: `Your account is ${user.accountStatus}. Please contact support.`,
       });
     }
 
@@ -124,7 +124,21 @@ const verifyOtp = async (req, res, next) => {
     const normalized = normalizePhone(mobile, countryCode);
     const user = await User.findOne({ mobile: normalized });
 
-    if (!user || !user.otp || !user.otp.code) {
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'No pending OTP request found for this mobile number',
+      });
+    }
+
+    if (user.accountStatus && user.accountStatus !== 'active') {
+      return res.status(403).json({
+        success: false,
+        message: `Your account is ${user.accountStatus}. Please contact support.`,
+      });
+    }
+
+    if (!user.otp || !user.otp.code) {
       return res.status(400).json({
         success: false,
         message: 'No pending OTP request found for this mobile number',
