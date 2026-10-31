@@ -28,6 +28,14 @@ const config = {
   uploadDir: process.env.UPLOAD_DIR || './uploads',
   publicUrl,
   frontendUrl,
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: parseInt(process.env.SMTP_PORT, 10) || 587,
+    secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.EMAIL_FROM || 'MyProfile <noreply@myprofile.com>',
+  },
 };
 
 // Validate critical config

@@ -15,6 +15,8 @@ const seedInMemory = async () => {
 
   // Admin User
   const admin = await User.create({
+    email: 'admin@myprofile.com',
+    password: 'Admin@myprofile2026!',
     mobile: '+919999999999',
     countryCode: '+91',
     isVerified: true,
@@ -30,10 +32,16 @@ const seedInMemory = async () => {
     bio: 'MyProfile platform administrator.',
     status: 'published',
     completionPercentage: 100,
+    contactDetails: {
+      email: 'admin@myprofile.com',
+      showEmail: true,
+    },
   });
 
   // Creator 1: Rahul Sharma
   const user1 = await User.create({
+    email: 'rahul.dev@example.com',
+    password: 'Creator@2026!',
     mobile: '+919876543210',
     countryCode: '+91',
     isVerified: true,
@@ -117,6 +125,8 @@ const seedInMemory = async () => {
 
   // Creator 2: Priya Patel
   const user2 = await User.create({
+    email: 'priya.design@example.com',
+    password: 'Creator@2026!',
     mobile: '+919811122233',
     countryCode: '+91',
     isVerified: true,
