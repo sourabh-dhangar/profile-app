@@ -32,7 +32,7 @@ export function getCloudinaryThumbnail(url) {
  * @param {Function} onProgress - Callback (progressPercent: number) => void
  * @returns {Promise<Object>} Upload metadata including optimized stream URL and thumbnail
  */
-export function uploadToCloudinary(file, onProgress) {
+export function uploadToCloudinary(file, onProgress, folder = 'reels') {
   return new Promise((resolve, reject) => {
     if (!file) {
       return reject(new Error('No file selected'));
@@ -95,7 +95,7 @@ export function uploadToCloudinary(file, onProgress) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', UPLOAD_PRESET);
-    formData.append('folder', 'reels');
+    formData.append('folder', folder);
 
     xhr.send(formData);
   });

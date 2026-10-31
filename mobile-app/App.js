@@ -764,6 +764,57 @@ function MainApp() {
     }
   };
 
+  const handleAuthSuccess = async (authData) => {
+    if (!authData) return;
+    const token = authData.token;
+    const profile = authData.profile;
+    const user = authData.user;
+    const loggedUser = { token, user, profile };
+
+    await saveAuthSession(token, loggedUser);
+
+    setAuthToken(token);
+    setCurrentUser(loggedUser);
+    setProfileUsername(profile?.username);
+
+    if (profile) {
+      const safeProfile = {
+        ...profile,
+        businessDetails: profile.businessDetails || {
+          businessName: '',
+          tagline: '',
+          timing: '',
+          address: '',
+          googleMapsUrl: '',
+          whatsappNumber: '',
+          bookingUrl: '',
+          upiId: '',
+          gstNumber: '',
+        },
+        verifiedBadge: profile.verifiedBadge || 'verified_pro',
+        followersCount: profile.followersCount || 0,
+        followingCount: profile.followingCount || 0,
+        testimonials: profile.testimonials || [],
+      };
+      setProfileData({
+        profile: safeProfile,
+        sections: authData.sections || [],
+        reels: authData.reels || [],
+      });
+    }
+
+    await loadMyProfile(token, profile?.username);
+
+    if (user?.role === 'admin') {
+      loadAdminData(token);
+      setActiveTab('admin');
+      showToast('Welcome, Super Admin! Governance console ready.', 'success');
+    } else {
+      setActiveTab('profile');
+      showToast(`Welcome, ${profile?.name || user?.name || 'Creator'}! Your ID is active.`, 'success');
+    }
+  };
+
   const handleSendOtp = async (mode = 'signin') => {
     setAuthMsg('');
     setLoadingAuth(true);
@@ -1426,24 +1477,16 @@ function MainApp() {
             </View>
           ) : (!authToken && !currentUser?.token && activeTab !== 'login' && activeTab !== 'discover' && activeTab !== 'reels') ? (
             <LoginScreen
-              mobileInput={mobileInput}
-              setMobileInput={setMobileInput}
-              otpInput={otpInput}
-              setOtpInput={setOtpInput}
-              otpStep={otpStep}
-              setOtpStep={setOtpStep}
-              authMsg={authMsg}
               authToken={authToken}
               currentUser={currentUser}
-              onSendOtp={handleSendOtp}
-              onVerifyOtp={handleVerifyOtp}
+              onAuthSuccess={handleAuthSuccess}
               onLogout={handleLogout}
               onNavigateToProfile={() => setActiveTab('profile')}
               onNavigateToAdmin={() => {
                 loadAdminData(authToken);
                 setActiveTab('admin');
               }}
-              loading={loadingAuth}
+              onShowToast={showToast}
             />
           ) : (
             <>
@@ -1557,24 +1600,16 @@ function MainApp() {
 
               {activeTab === 'login' && (
                 <LoginScreen
-                  mobileInput={mobileInput}
-                  setMobileInput={setMobileInput}
-                  otpInput={otpInput}
-                  setOtpInput={setOtpInput}
-                  otpStep={otpStep}
-                  setOtpStep={setOtpStep}
-                  authMsg={authMsg}
                   authToken={authToken}
                   currentUser={currentUser}
-                  onSendOtp={handleSendOtp}
-                  onVerifyOtp={handleVerifyOtp}
+                  onAuthSuccess={handleAuthSuccess}
                   onLogout={handleLogout}
                   onNavigateToProfile={() => setActiveTab('profile')}
                   onNavigateToAdmin={() => {
                     loadAdminData(authToken);
                     setActiveTab('admin');
                   }}
-                  loading={loadingAuth}
+                  onShowToast={showToast}
                 />
               )}
             </>

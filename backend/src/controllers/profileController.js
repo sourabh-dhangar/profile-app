@@ -5,6 +5,7 @@ const Inquiry = require('../models/Inquiry');
 const Follow = require('../models/Follow');
 const { createNotificationHelper } = require('./notificationController');
 const config = require('../config/env');
+const { cloudinary } = require('../config/cloudinary');
 
 const RESERVED_USERNAMES = [
   'admin', 'administrator', 'root', 'api', 'dashboard', 'login', 'signup',
@@ -178,8 +179,21 @@ const uploadPhoto = async (req, res, next) => {
       });
     }
 
-    const relativePath = `/uploads/photos/${req.file.filename}`;
-    profile.photoUrl = `${config.publicUrl}${relativePath}`;
+    let finalPhotoUrl = `${config.publicUrl}/uploads/photos/${req.file.filename}`;
+    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) {
+      try {
+        const cloudUpload = await cloudinary.uploader.upload(req.file.path, {
+          folder: "profiles",
+          resource_type: "image",
+        });
+        if (cloudUpload?.secure_url) {
+          finalPhotoUrl = cloudUpload.secure_url;
+        }
+      } catch (cloudErr) {
+        console.warn("Cloudinary photo upload note:", cloudErr.message);
+      }
+    }
+    profile.photoUrl = finalPhotoUrl;
     profile.calculateCompletion();
     await profile.save();
 

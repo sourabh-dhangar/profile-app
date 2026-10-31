@@ -48,7 +48,7 @@ const sendMail = async ({ to, subject, html, text, otp }) => {
         html,
       });
       console.log(`📧 [Nodemailer] Email successfully dispatched to ${to}. MessageId: ${info.messageId}`);
-      return { success: true, mode: 'smtp', messageId: info.messageId, devOtp: undefined };
+      return { success: true, mode: 'smtp', messageId: info.messageId, devOtp: config.otpMode === 'dev' ? otp : undefined };
     } catch (sendError) {
       console.warn(`⚠️ [Nodemailer] SMTP send error: ${sendError.message}. Falling back to dev console delivery.`);
     }

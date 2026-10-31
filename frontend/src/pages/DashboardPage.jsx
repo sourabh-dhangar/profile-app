@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 import {
@@ -38,6 +38,11 @@ import {
   Heart,
   Download,
   Pencil,
+  UploadCloud,
+  FolderOpen,
+  Image as ImageIcon,
+  RefreshCw,
+  CheckCircle2,
 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import MobileDeviceFrame from '../components/MobileDeviceFrame';
@@ -123,6 +128,10 @@ const DashboardPage = () => {
   const [uploadingReelFile, setUploadingReelFile] = useState(false);
   const [reelUploadProgress, setReelUploadProgress] = useState(0);
   const [uploadedReelFileName, setUploadedReelFileName] = useState('');
+  const [reelUploadSource, setReelUploadSource] = useState('gallery'); // 'gallery' | 'url'
+  const [reelFilePreviewUrl, setReelFilePreviewUrl] = useState('');
+  const reelFileInputRef = useRef(null);
+  const photoFileInputRef = useRef(null);
 
   // Edit Reel modal state
   const [editReelModal, setEditReelModal] = useState(false);
@@ -333,20 +342,54 @@ const DashboardPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const data = new FormData();
-    data.append('photo', file);
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file (JPG, PNG, WebP)');
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error('Profile photo size cannot exceed 15MB');
+      return;
+    }
 
     try {
-      const res = await api.post('/profiles/me/photo', data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      toast.info('Uploading photo directly to Cloudinary CDN...');
+      const cloudResult = await uploadToCloudinary(file, null, 'profiles');
+      const photoUrl = cloudResult.url || cloudResult.secure_url || cloudResult.rawUrl;
 
+      // Persist Cloudinary URL to backend profile
+      const res = await api.put('/profiles/me', { photoUrl });
       if (res.data?.success) {
-        updateProfileState({ ...profile, photoUrl: res.data.data.photoUrl });
-        toast.success('Profile photo uploaded!');
+        updateProfileState({ ...profile, photoUrl });
+        setFormData((prev) => ({ ...prev, photoUrl }));
+        toast.success('⚡ Profile photo saved to Cloudinary CDN!');
+      } else {
+        // Fallback to backend photo endpoint
+        const data = new FormData();
+        data.append('photo', file);
+        const fallbackRes = await api.post('/profiles/me/photo', data, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        if (fallbackRes.data?.success) {
+          updateProfileState({ ...profile, photoUrl: fallbackRes.data.data.photoUrl });
+          toast.success('Profile photo uploaded!');
+        }
       }
     } catch (err) {
-      toast.error('Failed to upload photo');
+      console.error('Cloudinary photo upload error, using backend fallback:', err);
+      try {
+        const data = new FormData();
+        data.append('photo', file);
+        const fallbackRes = await api.post('/profiles/me/photo', data, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        if (fallbackRes.data?.success) {
+          updateProfileState({ ...profile, photoUrl: fallbackRes.data.data.photoUrl });
+          toast.success('Profile photo uploaded!');
+        }
+      } catch (fbErr) {
+        toast.error('Failed to upload photo');
+      }
     }
   };
 
@@ -446,13 +489,33 @@ const DashboardPage = () => {
     const isImage = file.type.startsWith('image/');
 
     if (!isVideo && !isImage) {
-      toast.error('Please select a valid MP4/MOV video or image file');
+      toast.error('Please select a valid MP4/MOV/WebM video or image file');
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error('File size cannot exceed 50MB');
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('File size cannot exceed 100MB');
       return;
+    }
+
+    // Generate local preview immediately for great instant feedback
+    const localBlob = URL.createObjectURL(file);
+    setReelFilePreviewUrl(localBlob);
+
+    // If video, read duration dynamically
+    if (isVideo) {
+      const tempVideo = document.createElement('video');
+      tempVideo.preload = 'metadata';
+      tempVideo.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(tempVideo.src);
+        if (tempVideo.duration && !isNaN(tempVideo.duration)) {
+          const dur = Math.min(60, Math.max(1, Math.round(tempVideo.duration)));
+          setReelForm((prev) => ({ ...prev, durationSeconds: dur, mediaType: 'video' }));
+        }
+      };
+      tempVideo.src = URL.createObjectURL(file);
+    } else {
+      setReelForm((prev) => ({ ...prev, mediaType: 'image' }));
     }
 
     setUploadingReelFile(true);
@@ -460,20 +523,20 @@ const DashboardPage = () => {
     setUploadedReelFileName(file.name);
 
     try {
-      toast.info('Uploading to Cloudinary CDN...');
+      toast.info('Uploading directly to Cloudinary CDN...');
       const result = await uploadToCloudinary(file, (percent) => {
         setReelUploadProgress(percent);
-      });
+      }, 'reels');
 
       setReelForm((prev) => ({
         ...prev,
         videoUrl: result.url,
         thumbnailUrl: result.thumbnailUrl,
         mediaType: result.mediaType,
-        durationSeconds: result.duration || 15,
+        durationSeconds: result.duration || prev.durationSeconds || 15,
       }));
 
-      toast.success('⚡ Uploaded to Cloudinary CDN successfully!');
+      toast.success('⚡ Media uploaded and saved directly to Cloudinary CDN!');
     } catch (err) {
       console.error('Cloudinary upload error:', err);
       toast.error(err.message || 'Failed to upload to Cloudinary');
@@ -661,8 +724,12 @@ const DashboardPage = () => {
               alt="Profile"
               className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl object-cover ring-2 ring-emerald-500/30"
             />
-            <label className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+            <label className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity" title="Upload Photo to Cloudinary">
               <Camera className="w-5 h-5 text-white" />
+              <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+            </label>
+            <label className="sm:hidden absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow cursor-pointer">
+              <Camera className="w-3.5 h-3.5" />
               <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
             </label>
           </div>
@@ -679,6 +746,13 @@ const DashboardPage = () => {
               >
                 {profile?.status || 'Draft'}
               </span>
+            </div>
+            <div className="flex items-center space-x-2 mt-1.5 flex-wrap gap-y-1">
+              <label className="inline-flex items-center space-x-1.5 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/20 transition-colors">
+                <Camera className="w-3 h-3" />
+                <span>Upload Avatar (Cloudinary)</span>
+                <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+              </label>
             </div>
             <p className="text-xs text-slate-400 font-mono mt-1">@{profile?.username}</p>
           </div>
@@ -1276,7 +1350,21 @@ const DashboardPage = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setReelModal(true)}
+                  onClick={() => {
+                    setReelForm({
+                      videoUrl: '',
+                      thumbnailUrl: '',
+                      mediaType: 'video',
+                      caption: '',
+                      durationSeconds: 15,
+                      visibility: 'public',
+                    });
+                    setReelUploadProgress(0);
+                    setUploadedReelFileName('');
+                    setReelFilePreviewUrl('');
+                    setReelUploadSource('gallery');
+                    setReelModal(true);
+                  }}
                   className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-emerald-500/20 transition-all"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1901,71 +1989,173 @@ const DashboardPage = () => {
 
       {/* MODAL 4: Post Reel Modal */}
       {reelModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
-            <h3 className="text-base font-bold text-white">Post Short-Form Reel</h3>
-
-            {/* Direct Device/Gallery Upload */}
-            <div className="p-4 rounded-xl border-2 border-dashed border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors text-center relative">
-              <input
-                type="file"
-                accept="video/mp4,video/quicktime,video/webm,image/*"
-                onChange={handleReelFileSelect}
-                disabled={uploadingReelFile}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-              />
-              <div className="flex flex-col items-center justify-center space-y-1.5 pointer-events-none">
-                <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                  <Video className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg glass-panel p-5 sm:p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl my-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Video className="w-4 h-4" />
                 </div>
-                <p className="text-xs font-bold text-white">
-                  {uploadingReelFile ? 'Uploading to Cloudinary CDN...' : 'Click to Pick Video or Image from Device'}
-                </p>
-                <p className="text-[10px] text-slate-400">
-                  Supports MP4, MOV, WebM (under 60s) or JPG, PNG • High Speed CDN
-                </p>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white">Post Short-Form Reel / Showcase</h3>
+                  <p className="text-[10px] sm:text-[11px] text-slate-400">Direct gallery upload to Cloudinary High-Speed CDN</p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setReelModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Upload Progress Bar */}
-            {uploadingReelFile && (
-              <div className="p-3 rounded-xl bg-slate-900 border border-cyan-500/30 space-y-1.5">
-                <div className="flex justify-between text-[11px] font-bold text-cyan-400">
-                  <span>Uploading to Cloudinary...</span>
-                  <span>{reelUploadProgress}%</span>
-                </div>
-                <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+            {/* Source Switcher: Gallery vs URL */}
+            <div className="grid grid-cols-2 p-1 bg-slate-900/90 rounded-xl border border-slate-800 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setReelUploadSource('gallery')}
+                className={`py-2 rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
+                  reelUploadSource === 'gallery'
+                    ? 'bg-emerald-500 text-slate-950 font-bold shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                <span>Upload from Gallery</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setReelUploadSource('url')}
+                className={`py-2 rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
+                  reelUploadSource === 'url'
+                    ? 'bg-emerald-500 text-slate-950 font-bold shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Paste Media Link</span>
+              </button>
+            </div>
+
+            {/* Hidden Gallery Input */}
+            <input
+              ref={reelFileInputRef}
+              type="file"
+              accept="video/mp4,video/quicktime,video/webm,image/*"
+              onChange={handleReelFileSelect}
+              disabled={uploadingReelFile}
+              className="hidden"
+            />
+
+            {/* 1. GALLERY UPLOAD VIEW */}
+            {reelUploadSource === 'gallery' && (
+              <div className="space-y-3">
+                {/* When no file chosen yet */}
+                {!reelForm.videoUrl && !reelFilePreviewUrl && !uploadingReelFile && (
                   <div
-                    className="h-full bg-cyan-400 transition-all duration-200"
-                    style={{ width: `${reelUploadProgress}%` }}
-                  />
-                </div>
-                <p className="text-[9px] text-slate-400 truncate">{uploadedReelFileName}</p>
+                    onClick={() => reelFileInputRef.current?.click()}
+                    className="p-6 sm:p-8 rounded-2xl border-2 border-dashed border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 transition-all text-center cursor-pointer flex flex-col items-center justify-center space-y-3 group"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <UploadCloud className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">
+                        Click to Choose Video or Photo from Gallery
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                        Direct high-speed upload to Cloudinary • Supports MP4, MOV, WebM, JPG, PNG (Max 100MB)
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center space-x-1.5 shadow-md shadow-emerald-500/20"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      <span>📁 Open Device Gallery / Files</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Real-Time Uploading Progress Bar */}
+                {uploadingReelFile && (
+                  <div className="p-4 rounded-2xl bg-slate-900 border border-cyan-500/30 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-cyan-400">
+                      <div className="flex items-center space-x-2">
+                        <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
+                        <span>Uploading directly to Cloudinary CDN...</span>
+                      </div>
+                      <span className="font-mono text-sm">{reelUploadProgress}%</span>
+                    </div>
+                    <div className="w-full h-2.5 rounded-full bg-slate-800 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-200"
+                        style={{ width: `${reelUploadProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-mono truncate">{uploadedReelFileName}</p>
+                  </div>
+                )}
+
+                {/* Uploaded Media Live Preview Card */}
+                {(reelFilePreviewUrl || reelForm.videoUrl) && !uploadingReelFile && (
+                  <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-emerald-500/30 space-y-3">
+                    <div className="relative rounded-xl overflow-hidden bg-black max-h-52 flex items-center justify-center">
+                      {reelForm.mediaType === 'image' ? (
+                        <img
+                          src={reelFilePreviewUrl || reelForm.videoUrl}
+                          alt="Reel Media Preview"
+                          className="w-full max-h-52 object-contain"
+                        />
+                      ) : (
+                        <video
+                          src={reelFilePreviewUrl || reelForm.videoUrl}
+                          controls
+                          playsInline
+                          className="w-full max-h-52 object-contain bg-black"
+                        />
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800">
+                      <div className="flex items-center space-x-1.5 text-xs text-emerald-400 font-bold truncate">
+                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                        <span className="truncate">Saved directly to Cloudinary CDN</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => reelFileInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold shrink-0 transition-colors flex items-center space-x-1"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Change Media</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Cloudinary CDN Active Badge */}
-            {reelForm.videoUrl && reelForm.videoUrl.includes('cloudinary.com') && (
-              <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold">
-                <span>⚡</span>
-                <span className="truncate">Cloudinary CDN Active: Fast Streaming (q_auto, f_auto)</span>
+            {/* 2. URL LINK VIEW */}
+            {reelUploadSource === 'url' && (
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-400">Video / Media URL (Or Paste CDN Link)</label>
+                <input
+                  type="url"
+                  placeholder="https://... or video CDN URL"
+                  value={reelForm.videoUrl}
+                  onChange={(e) => setReelForm({ ...reelForm, videoUrl: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500 font-mono"
+                  required
+                />
               </div>
             )}
 
+            {/* Caption Input with AI Helper */}
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Video URL (Or Paste Link)</label>
-              <input
-                type="url"
-                placeholder="https://... or video CDN URL"
-                value={reelForm.videoUrl}
-                onChange={(e) => setReelForm({ ...reelForm, videoUrl: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
-                required
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold text-slate-400">Caption</label>
                 <button
                   type="button"
@@ -1981,10 +2171,11 @@ const DashboardPage = () => {
                 placeholder="Tell viewers what this reel is about..."
                 value={reelForm.caption}
                 onChange={(e) => setReelForm({ ...reelForm, caption: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500 placeholder-slate-500"
               />
             </div>
 
+            {/* Duration and Visibility Grid */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1">Duration (1-60s)</label>
@@ -1993,8 +2184,8 @@ const DashboardPage = () => {
                   min="1"
                   max="60"
                   value={reelForm.durationSeconds}
-                  onChange={(e) => setReelForm({ ...reelForm, durationSeconds: parseInt(e.target.value, 10) })}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                  onChange={(e) => setReelForm({ ...reelForm, durationSeconds: parseInt(e.target.value, 10) || 15 })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
 
@@ -2003,29 +2194,35 @@ const DashboardPage = () => {
                 <select
                   value={reelForm.visibility}
                   onChange={(e) => setReelForm({ ...reelForm, visibility: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="public">Public</option>
+                  <option value="public">Public (Everyone)</option>
                   <option value="profile-only">Profile Only</option>
-                  <option value="private">Private</option>
+                  <option value="private">Private (Only Me)</option>
                 </select>
               </div>
             </div>
 
+            {/* Action Buttons */}
             <div className="flex items-center justify-end space-x-3 pt-2">
               <button
                 type="button"
                 onClick={() => setReelModal(false)}
-                className="px-4 py-2 text-xs text-slate-400 hover:text-white"
+                className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleCreateReel}
-                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs"
+                disabled={uploadingReelFile || !reelForm.videoUrl}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center space-x-1.5"
               >
-                Post Reel
+                {uploadingReelFile ? (
+                  <span>Uploading to Cloudinary ({reelUploadProgress}%)...</span>
+                ) : (
+                  <span>✨ Post Reel</span>
+                )}
               </button>
             </div>
           </div>

@@ -63,6 +63,70 @@ export const searchByPhone = async (phone, countryCode = '+91') => {
   return res.json();
 };
 
+// ==========================================
+// Email & Password Authentication APIs
+// ==========================================
+
+export const loginWithEmailApi = async (email, password) => {
+  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: email.trim().toLowerCase(),
+      password,
+    }),
+  });
+  return res.json();
+};
+
+export const registerRequestOtpApi = async (email, name) => {
+  const res = await fetch(`${API_BASE_URL}/auth/register/request-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: email.trim().toLowerCase(),
+      name: name?.trim() || '',
+    }),
+  });
+  return res.json();
+};
+
+export const registerVerifyApi = async (payload) => {
+  const res = await fetch(`${API_BASE_URL}/auth/register/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...payload,
+      email: payload.email?.trim().toLowerCase(),
+    }),
+  });
+  return res.json();
+};
+
+export const forgotPasswordRequestOtpApi = async (email) => {
+  const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: email.trim().toLowerCase(),
+    }),
+  });
+  return res.json();
+};
+
+export const resetPasswordWithOtpApi = async (email, otp, newPassword) => {
+  const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: email.trim().toLowerCase(),
+      otp: otp.trim(),
+      newPassword,
+    }),
+  });
+  return res.json();
+};
+
 export const requestOtp = async (mobile, countryCode = '+91', mode = null) => {
   const payload = { mobile, countryCode };
   if (mode) payload.mode = mode;
