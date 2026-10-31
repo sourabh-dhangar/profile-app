@@ -100,7 +100,7 @@ const Navbar = () => {
             aria-label="MyProfile Home"
           >
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-200">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-slate-950" />
+              <i className="fa-solid fa-circle-user text-slate-950 text-lg sm:text-xl"></i>
             </div>
             <div className="flex items-center">
               <span className="text-lg sm:text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">

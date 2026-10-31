@@ -11,7 +11,7 @@ const Footer = () => {
           <div className="md:col-span-2 space-y-3">
             <div className="flex items-center space-x-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <Sparkles className="w-4 h-4 text-slate-950" />
+                <i className="fa-solid fa-circle-user text-slate-950 text-base"></i>
               </div>
               <div>
                 <p className="text-base font-extrabold text-white">MyProfile Platform</p>
