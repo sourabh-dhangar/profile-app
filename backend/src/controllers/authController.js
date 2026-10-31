@@ -229,14 +229,13 @@ const registerRequestOtp = async (req, res, next) => {
     await user.save();
 
     // Send styled HTML email via Nodemailer
-    const mailResult = await mailer.sendRegistrationOtp(normalizedEmail, code);
+    await mailer.sendRegistrationOtp(normalizedEmail, code);
 
     return res.status(200).json({
       success: true,
-      message: 'Verification code sent to your email address',
+      message: 'Verification code sent to your email address. Please check your inbox.',
       data: {
         email: normalizedEmail,
-        devOtp: mailResult.devOtp,
       },
     });
   } catch (error) {
@@ -464,14 +463,13 @@ const forgotPassword = async (req, res, next) => {
     await user.save();
 
     // Send styled HTML reset email via Nodemailer
-    const mailResult = await mailer.sendPasswordResetOtp(normalizedEmail, code);
+    await mailer.sendPasswordResetOtp(normalizedEmail, code);
 
     return res.status(200).json({
       success: true,
-      message: 'Password reset code sent to your email address',
+      message: 'Password reset code sent to your email address. Please check your inbox.',
       data: {
         email: normalizedEmail,
-        devOtp: mailResult.devOtp,
       },
     });
   } catch (error) {
@@ -613,7 +611,7 @@ const requestOtp = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: 'OTP sent successfully',
-      data: { mobile: normalized, devOtp: config.otpMode === 'dev' ? code : undefined },
+      data: { mobile: normalized },
     });
   } catch (err) {
     next(err);

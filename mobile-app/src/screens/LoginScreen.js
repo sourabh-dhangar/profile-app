@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { COLORS } from '../theme';
 import {
@@ -61,12 +62,10 @@ export default function LoginScreen({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [devOtpHint, setDevOtpHint] = useState('');
 
   const resetFeedback = () => {
     setErrorMsg('');
     setSuccessMsg('');
-    setDevOtpHint('');
   };
 
   const switchMode = (mode) => {
@@ -154,12 +153,9 @@ export default function LoginScreen({
       const res = await registerRequestOtpApi(email, fullName);
       if (res.success) {
         setStep(2);
-        setSuccessMsg(`Verification code sent to ${email.trim()}`);
-        toast(`Verification code sent to ${email.trim()}`, 'success');
-        if (res.data?.devOtp) {
-          setDevOtpHint(res.data.devOtp);
-          setOtp(res.data.devOtp);
-        }
+        const msg = `Verification code sent to ${email.trim()}. Please check your email inbox.`;
+        setSuccessMsg(msg);
+        toast(msg, 'success');
       } else {
         const msg = res.message || 'Failed to send verification code.';
         setErrorMsg(msg);
@@ -243,12 +239,9 @@ export default function LoginScreen({
       const res = await forgotPasswordRequestOtpApi(email);
       if (res.success) {
         setStep(2);
-        setSuccessMsg(`Recovery code sent to ${email.trim()}`);
-        toast(`Recovery code sent to ${email.trim()}`, 'success');
-        if (res.data?.devOtp) {
-          setDevOtpHint(res.data.devOtp);
-          setOtp(res.data.devOtp);
-        }
+        const msg = `Recovery code sent to ${email.trim()}. Please check your email inbox.`;
+        setSuccessMsg(msg);
+        toast(msg, 'success');
       } else {
         const msg = res.message || 'No registered account found with this email.';
         setErrorMsg(msg);
@@ -487,14 +480,6 @@ export default function LoginScreen({
           <View style={styles.successBanner}>
             <Text style={styles.successBannerIcon}>✓</Text>
             <Text style={styles.successBannerText}>{successMsg}</Text>
-          </View>
-        ) : null}
-
-        {devOtpHint ? (
-          <View style={styles.devOtpBanner}>
-            <Text style={styles.devOtpText}>
-              🚀 Dev Resilience Mode: OTP is <Text style={styles.devOtpCode}>{devOtpHint}</Text>
-            </Text>
           </View>
         ) : null}
 
@@ -978,6 +963,19 @@ export default function LoginScreen({
           </View>
         )}
       </View>
+
+      {/* Google Play Compliant Privacy Policy Link */}
+      <View style={styles.privacyFooter}>
+        <Text style={styles.privacyFooterText}>
+          By continuing, you agree to MyProfile's{' '}
+          <Text
+            style={styles.privacyLink}
+            onPress={() => Linking.openURL('https://myprofile-official-web.vercel.app/privacy')}
+          >
+            Privacy Policy & Data Safety
+          </Text>
+        </Text>
+      </View>
     </ScrollView>
   );
 }
@@ -1157,25 +1155,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     lineHeight: 16,
-  },
-  devOtpBanner: {
-    backgroundColor: 'rgba(6, 182, 212, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(6, 182, 212, 0.25)',
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 14,
-    alignItems: 'center',
-  },
-  devOtpText: {
-    color: '#22d3ee',
-    fontSize: 11,
-  },
-  devOtpCode: {
-    color: '#ffffff',
-    fontWeight: '900',
-    letterSpacing: 2,
-    fontSize: 13,
   },
   formContainer: {
     gap: 14,
@@ -1510,5 +1489,22 @@ const styles = StyleSheet.create({
     color: '#f87171',
     fontSize: 13,
     fontWeight: '700',
+  },
+  privacyFooter: {
+    marginTop: 20,
+    marginBottom: 10,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  privacyFooterText: {
+    fontSize: 11,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  privacyLink: {
+    color: '#10b981',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
 });

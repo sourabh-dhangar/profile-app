@@ -48,27 +48,14 @@ const sendMail = async ({ to, subject, html, text, otp }) => {
         html,
       });
       console.log(`📧 [Nodemailer] Email successfully dispatched to ${to}. MessageId: ${info.messageId}`);
-      return { success: true, mode: 'smtp', messageId: info.messageId, devOtp: config.otpMode === 'dev' ? otp : undefined };
+      return { success: true, mode: 'smtp', messageId: info.messageId };
     } catch (sendError) {
-      console.warn(`⚠️ [Nodemailer] SMTP send error: ${sendError.message}. Falling back to dev console delivery.`);
+      console.warn(`⚠️ [Nodemailer] SMTP send error: ${sendError.message}`);
+      throw new Error(`Failed to deliver email to ${to}: ${sendError.message}`);
     }
   }
 
-  // Resilient Dev Mode (console log + devOtp return)
-  console.log('================================================================');
-  console.log(`📧 [RESILIENT DEV MAILER] To: ${to}`);
-  console.log(`📌 Subject: ${subject}`);
-  if (otp) {
-    console.log(`🔑 Verification / Reset OTP Code: [ ${otp} ] (Valid for 10 minutes)`);
-  }
-  console.log('================================================================');
-
-  return {
-    success: true,
-    mode: 'dev',
-    devOtp: otp,
-    message: 'Dispatched via Resilient Dev Mailer',
-  };
+  throw new Error('SMTP email service is not configured. Please check SMTP settings.');
 };
 
 /**

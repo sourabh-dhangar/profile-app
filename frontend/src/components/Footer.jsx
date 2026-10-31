@@ -42,6 +42,11 @@ const Footer = () => {
                   Create Free Profile
                 </Link>
               </li>
+              <li>
+                <Link to="/privacy" className="hover:text-emerald-400 transition-colors">
+                  Privacy Policy & Data Safety
+                </Link>
+              </li>
             </ul>
           </div>
 

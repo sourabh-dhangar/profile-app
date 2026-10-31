@@ -12,6 +12,7 @@ import ReelsFeedPage from './pages/ReelsFeedPage';
 import DiscoveryPage from './pages/DiscoveryPage';
 import AdminPage from './pages/AdminPage';
 import MessagesPage from './pages/MessagesPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -71,6 +72,7 @@ function App() {
                   <Route path="/p/:username" element={<PublicProfilePage />} />
                   <Route path="/reels" element={<ReelsFeedPage />} />
                   <Route path="/discover" element={<DiscoveryPage />} />
+                  <Route path="/privacy" element={<PrivacyPolicyPage />} />
                   <Route
                     path="/admin"
                     element={

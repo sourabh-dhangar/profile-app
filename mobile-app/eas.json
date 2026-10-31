@@ -21,6 +21,9 @@
     },
     "production": {
       "channel": "production",
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://myprofile-official-api.vercel.app/api/v1",
         "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "gphexfmz",

@@ -50,7 +50,6 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [devOtpHint, setDevOtpHint] = useState('');
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -58,7 +57,6 @@ const LoginPage = () => {
   const resetMessages = () => {
     setError('');
     setSuccessMsg('');
-    setDevOtpHint('');
   };
 
   const switchMode = (newMode) => {
@@ -140,11 +138,7 @@ const LoginPage = () => {
 
       if (res.data.success) {
         setStep(2);
-        setSuccessMsg(`Verification code sent to ${email.trim()}`);
-        if (res.data.data?.devOtp) {
-          setDevOtpHint(res.data.data.devOtp);
-          setOtp(res.data.data.devOtp); // pre-fill in dev mode
-        }
+        setSuccessMsg(`Verification code sent to ${email.trim()}. Please check your email inbox.`);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to send verification code. Please try again.');
@@ -213,11 +207,7 @@ const LoginPage = () => {
 
       if (res.data.success) {
         setStep(2);
-        setSuccessMsg(`Password reset code sent to ${email.trim()}`);
-        if (res.data.data?.devOtp) {
-          setDevOtpHint(res.data.data.devOtp);
-          setOtp(res.data.data.devOtp); // pre-fill in dev mode
-        }
+        setSuccessMsg(`Password reset code sent to ${email.trim()}. Please check your email inbox.`);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to request reset code. Please check the email.');
@@ -334,12 +324,6 @@ const LoginPage = () => {
           <div className="mb-5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs sm:text-sm flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{successMsg}</span>
-          </div>
-        )}
-
-        {devOtpHint && (
-          <div className="mb-5 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-mono text-center">
-            🚀 Dev Resilience Mode: OTP is <strong className="text-white text-sm tracking-widest">{devOtpHint}</strong>
           </div>
         )}
 
