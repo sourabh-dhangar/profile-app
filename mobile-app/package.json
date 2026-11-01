@@ -16,6 +16,7 @@
     "dotenv-expand": "^1000.0.0",
     "expo": "~50.0.14",
     "expo-av": "~13.10.6",
+    "expo-build-properties": "~0.11.1",
     "expo-file-system": "~16.0.9",
     "expo-font": "~11.10.3",
     "expo-image-picker": "~14.7.1",
