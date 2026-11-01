@@ -91,6 +91,18 @@ export const registerRequestOtpApi = async (email, name) => {
   return res.json();
 };
 
+export const registerValidateOtpApi = async (email, otp) => {
+  const res = await fetch(`${API_BASE_URL}/auth/register/validate-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: email.trim().toLowerCase(),
+      otp: otp?.trim() || '',
+    }),
+  });
+  return res.json();
+};
+
 export const registerVerifyApi = async (payload) => {
   const res = await fetch(`${API_BASE_URL}/auth/register/verify`, {
     method: 'POST',
@@ -109,6 +121,18 @@ export const forgotPasswordRequestOtpApi = async (email) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       email: email.trim().toLowerCase(),
+    }),
+  });
+  return res.json();
+};
+
+export const validateResetOtpApi = async (email, otp) => {
+  const res = await fetch(`${API_BASE_URL}/auth/forgot-password/validate-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: email.trim().toLowerCase(),
+      otp: otp?.trim() || '',
     }),
   });
   return res.json();

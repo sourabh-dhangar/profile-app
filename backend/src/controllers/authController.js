@@ -54,13 +54,15 @@ const buildAuthResponseData = async (user, fallbackProfileData = {}) => {
       customCategory: fallbackProfileData.customCategory?.trim() || '',
       status: 'published',
       bio: resolvedBio,
-      city: 'India',
+      city: fallbackProfileData.city?.trim() || 'India',
       theme: 'default',
       completionPercentage: 85,
       qrCodeUrl,
       contactDetails: {
         email: user.email,
+        phone: user.mobile || fallbackProfileData.mobile || '',
         showEmail: true,
+        showPhone: Boolean(user.mobile || fallbackProfileData.mobile),
       },
       socialLinks: [
         { platform: 'website', url: 'https://example.com' },
@@ -117,6 +119,34 @@ const buildAuthResponseData = async (user, fallbackProfileData = {}) => {
       ]);
     } catch (secErr) {
       console.log('Starter sections notice:', secErr.message);
+    }
+  } else {
+    // If profile already exists, update with latest details
+    let profileModified = false;
+    if (fallbackProfileData.name && profile.name !== fallbackProfileData.name.trim()) {
+      profile.name = fallbackProfileData.name.trim();
+      profileModified = true;
+    }
+    if (fallbackProfileData.bio && profile.bio !== fallbackProfileData.bio.trim()) {
+      profile.bio = fallbackProfileData.bio.trim();
+      profileModified = true;
+    }
+    if (fallbackProfileData.city && profile.city !== fallbackProfileData.city.trim()) {
+      profile.city = fallbackProfileData.city.trim();
+      profileModified = true;
+    }
+    const targetPhone = user.mobile || fallbackProfileData.mobile;
+    if (targetPhone && profile.contactDetails?.phone !== targetPhone) {
+      profile.contactDetails = {
+        ...(profile.contactDetails?.toObject?.() || profile.contactDetails || {}),
+        phone: targetPhone,
+        showPhone: true,
+      };
+      profileModified = true;
+    }
+    if (profileModified) {
+      profile.calculateCompletion();
+      await profile.save();
     }
   }
 
@@ -244,9 +274,69 @@ const registerRequestOtp = async (req, res, next) => {
 };
 
 /**
- * 2. Verify Registration OTP & Set Password
+ * 1.5. Validate Registration OTP (Pre-verification check for multi-step onboarding)
+ * POST /api/v1/auth/register/validate-otp
+ * Body: { email, otp }
+ */
+const registerValidateOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and verification code are required',
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user || !user.otp || !user.otp.code || user.otp.purpose !== 'registration') {
+      return res.status(400).json({
+        success: false,
+        message: 'No pending registration request found for this email. Please request a new OTP.',
+      });
+    }
+
+    if (new Date() > new Date(user.otp.expiresAt)) {
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Please request a new verification code.',
+      });
+    }
+
+    if (user.otp.attempts >= 5) {
+      return res.status(429).json({
+        success: false,
+        message: 'Too many failed verification attempts. Please request a new OTP.',
+      });
+    }
+
+    const isDev = config.otpMode === 'dev';
+    const isMatch = user.otp.code === otp.trim() || (isDev && otp.trim() === '123456');
+
+    if (!isMatch) {
+      user.otp.attempts += 1;
+      await user.save();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid verification code. Please check and try again.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Email verification code verified successfully!',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 2. Verify Registration OTP & Set Password, Compulsory Mobile & Profile Details
  * POST /api/v1/auth/register/verify
- * Body: { email, otp, password, name, bio, profileType, category, customCategory }
+ * Body: { email, otp, password, mobile, countryCode, name, bio, city, profileType, category, customCategory }
  */
 const registerVerify = async (req, res, next) => {
   try {
@@ -254,8 +344,11 @@ const registerVerify = async (req, res, next) => {
       email,
       otp,
       password,
+      mobile,
+      countryCode,
       name,
       bio,
+      city,
       profileType,
       category,
       customCategory,
@@ -274,6 +367,27 @@ const registerVerify = async (req, res, next) => {
         message: 'Password must be at least 6 characters long',
       });
     }
+
+    if (!mobile || typeof mobile !== 'string' || !mobile.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mobile number is compulsory. Please enter your 10-digit mobile number.',
+      });
+    }
+
+    const digitsOnly = mobile.replace(/\D/g, '');
+    if (digitsOnly.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid 10-digit mobile number.',
+      });
+    }
+
+    const last10 = digitsOnly.slice(-10);
+    const resolvedCountryCode = (countryCode && countryCode.trim())
+      ? (countryCode.startsWith('+') ? countryCode.trim() : `+${countryCode.trim()}`)
+      : '+91';
+    const formattedMobile = `${resolvedCountryCode}${last10}`;
 
     const normalizedEmail = email.trim().toLowerCase();
     const user = await User.findOne({ email: normalizedEmail });
@@ -318,8 +432,24 @@ const registerVerify = async (req, res, next) => {
       });
     }
 
-    // Set password (hashed automatically by pre-save hook) and verify
+    // Check if another verified user already has this mobile
+    const existingMobileUser = await User.findOne({
+      mobile: formattedMobile,
+      _id: { $ne: user._id },
+      isVerified: true,
+    });
+
+    if (existingMobileUser) {
+      return res.status(409).json({
+        success: false,
+        message: `This mobile number (${formattedMobile}) is already registered with another account. Please use a different number.`,
+      });
+    }
+
+    // Set password, mobile, countryCode, and verify
     user.password = password;
+    user.mobile = formattedMobile;
+    user.countryCode = resolvedCountryCode;
     user.isVerified = true;
     user.otp = undefined;
     if (name) user.name = name.trim();
@@ -328,7 +458,9 @@ const registerVerify = async (req, res, next) => {
 
     const authData = await buildAuthResponseData(user, {
       name: name || user.name,
-      bio,
+      bio: bio?.trim() || '',
+      city: city?.trim() || 'India',
+      mobile: formattedMobile,
       profileType,
       category,
       customCategory,
@@ -471,6 +603,66 @@ const forgotPassword = async (req, res, next) => {
       data: {
         email: normalizedEmail,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 4.5 Validate Forgot Password Recovery Code (OTP)
+ * POST /api/v1/auth/forgot-password/validate-otp
+ * Body: { email, otp }
+ */
+const validateResetOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and recovery code are required',
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user || !user.otp || !user.otp.code || user.otp.purpose !== 'forgot_password') {
+      return res.status(400).json({
+        success: false,
+        message: 'No pending password recovery request found for this email. Please request a new code.',
+      });
+    }
+
+    if (new Date() > new Date(user.otp.expiresAt)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Recovery code has expired. Please request a new one.',
+      });
+    }
+
+    if (user.otp.attempts >= 5) {
+      return res.status(429).json({
+        success: false,
+        message: 'Too many failed verification attempts. Please request a new recovery code.',
+      });
+    }
+
+    const isDev = config.otpMode === 'dev';
+    const isMatch = user.otp.code === otp.trim() || (isDev && otp.trim() === '123456');
+
+    if (!isMatch) {
+      user.otp.attempts += 1;
+      await user.save();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid recovery code. Please check and try again.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Recovery code verified successfully! You can now set your new password.',
     });
   } catch (error) {
     next(error);
@@ -667,9 +859,11 @@ const verifyOtp = async (req, res, next) => {
 
 module.exports = {
   registerRequestOtp,
+  registerValidateOtp,
   registerVerify,
   login,
   forgotPassword,
+  validateResetOtp,
   resetPassword,
   getMe,
   requestOtp,

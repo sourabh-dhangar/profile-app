@@ -21,6 +21,8 @@ const UserSchema = new mongoose.Schema({
   mobile: {
     type: String,
     trim: true,
+    sparse: true,
+    index: true,
   },
   countryCode: {
     type: String,
@@ -58,6 +60,14 @@ const UserSchema = new mongoose.Schema({
   },
 }, {
   timestamps: true,
+});
+
+// Sanitize mobile before validation/saving so null or empty strings don't trigger unique index collisions
+UserSchema.pre('validate', function (next) {
+  if (!this.mobile || typeof this.mobile !== 'string' || !this.mobile.trim()) {
+    this.mobile = undefined;
+  }
+  next();
 });
 
 // Pre-save hook: Hash password with bcrypt before saving

@@ -13,8 +13,10 @@ import { COLORS } from '../theme';
 import {
   loginWithEmailApi,
   registerRequestOtpApi,
+  registerValidateOtpApi,
   registerVerifyApi,
   forgotPasswordRequestOtpApi,
+  validateResetOtpApi,
   resetPasswordWithOtpApi,
 } from '../services/api';
 
@@ -50,6 +52,9 @@ export default function LoginScreen({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
+  const [city, setCity] = useState('');
   const [category, setCategory] = useState('Creator');
   const [customCategory, setCustomCategory] = useState('');
   const [bio, setBio] = useState('');
@@ -75,6 +80,8 @@ export default function LoginScreen({
     setPassword('');
     setConfirmPassword('');
     setOtp('');
+    setMobile('');
+    setCity('');
   };
 
   const toast = (msg, type = 'info') => {
@@ -171,21 +178,70 @@ export default function LoginScreen({
   };
 
   // ==========================================
-  // 2. SIGN UP: STEP 2 (Verify OTP & Set Password)
+  // 2. SIGN UP: STEP 2 (Verify OTP Only -> proceed to Set Password)
   // ==========================================
-  const handleRegisterVerify = async () => {
+  const handleVerifyOtpOnly = async () => {
     resetFeedback();
 
     if (!otp.trim() || otp.trim().length < 4) {
       setErrorMsg('Please enter the 6-digit verification code');
+      toast('Please enter verification code', 'error');
       return;
     }
+
+    setLoading(true);
+    try {
+      const res = await registerValidateOtpApi(email, otp.trim());
+      if (res.success) {
+        setStep(3);
+        const msg = 'Email OTP verified successfully! Now set your account password.';
+        setSuccessMsg(msg);
+        toast(msg, 'success');
+      } else {
+        const msg = res.message || 'Invalid verification code.';
+        setErrorMsg(msg);
+        toast(msg, 'error');
+      }
+    } catch (err) {
+      const msg = err.message || 'Network error verifying OTP.';
+      setErrorMsg(msg);
+      toast(msg, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================
+  // 3. SIGN UP: STEP 3 (Validate Password -> proceed to Details)
+  // ==========================================
+  const handleSetPasswordStep = () => {
+    resetFeedback();
+
     if (!password || password.length < 6) {
       setErrorMsg('Password must be at least 6 characters long');
+      toast('Password must be at least 6 characters', 'error');
       return;
     }
     if (password !== confirmPassword) {
       setErrorMsg('Passwords do not match');
+      toast('Passwords do not match', 'error');
+      return;
+    }
+
+    setStep(4);
+    setSuccessMsg('Password confirmed! Now complete your contact number & profile details.');
+  };
+
+  // ==========================================
+  // 4. SIGN UP: STEP 4 (Complete Registration with Compulsory Mobile & Details)
+  // ==========================================
+  const handleCompleteRegistration = async () => {
+    resetFeedback();
+
+    const cleanMobile = (mobile || '').replace(/\D/g, '');
+    if (!cleanMobile || cleanMobile.length < 10) {
+      setErrorMsg('Mobile number is compulsory. Please enter 10 digits.');
+      toast('Mobile number is compulsory', 'error');
       return;
     }
 
@@ -197,6 +253,9 @@ export default function LoginScreen({
         email,
         otp: otp.trim(),
         password,
+        mobile: cleanMobile.slice(-10),
+        countryCode: countryCode.trim() || '+91',
+        city: city.trim(),
         name: fullName.trim(),
         bio: bio.trim(),
         profileType: effectiveCategory,
@@ -257,15 +316,45 @@ export default function LoginScreen({
   };
 
   // ==========================================
-  // 3. FORGOT PASSWORD: STEP 2 (Reset Password)
+  // 3. FORGOT PASSWORD: STEP 2 (Verify Recovery OTP Only)
   // ==========================================
-  const handleResetPassword = async () => {
+  const handleForgotVerifyOtp = async () => {
     resetFeedback();
 
     if (!otp.trim() || otp.trim().length < 4) {
       setErrorMsg('Please enter the 6-digit recovery code');
+      toast('Please enter recovery code', 'error');
       return;
     }
+
+    setLoading(true);
+    try {
+      const res = await validateResetOtpApi(email, otp.trim());
+      if (res.success) {
+        setStep(3);
+        const msg = 'Recovery code verified! Please set your new password.';
+        setSuccessMsg(msg);
+        toast(msg, 'success');
+      } else {
+        const msg = res.message || 'Invalid recovery code. Please try again.';
+        setErrorMsg(msg);
+        toast(msg, 'error');
+      }
+    } catch (err) {
+      const msg = err.message || 'Network error verifying recovery code.';
+      setErrorMsg(msg);
+      toast(msg, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================
+  // 3. FORGOT PASSWORD: STEP 3 (Set New Password)
+  // ==========================================
+  const handleResetPassword = async () => {
+    resetFeedback();
+
     if (!password || password.length < 6) {
       setErrorMsg('New password must be at least 6 characters long');
       return;
@@ -396,13 +485,31 @@ export default function LoginScreen({
 
         <Text style={styles.heroTitle}>
           {authMode === 'signin' && 'Welcome Back'}
-          {authMode === 'signup' && (step === 1 ? 'Create Your Profile' : 'Verify Email & Password')}
-          {authMode === 'forgot' && (step === 1 ? 'Reset Your Password' : 'Set New Password')}
+          {authMode === 'signup' && (
+            step === 1 ? 'Create Your Profile' :
+            step === 2 ? 'Verify Email Code (OTP)' :
+            step === 3 ? 'Set Your Password' :
+            'Compulsory Mobile & Profile'
+          )}
+          {authMode === 'forgot' && (
+            step === 1 ? 'Reset Your Password' :
+            step === 2 ? 'Verify Recovery Code' :
+            'Set New Password'
+          )}
         </Text>
         <Text style={styles.heroSubtitle}>
           {authMode === 'signin' && 'Sign in with your email and password to access your dashboard.'}
-          {authMode === 'signup' && (step === 1 ? 'Enter your details to receive an email verification code.' : `Enter the 6-digit code sent to ${email}`)}
-          {authMode === 'forgot' && (step === 1 ? 'Enter your registered email to receive a password reset code.' : `Enter recovery code sent to ${email}`)}
+          {authMode === 'signup' && (
+            step === 1 ? 'Enter your details to receive an email verification code.' :
+            step === 2 ? `Enter the 6-digit code sent to ${email}` :
+            step === 3 ? 'Set a strong password for your account.' :
+            'Enter your compulsory mobile number and profile details.'
+          )}
+          {authMode === 'forgot' && (
+            step === 1 ? 'Enter your registered email to receive a password recovery code.' :
+            step === 2 ? `Enter the 6-digit recovery code sent to ${email}` :
+            'Create a strong new password to protect your account.'
+          )}
         </Text>
       </View>
 
@@ -444,27 +551,56 @@ export default function LoginScreen({
         )}
 
         {/* Multi-Step Indicator for Signup / Forgot */}
-        {(authMode === 'signup' || authMode === 'forgot') && (
+        {authMode === 'signup' && (
           <View style={styles.stepsRow}>
-            <View style={[styles.stepItem, step === 1 && styles.stepItemActive]}>
-              <View style={[styles.stepBadge, step === 1 && styles.stepBadgeActive]}>
-                <Text style={[styles.stepBadgeText, step === 1 && styles.stepBadgeTextActive]}>1</Text>
-              </View>
-              <Text style={[styles.stepLabel, step === 1 && styles.stepLabelActive]}>
-                {authMode === 'signup' ? 'Details' : 'Email'}
-              </Text>
-            </View>
+            {[
+              { num: 1, label: 'Account' },
+              { num: 2, label: 'OTP' },
+              { num: 3, label: 'Password' },
+              { num: 4, label: 'Details' },
+            ].map((s, idx) => (
+              <React.Fragment key={s.num}>
+                <View style={[styles.stepItem, step === s.num && styles.stepItemActive]}>
+                  <View style={[styles.stepBadge, step === s.num && styles.stepBadgeActive, step > s.num && { backgroundColor: '#10b981', borderColor: '#10b981' }]}>
+                    <Text style={[styles.stepBadgeText, step === s.num && styles.stepBadgeTextActive, step > s.num && { color: '#020617' }]}>
+                      {step > s.num ? '✓' : s.num}
+                    </Text>
+                  </View>
+                  <Text style={[styles.stepLabel, step === s.num && styles.stepLabelActive]}>
+                    {s.label}
+                  </Text>
+                </View>
+                {idx < 3 && (
+                  <View style={[styles.stepLine, step > idx + 1 && styles.stepLineActive]} />
+                )}
+              </React.Fragment>
+            ))}
+          </View>
+        )}
 
-            <View style={[styles.stepLine, step === 2 && styles.stepLineActive]} />
-
-            <View style={[styles.stepItem, step === 2 && styles.stepItemActive]}>
-              <View style={[styles.stepBadge, step === 2 && styles.stepBadgeActive]}>
-                <Text style={[styles.stepBadgeText, step === 2 && styles.stepBadgeTextActive]}>2</Text>
-              </View>
-              <Text style={[styles.stepLabel, step === 2 && styles.stepLabelActive]}>
-                {authMode === 'signup' ? 'OTP & Password' : 'New Password'}
-              </Text>
-            </View>
+        {authMode === 'forgot' && (
+          <View style={styles.stepsRow}>
+            {[
+              { num: 1, label: 'Email' },
+              { num: 2, label: 'Verify Code' },
+              { num: 3, label: 'New Password' },
+            ].map((s, idx) => (
+              <React.Fragment key={s.num}>
+                <View style={[styles.stepItem, step === s.num && styles.stepItemActive]}>
+                  <View style={[styles.stepBadge, step === s.num && styles.stepBadgeActive, step > s.num && { backgroundColor: '#10b981', borderColor: '#10b981' }]}>
+                    <Text style={[styles.stepBadgeText, step === s.num && styles.stepBadgeTextActive, step > s.num && { color: '#020617' }]}>
+                      {step > s.num ? '✓' : s.num}
+                    </Text>
+                  </View>
+                  <Text style={[styles.stepLabel, step === s.num && styles.stepLabelActive]}>
+                    {s.label}
+                  </Text>
+                </View>
+                {idx < 2 && (
+                  <View style={[styles.stepLine, step > idx + 1 && styles.stepLineActive]} />
+                )}
+              </React.Fragment>
+            ))}
           </View>
         )}
 
@@ -744,6 +880,37 @@ export default function LoginScreen({
               </View>
             </View>
 
+            <TouchableOpacity
+              style={[
+                styles.submitBtn,
+                (!otp.trim() || loading) && styles.submitBtnDisabled,
+              ]}
+              onPress={handleVerifyOtpOnly}
+              disabled={loading || !otp.trim()}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#020617" />
+              ) : (
+                <Text style={styles.submitBtnText}>Verify OTP →</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => setStep(1)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backBtnText}>← Change Details</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ==================================================== */}
+        {/* 2. SIGN UP: STEP 3 (Set Password)                    */}
+        {/* ==================================================== */}
+        {authMode === 'signup' && step === 3 && (
+          <View style={styles.formContainer}>
             <View style={styles.fieldGroup}>
               <Text style={styles.inputLabel}>SET PASSWORD (MIN. 6 CHARACTERS)</Text>
               <View style={styles.passwordInputWrapper}>
@@ -755,6 +922,7 @@ export default function LoginScreen({
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
+                  autoFocus={true}
                 />
                 <TouchableOpacity
                   style={styles.eyeBtn}
@@ -791,10 +959,87 @@ export default function LoginScreen({
             <TouchableOpacity
               style={[
                 styles.submitBtn,
-                (!otp.trim() || !password || loading) && styles.submitBtnDisabled,
+                (!password || !confirmPassword || loading) && styles.submitBtnDisabled,
               ]}
-              onPress={handleRegisterVerify}
-              disabled={loading || !otp.trim() || !password}
+              onPress={handleSetPasswordStep}
+              disabled={loading || !password || !confirmPassword}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.submitBtnText}>Continue to Profile Details →</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => setStep(2)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backBtnText}>← Back to OTP</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ==================================================== */}
+        {/* 2. SIGN UP: STEP 4 (Compulsory Mobile & Details)     */}
+        {/* ==================================================== */}
+        {authMode === 'signup' && step === 4 && (
+          <View style={styles.formContainer}>
+            <View style={styles.fieldGroup}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={styles.inputLabel}>MOBILE NUMBER (COMPULSORY * )</Text>
+                <Text style={{ fontSize: 10, color: '#10b981', fontWeight: '700' }}>REQUIRED</Text>
+              </View>
+              <View style={[styles.passwordInputWrapper, { paddingHorizontal: 0 }]}>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 12, borderRightWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                  <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 13 }}>+91</Text>
+                </View>
+                <TextInput
+                  style={[styles.passwordInput, { letterSpacing: 1 }]}
+                  placeholder="9876543210"
+                  placeholderTextColor="#64748b"
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  value={mobile}
+                  onChangeText={(t) => setMobile(t.replace(/\D/g, ''))}
+                  autoFocus={true}
+                />
+              </View>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.inputLabel}>CITY / LOCATION (OPTIONAL)</Text>
+              <View style={styles.standardInputWrapper}>
+                <TextInput
+                  style={styles.standardInput}
+                  placeholder="e.g. Mumbai, Delhi, Bengaluru"
+                  placeholderTextColor="#64748b"
+                  value={city}
+                  onChangeText={setCity}
+                />
+              </View>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.inputLabel}>BIO / SHORT HEADLINE (OPTIONAL)</Text>
+              <View style={[styles.standardInputWrapper, styles.bioInputWrapper]}>
+                <TextInput
+                  style={[styles.standardInput, styles.bioInput]}
+                  placeholder="Briefly describe what you do or offer"
+                  placeholderTextColor="#64748b"
+                  multiline
+                  numberOfLines={2}
+                  value={bio}
+                  onChangeText={setBio}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.submitBtn,
+                (!mobile.trim() || loading) && styles.submitBtnDisabled,
+              ]}
+              onPress={handleCompleteRegistration}
+              disabled={loading || !mobile.trim()}
               activeOpacity={0.8}
             >
               {loading ? (
@@ -806,10 +1051,10 @@ export default function LoginScreen({
 
             <TouchableOpacity
               style={styles.backBtn}
-              onPress={() => setStep(1)}
+              onPress={() => setStep(3)}
               activeOpacity={0.7}
             >
-              <Text style={styles.backBtnText}>← Change Details</Text>
+              <Text style={styles.backBtnText}>← Back to Password</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -859,7 +1104,7 @@ export default function LoginScreen({
         )}
 
         {/* ==================================================== */}
-        {/* 3. FORGOT PASSWORD: STEP 2 (Reset Password)          */}
+        {/* 3. FORGOT PASSWORD: STEP 2 (Verify Recovery Code)    */}
         {/* ==================================================== */}
         {authMode === 'forgot' && step === 2 && (
           <View style={styles.formContainer}>
@@ -893,6 +1138,37 @@ export default function LoginScreen({
               </View>
             </View>
 
+            <TouchableOpacity
+              style={[
+                styles.submitBtn,
+                (!otp.trim() || loading) && styles.submitBtnDisabled,
+              ]}
+              onPress={handleForgotVerifyOtp}
+              disabled={loading || !otp.trim()}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#020617" />
+              ) : (
+                <Text style={styles.submitBtnText}>Verify Recovery Code →</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => setStep(1)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backBtnText}>← Change Email</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ==================================================== */}
+        {/* 3. FORGOT PASSWORD: STEP 3 (Set New Password)        */}
+        {/* ==================================================== */}
+        {authMode === 'forgot' && step === 3 && (
+          <View style={styles.formContainer}>
             <View style={styles.fieldGroup}>
               <Text style={styles.inputLabel}>NEW PASSWORD (MIN. 6 CHARACTERS)</Text>
               <View style={styles.passwordInputWrapper}>
@@ -904,6 +1180,7 @@ export default function LoginScreen({
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
+                  autoFocus={true}
                 />
                 <TouchableOpacity
                   style={styles.eyeBtn}
@@ -940,10 +1217,10 @@ export default function LoginScreen({
             <TouchableOpacity
               style={[
                 styles.submitBtn,
-                (!otp.trim() || !password || loading) && styles.submitBtnDisabled,
+                (!password || !confirmPassword || loading) && styles.submitBtnDisabled,
               ]}
               onPress={handleResetPassword}
-              disabled={loading || !otp.trim() || !password}
+              disabled={loading || !password || !confirmPassword}
               activeOpacity={0.8}
             >
               {loading ? (
@@ -955,10 +1232,10 @@ export default function LoginScreen({
 
             <TouchableOpacity
               style={styles.backBtn}
-              onPress={() => switchMode('signin')}
+              onPress={() => setStep(2)}
               activeOpacity={0.7}
             >
-              <Text style={styles.backBtnText}>← Cancel & Back to Sign In</Text>
+              <Text style={styles.backBtnText}>← Back to Recovery Code</Text>
             </TouchableOpacity>
           </View>
         )}

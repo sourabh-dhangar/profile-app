@@ -2,9 +2,11 @@ const express = require('express');
 const router = express.Router();
 const {
   registerRequestOtp,
+  registerValidateOtp,
   registerVerify,
   login,
   forgotPassword,
+  validateResetOtp,
   resetPassword,
   getMe,
   requestOtp,
@@ -15,11 +17,14 @@ const { otpLimiter } = require('../middleware/rateLimiter');
 
 // Registration Flow
 router.post('/register/request-otp', otpLimiter, registerRequestOtp);
+router.post('/register/validate-otp', otpLimiter, registerValidateOtp);
 router.post('/register/verify', registerVerify);
 
 // Login & Password Flow
 router.post('/login', login);
 router.post('/forgot-password', otpLimiter, forgotPassword);
+router.post('/forgot-password/validate-otp', otpLimiter, validateResetOtp);
+router.post('/validate-reset-otp', otpLimiter, validateResetOtp);
 router.post('/reset-password', resetPassword);
 
 // User Profile & Session

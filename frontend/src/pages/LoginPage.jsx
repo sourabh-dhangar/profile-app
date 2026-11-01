@@ -15,6 +15,9 @@ import {
   Sparkles,
   ArrowLeft,
   RefreshCw,
+  Phone,
+  MapPin,
+  FileText,
 } from 'lucide-react';
 
 const PROFILE_TYPES = [
@@ -39,6 +42,10 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
+  const [bio, setBio] = useState('');
+  const [city, setCity] = useState('');
   const [name, setName] = useState('');
   const [profileType, setProfileType] = useState('Creator');
   const [otp, setOtp] = useState('');
@@ -66,6 +73,9 @@ const LoginPage = () => {
     setOtp('');
     setPassword('');
     setConfirmPassword('');
+    setMobile('');
+    setBio('');
+    setCity('');
   };
 
   // Helper: Autofill Admin credentials for instant review
@@ -138,7 +148,7 @@ const LoginPage = () => {
 
       if (res.data.success) {
         setStep(2);
-        setSuccessMsg(`Verification code sent to ${email.trim()}. Please check your email inbox.`);
+        setSuccessMsg(`Verification code sent to ${email.trim()}. Please enter the code below.`);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to send verification code. Please try again.');
@@ -147,15 +157,57 @@ const LoginPage = () => {
     }
   };
 
-  // 3. Verify OTP & Complete Registration
-  const handleRegisterVerify = async (e) => {
+  // 2.5 Resend OTP code
+  const handleResendOtp = async () => {
+    resetMessages();
+    setLoading(true);
+    try {
+      const res = await api.post('/auth/register/request-otp', {
+        email: email.trim().toLowerCase(),
+        name: name.trim(),
+      });
+      if (res.data.success) {
+        setSuccessMsg('A new verification code has been sent to your email inbox.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to resend code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. Step 2: Verify OTP Only -> proceed to Set Password (Step 3)
+  const handleVerifyOtpOnly = async (e) => {
     e.preventDefault();
     resetMessages();
 
-    if (!otp || otp.length < 4) {
-      setError('Please enter the 6-digit verification code');
+    if (!otp || otp.trim().length < 4) {
+      setError('Please enter the 6-digit email verification code');
       return;
     }
+
+    setLoading(true);
+    try {
+      const res = await api.post('/auth/register/validate-otp', {
+        email: email.trim().toLowerCase(),
+        otp: otp.trim(),
+      });
+
+      if (res.data.success) {
+        setStep(3);
+        setSuccessMsg('Email OTP verified successfully! Now set your account password.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid verification code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 4. Step 3: Validate Password -> proceed to Compulsory Mobile & Profile Details (Step 4)
+  const handleSetPasswordStep = (e) => {
+    e.preventDefault();
+    resetMessages();
 
     if (!password || password.length < 6) {
       setError('Password must be at least 6 characters long');
@@ -167,14 +219,33 @@ const LoginPage = () => {
       return;
     }
 
+    setStep(4);
+    setSuccessMsg('Password confirmed! Now complete your contact number & profile details.');
+  };
+
+  // 5. Step 4: Validate Compulsory Mobile & Submit Complete Registration
+  const handleCompleteRegistration = async (e) => {
+    e.preventDefault();
+    resetMessages();
+
+    const cleanMobile = (mobile || '').replace(/\D/g, '');
+    if (!cleanMobile || cleanMobile.length < 10) {
+      setError('Mobile number is compulsory. Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await api.post('/auth/register/verify', {
         email: email.trim().toLowerCase(),
         otp: otp.trim(),
         password,
+        mobile: cleanMobile.slice(-10),
+        countryCode: countryCode.trim() || '+91',
         name: name.trim(),
         profileType,
+        bio: bio.trim(),
+        city: city.trim(),
       });
 
       if (res.data.success) {
@@ -216,15 +287,38 @@ const LoginPage = () => {
     }
   };
 
-  // 5. Reset Password with OTP
-  const handleResetPassword = async (e) => {
+  // 4b. Verify Recovery OTP Only for Forgot Password
+  const handleForgotVerifyOtp = async (e) => {
     e.preventDefault();
     resetMessages();
 
-    if (!otp || otp.length < 4) {
-      setError('Please enter the 6-digit reset code');
+    if (!otp || otp.trim().length < 4) {
+      setError('Please enter the 6-digit recovery code');
       return;
     }
+
+    setLoading(true);
+    try {
+      const res = await api.post('/auth/forgot-password/validate-otp', {
+        email: email.trim().toLowerCase(),
+        otp: otp.trim(),
+      });
+
+      if (res.data.success) {
+        setStep(3);
+        setSuccessMsg('Recovery code verified! You can now set your new password.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid recovery code. Please check and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 5. Reset Password with OTP (Step 3)
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    resetMessages();
 
     if (!password || password.length < 6) {
       setError('New password must be at least 6 characters long');
@@ -267,22 +361,128 @@ const LoginPage = () => {
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center mb-3">
             {mode === 'signin' && <Lock className="w-6 h-6" />}
-            {mode === 'register' && (step === 1 ? <User className="w-6 h-6" /> : <KeyRound className="w-6 h-6" />)}
+            {mode === 'register' && (
+              step === 1 ? <User className="w-6 h-6" /> :
+              step === 2 ? <ShieldCheck className="w-6 h-6" /> :
+              step === 3 ? <KeyRound className="w-6 h-6" /> :
+              <Sparkles className="w-6 h-6" />
+            )}
             {mode === 'forgot' && <KeyRound className="w-6 h-6" />}
           </div>
 
           <h2 className="text-2xl font-extrabold text-white tracking-tight">
             {mode === 'signin' && 'Sign in to MyProfile'}
-            {mode === 'register' && (step === 1 ? 'Create Your Creator Profile' : 'Verify Email & Password')}
-            {mode === 'forgot' && (step === 1 ? 'Reset Your Password' : 'Set New Password')}
+            {mode === 'register' && (
+              step === 1 ? 'Create Your Creator Profile' :
+              step === 2 ? 'Verify Email Code (OTP)' :
+              step === 3 ? 'Set Your Password' :
+              'Compulsory Mobile & Profile'
+            )}
+            {mode === 'forgot' && (
+              step === 1 ? 'Reset Your Password' :
+              step === 2 ? 'Verify Recovery Code (OTP)' :
+              'Set New Password'
+            )}
           </h2>
 
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
             {mode === 'signin' && 'Enter your email ID and password to access your dashboard'}
-            {mode === 'register' && (step === 1 ? 'Get verified via email OTP and launch your digital identity' : `Code sent to ${email}`)}
-            {mode === 'forgot' && (step === 1 ? 'Enter your registered email to receive a recovery code' : `Enter code sent to ${email}`)}
+            {mode === 'register' && (
+              step === 1 ? 'Get verified via email OTP and launch your digital identity' :
+              step === 2 ? `Enter the 6-digit verification code sent to ${email}` :
+              step === 3 ? 'Create a secure password to protect your account' :
+              'Enter your compulsory mobile number and profile details'
+            )}
+            {mode === 'forgot' && (
+              step === 1 ? 'Enter your registered email to receive a recovery code' :
+              step === 2 ? `Enter the 6-digit recovery code sent to ${email}` :
+              'Create a strong new password to protect your account'
+            )}
           </p>
         </div>
+
+        {/* 4-Step Registration Stepper */}
+        {mode === 'register' && (
+          <div className="flex items-center justify-between mb-6 px-1">
+            {[
+              { num: 1, label: 'Account' },
+              { num: 2, label: 'OTP' },
+              { num: 3, label: 'Password' },
+              { num: 4, label: 'Details' },
+            ].map((s, idx) => (
+              <React.Fragment key={s.num}>
+                <div className="flex flex-col items-center">
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                      step > s.num
+                        ? 'bg-emerald-500 text-slate-950 font-black'
+                        : step === s.num
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500 ring-2 ring-emerald-500/20'
+                        : 'bg-slate-800 text-slate-500 border border-slate-700'
+                    }`}
+                  >
+                    {step > s.num ? <CheckCircle2 className="w-4 h-4" /> : s.num}
+                  </div>
+                  <span
+                    className={`text-[10px] mt-1 font-medium ${
+                      step >= s.num ? 'text-emerald-400' : 'text-slate-500'
+                    }`}
+                  >
+                    {s.label}
+                  </span>
+                </div>
+                {idx < 3 && (
+                  <div
+                    className={`flex-1 h-[2px] mx-1.5 mb-3.5 transition-all ${
+                      step > idx + 1 ? 'bg-emerald-500' : 'bg-slate-800'
+                    }`}
+                  />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+
+        {/* 3-Step Forgot Password Stepper */}
+        {mode === 'forgot' && (
+          <div className="flex items-center justify-between mb-6 px-4">
+            {[
+              { num: 1, label: 'Email' },
+              { num: 2, label: 'Verify Code' },
+              { num: 3, label: 'New Password' },
+            ].map((s, idx) => (
+              <React.Fragment key={s.num}>
+                <div className="flex flex-col items-center">
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                      step > s.num
+                        ? 'bg-emerald-500 text-slate-950 font-black'
+                        : step === s.num
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500 ring-2 ring-emerald-500/20'
+                        : 'bg-slate-800 text-slate-500 border border-slate-700'
+                    }`}
+                  >
+                    {step > s.num ? <CheckCircle2 className="w-4 h-4" /> : s.num}
+                  </div>
+                  <span
+                    className={`text-[10px] mt-1 font-medium ${
+                      step >= s.num ? 'text-emerald-400' : 'text-slate-500'
+                    }`}
+                  >
+                    {s.label}
+                  </span>
+                </div>
+                {idx < 2 && (
+                  <div
+                    className={`flex-1 h-[2px] mx-2 mb-3.5 transition-all ${
+                      step > idx + 1 ? 'bg-emerald-500' : 'bg-slate-800'
+                    }`}
+                  />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
 
         {/* Mode Switcher Tabs (Only when on Step 1 of Signin or Register) */}
         {mode !== 'forgot' && step === 1 && (
@@ -501,26 +701,72 @@ const LoginPage = () => {
           </form>
         )}
 
-        {/* -------------------- 2. REGISTER STEP 2 (OTP & PASSWORD) -------------------- */}
+        {/* -------------------- 2. REGISTER STEP 2 (VERIFY OTP ONLY) -------------------- */}
         {mode === 'register' && step === 2 && (
-          <form onSubmit={handleRegisterVerify} className="space-y-4">
+          <form onSubmit={handleVerifyOtpOnly} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                6-Digit Email Verification Code
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  6-Digit Email Verification Code
+                </label>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={loading}
+                  className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 disabled:opacity-50"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Resend Code</span>
+                </button>
+              </div>
               <div className="relative rounded-xl border border-slate-700 bg-slate-900 focus-within:border-emerald-500 transition-colors">
                 <input
                   type="text"
                   placeholder="123456"
                   maxLength={6}
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className="w-full px-4 py-3 text-center tracking-widest text-lg font-mono bg-transparent text-emerald-400 focus:outline-none"
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  className="w-full px-4 py-3.5 text-center tracking-widest text-xl font-mono bg-transparent text-emerald-400 focus:outline-none placeholder-slate-600 font-bold"
                   required
+                  autoFocus
                 />
               </div>
+              <p className="text-[11px] text-slate-500 mt-1.5 text-center">
+                Enter the verification code sent to <span className="text-slate-300 font-medium">{email}</span>
+              </p>
             </div>
 
+            <button
+              type="submit"
+              disabled={loading || otp.trim().length < 4}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <span>Checking Code...</span>
+              ) : (
+                <>
+                  <span>Verify OTP</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                resetMessages();
+                setStep(1);
+              }}
+              className="w-full text-xs text-slate-400 hover:text-white transition-colors text-center pt-1"
+            >
+              ← Change Email or Details
+            </button>
+          </form>
+        )}
+
+        {/* -------------------- 3. REGISTER STEP 3 (SET PASSWORD) -------------------- */}
+        {mode === 'register' && step === 3 && (
+          <form onSubmit={handleSetPasswordStep} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                 Set Password (min. 6 characters)
@@ -536,6 +782,7 @@ const LoginPage = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-10 py-3 bg-transparent text-white text-sm focus:outline-none placeholder-slate-500"
                   required
+                  autoFocus
                 />
                 <button
                   type="button"
@@ -575,18 +822,126 @@ const LoginPage = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || password.length < 6 || !confirmPassword}
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
             >
-              {loading ? <span>Verifying & Setting Password...</span> : <span>Create Account & Publish</span>}
+              <span>Save Password & Continue to Details</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
 
             <button
               type="button"
-              onClick={() => setStep(1)}
+              onClick={() => {
+                resetMessages();
+                setStep(2);
+              }}
               className="w-full text-xs text-slate-400 hover:text-white transition-colors text-center pt-1"
             >
-              ← Change Email or Details
+              ← Back to OTP Verification
+            </button>
+          </form>
+        )}
+
+        {/* -------------------- 4. REGISTER STEP 4 (COMPULSORY MOBILE & DETAILS) -------------------- */}
+        {mode === 'register' && step === 4 && (
+          <form onSubmit={handleCompleteRegistration} className="space-y-4">
+            {/* Compulsory Mobile Number */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Mobile Number <span className="text-emerald-400 font-bold">* (Compulsory)</span>
+                </label>
+                <span className="text-[10px] text-emerald-400/90 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30 font-medium">
+                  Required
+                </span>
+              </div>
+              <div className="flex rounded-xl border border-slate-700 bg-slate-900 focus-within:border-emerald-500 transition-colors overflow-hidden">
+                <div className="flex items-center px-3.5 bg-slate-800/80 border-r border-slate-700 text-slate-300 text-xs font-semibold select-none">
+                  <Phone className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+                  <span>+91</span>
+                </div>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  placeholder="9876543210"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
+                  className="w-full px-3.5 py-3 bg-transparent text-white text-sm focus:outline-none placeholder-slate-500 tracking-wide font-mono"
+                  required
+                  autoFocus
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">10-digit mobile number for profile contact & identity</p>
+            </div>
+
+            {/* Other Details: Bio and City */}
+            <div className="pt-2 border-t border-slate-800/80 space-y-3">
+              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+                <span>Other Profile Details (Optional)</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Bio / Headline
+                </label>
+                <div className="relative rounded-xl border border-slate-700 bg-slate-900 focus-within:border-emerald-500 transition-colors">
+                  <div className="absolute top-3 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <textarea
+                    rows={2}
+                    placeholder="Short bio about you, your craft, or services..."
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-transparent text-white text-sm focus:outline-none placeholder-slate-500 resize-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  City / Location
+                </label>
+                <div className="relative rounded-xl border border-slate-700 bg-slate-900 focus-within:border-emerald-500 transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g. Mumbai, Delhi, Bengaluru"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-transparent text-white text-sm focus:outline-none placeholder-slate-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || mobile.replace(/\D/g, '').length < 10}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <span>Creating Account & Publishing Profile...</span>
+              ) : (
+                <>
+                  <span>Create Account & Publish Profile</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                resetMessages();
+                setStep(3);
+              }}
+              className="w-full text-xs text-slate-400 hover:text-white transition-colors text-center pt-1"
+            >
+              ← Back to Password
             </button>
           </form>
         )}
@@ -639,9 +994,26 @@ const LoginPage = () => {
           </form>
         )}
 
-        {/* -------------------- 3. FORGOT PASSWORD STEP 2 (RESET) -------------------- */}
+        {/* -------------------- 3. FORGOT PASSWORD STEP 2 (VERIFY CODE ONLY) -------------------- */}
         {mode === 'forgot' && step === 2 && (
-          <form onSubmit={handleResetPassword} className="space-y-4">
+          <form onSubmit={handleForgotVerifyOtp} className="space-y-4">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs">
+              <div>
+                <span className="text-slate-400 block text-[11px] font-medium uppercase tracking-wider">Recovery code sent to</span>
+                <span className="font-semibold text-emerald-400 truncate block max-w-[200px] sm:max-w-xs">{email}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  resetMessages();
+                  setStep(1);
+                }}
+                className="text-cyan-400 hover:text-cyan-300 font-semibold px-2 py-1 rounded hover:bg-slate-800 transition-colors"
+              >
+                Change
+              </button>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                 6-Digit Recovery Code
@@ -652,13 +1024,46 @@ const LoginPage = () => {
                   placeholder="123456"
                   maxLength={6}
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                   className="w-full px-4 py-3 text-center tracking-widest text-lg font-mono bg-transparent text-cyan-400 focus:outline-none"
+                  autoFocus
                   required
                 />
               </div>
             </div>
 
+            <button
+              type="submit"
+              disabled={loading || !otp.trim()}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <span>Verifying Recovery Code...</span>
+              ) : (
+                <>
+                  <span>Verify Recovery Code</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                resetMessages();
+                setStep(1);
+              }}
+              className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors pt-2"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back / Change Email</span>
+            </button>
+          </form>
+        )}
+
+        {/* -------------------- 3. FORGOT PASSWORD STEP 3 (SET NEW PASSWORD) -------------------- */}
+        {mode === 'forgot' && step === 3 && (
+          <form onSubmit={handleResetPassword} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                 New Password (min. 6 characters)
@@ -673,6 +1078,7 @@ const LoginPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-10 py-3 bg-transparent text-white text-sm focus:outline-none placeholder-slate-500"
+                  autoFocus
                   required
                 />
                 <button
@@ -713,7 +1119,7 @@ const LoginPage = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !password || !confirmPassword}
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
             >
               {loading ? <span>Resetting Password...</span> : <span>Confirm & Reset Password</span>}
@@ -721,11 +1127,14 @@ const LoginPage = () => {
 
             <button
               type="button"
-              onClick={() => switchMode('signin')}
+              onClick={() => {
+                resetMessages();
+                setStep(2);
+              }}
               className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors pt-2"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Cancel & Back to Sign In</span>
+              <span>Back to Recovery Code</span>
             </button>
           </form>
         )}
