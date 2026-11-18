@@ -18,7 +18,7 @@ Everything is live, deployed on serverless infrastructure, and ready for immedia
 | **Backend API Gateway** | Vercel Serverless | **[https://myprofile-official-api.vercel.app](https://myprofile-official-api.vercel.app)** | 🟢 Live |
 | **API Health Check** | REST / Serverless | **[https://myprofile-official-api.vercel.app/health](https://myprofile-official-api.vercel.app/health)** | 🟢 200 OK |
 | **Category Discovery API** | REST / Serverless | **[https://myprofile-official-api.vercel.app/api/v1/discovery/browse](https://myprofile-official-api.vercel.app/api/v1/discovery/browse)** | 🟢 200 OK |
-| **Android APK Direct Download** | Android (Arm64/x86_64) | **[Download Latest Android APK (Build 470c8255)](https://expo.dev/artifacts/eas/NjnLkCez5bqVeS3Yfy9lvzQRjsKU_FM7Ljz_bEPm558.apk)** | 🟢 Fresh Build |
+| **Android APK Direct Download** | Android (Arm64/x86_64) | **[Download Latest Android APK](https://expo.dev/artifacts/eas/ELNXahrRbGQvzLmdwctM3VvEvxFJNl9sUdJm6g4iAJU.apk)** | 🟢 Fresh Build |
 | **Expo EAS Project Dashboard** | Expo Cloud | **[https://expo.dev/accounts/sourabh-dhangar/projects/myprofile](https://expo.dev/accounts/sourabh-dhangar/projects/myprofile)** | 🟢 Active |
 | **Expo EAS Build Details** | EAS Cloud Build | **[EAS Build Page (470c8255)](https://expo.dev/accounts/sourabh-dhangar/projects/myprofile/builds/470c8255-2a03-4658-8cce-7a3d539d0bd1)** | 🟢 Finished |
 | **GitHub Source Code Repository** | GitHub Cloud | **[https://github.com/sourabh-dhangar/profile-app](https://github.com/sourabh-dhangar/profile-app)** | 🟢 Synced |

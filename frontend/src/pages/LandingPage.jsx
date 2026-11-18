@@ -55,10 +55,10 @@ const LandingPage = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const navigate = useNavigate();
 
-  const APK_DOWNLOAD_URL = 'https://expo.dev/artifacts/eas/NjnLkCez5bqVeS3Yfy9lvzQRjsKU_FM7Ljz_bEPm558.apk';
+  const APK_DOWNLOAD_URL = 'https://expo.dev/artifacts/eas/ELNXahrRbGQvzLmdwctM3VvEvxFJNl9sUdJm6g4iAJU.apk';
   const EXPO_PROJECT_URL = 'https://expo.dev/accounts/sourabh-dhangar/projects/myprofile';
   const EXPO_BUILDS_URL = 'https://expo.dev/accounts/sourabh-dhangar/projects/myprofile/builds';
-  const QR_CODE_URL = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=https%3A%2F%2Fexpo.dev%2Fartifacts%2Feas%2FNjnLkCez5bqVeS3Yfy9lvzQRjsKU_FM7Ljz_bEPm558.apk&bgcolor=ffffff&color=020617&margin=10';
+  const QR_CODE_URL = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=https%3A%2F%2Fexpo.dev%2Fartifacts%2Feas%2FELNXahrRbGQvzLmdwctM3VvEvxFJNl9sUdJm6g4iAJU.apk&bgcolor=ffffff&color=020617&margin=10';
 
   const handleSearch = (e) => {
     e.preventDefault();
