@@ -189,14 +189,17 @@ const PublicProfilePage = () => {
   };
 
   const handleShareReel = (reel) => {
+    const reelUrl = reel?._id
+      ? `${window.location.origin}/reels?reelId=${reel._id}`
+      : window.location.href;
     if (navigator.share) {
       navigator.share({
         title: `${profile?.name}'s Reel`,
         text: reel.caption,
-        url: window.location.href,
+        url: reelUrl,
       }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(window.location.href);
+      navigator.clipboard.writeText(reelUrl);
       toast.success('Reel link copied to clipboard!');
     }
   };
@@ -290,9 +293,28 @@ const PublicProfilePage = () => {
   }
 
   const currentTheme = THEMES[profile.theme] || THEMES.default;
+  const isAndroidBrowser = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+  const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.sourabh.myprofile';
+  const openInAppUrl = isAndroidBrowser
+    ? `intent://p/${encodeURIComponent(profile.username)}#Intent;scheme=myprofile;package=com.sourabh.myprofile;S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};end`
+    : playStoreUrl;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 pb-28 sm:pb-10 space-y-8 profile-page-content">
+      {/* Mobile App Smart Banner (Opens App if installed, Play Store fallback if not) */}
+      <div className="sm:hidden flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
+        <div className="min-w-0">
+          <p className="text-xs font-bold text-emerald-300 truncate">MyProfile Android App</p>
+          <p className="text-[11px] text-slate-400 truncate">Open @{profile.username} directly in the app</p>
+        </div>
+        <a
+          href={openInAppUrl}
+          className="shrink-0 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs"
+        >
+          Open in App
+        </a>
+      </div>
+
       {/* Profile Card Header with Theme */}
       <div className={`p-8 sm:p-10 rounded-3xl relative overflow-hidden border backdrop-blur-xl transition-colors duration-500 profile-hero-section ${currentTheme.card}`}>
         {/* Ambient Top Glow */}

@@ -10,6 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { COLORS } from '../theme';
+import CategoryDropdown from '../components/CategoryDropdown';
 import {
   loginWithEmailApi,
   registerRequestOtpApi,
@@ -22,6 +23,7 @@ import {
 
 const CATEGORIES = [
   { id: 'Creator', label: '🎨 Content Creator & Artist' },
+  { id: 'Real Estate & Property', label: '🏢 Real Estate & Property' },
   { id: 'IT & Software', label: '💻 IT & Software' },
   { id: 'Professional', label: '⚖️ Professional Services' },
   { id: 'Freelancer', label: '⚡ Freelancer & Consultant' },
@@ -30,7 +32,7 @@ const CATEGORIES = [
   { id: 'Student', label: '🎓 Student & Learner' },
   { id: 'SmallBusiness', label: '🏢 Small Business & Startup' },
   { id: 'ServiceProvider', label: '🤝 Service Provider' },
-  { id: 'Custom', label: '✨ Custom Category' },
+  { id: 'Custom', label: '✨ Other (Type Manually)' },
 ];
 
 export default function LoginScreen({
@@ -741,53 +743,19 @@ export default function LoginScreen({
               </View>
             </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.inputLabel}>PROFILE ROLE / CATEGORY</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoryChipsRow}
-              >
-                {CATEGORIES.map((cat) => {
-                  const isSelected = category === cat.id;
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[
-                        styles.categoryChip,
-                        isSelected && styles.categoryChipSelected,
-                      ]}
-                      onPress={() => setCategory(cat.id)}
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        style={[
-                          styles.categoryChipText,
-                          isSelected && styles.categoryChipTextSelected,
-                        ]}
-                      >
-                        {cat.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-
-            {category === 'Custom' && (
-              <View style={styles.fieldGroup}>
-                <Text style={styles.inputLabel}>ENTER CUSTOM CATEGORY</Text>
-                <View style={styles.standardInputWrapper}>
-                  <TextInput
-                    style={styles.standardInput}
-                    placeholder="e.g. Photographer, Fitness Coach, Chef..."
-                    placeholderTextColor="#64748b"
-                    value={customCategory}
-                    onChangeText={setCustomCategory}
-                  />
-                </View>
-              </View>
-            )}
+            <CategoryDropdown
+              label="PROFILE ROLE / CATEGORY"
+              value={category}
+              options={CATEGORIES}
+              placeholder="Select your role or category..."
+              onSelect={(val) => setCategory(val)}
+              allowCustom
+              customTriggerValue="Custom"
+              customValue={customCategory}
+              onChangeCustomValue={setCustomCategory}
+              customLabel="ENTER OTHER CATEGORY"
+              customPlaceholder="e.g. Property Dealer, Photographer, Chef..."
+            />
 
             <View style={styles.fieldGroup}>
               <Text style={styles.inputLabel}>BIO / ABOUT YOU</Text>

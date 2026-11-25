@@ -166,6 +166,8 @@ export default function ReelsScreen({
   onNavigateToAuth,
   onCreateReel,
   isAdmin = false,
+  initialReelId = null,
+  onConsumeInitialReelId,
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -203,6 +205,20 @@ export default function ReelsScreen({
 
   const lastTapRef = useRef(0);
   const videoRef = useRef(null);
+
+  React.useEffect(() => {
+    if (!initialReelId || !reels || reels.length === 0) return;
+    const targetIdx = reels.findIndex((r) => String(r._id || r.id) === String(initialReelId));
+    if (targetIdx >= 0) {
+      setCurrentIndex(targetIdx);
+      setTimeout(() => {
+        try {
+          flatListRef.current?.scrollToIndex({ index: targetIdx, animated: false });
+        } catch (e) {}
+      }, 150);
+      onConsumeInitialReelId?.();
+    }
+  }, [initialReelId, reels]);
 
   const activeIndex = currentIndex >= 0 && currentIndex < reels.length ? currentIndex : 0;
   const isPhotoReel = Boolean(
@@ -497,7 +513,9 @@ export default function ReelsScreen({
       reel?.mediaType === 'image' ||
       (reel?.videoUrl && reel.videoUrl.match(/\.(jpeg|jpg|png|webp|gif)/i))
     );
-    const reelShareUrl = `https://myprofile-official-web.vercel.app/p/${creator}`;
+    const reelShareUrl = id
+      ? `https://myprofile-official-web.vercel.app/reels?reelId=${id}`
+      : `https://myprofile-official-web.vercel.app/p/${creator}`;
     const shareMessage = `Check out this ${isPhoto ? 'photo reel' : 'reel'} by @${creator} on MyProfile: "${reel?.caption || 'Showcase'}"\n\n${reelShareUrl}`;
 
     try {

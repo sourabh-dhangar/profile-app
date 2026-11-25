@@ -71,6 +71,9 @@ function App() {
                   />
                   <Route path="/p/:username" element={<PublicProfilePage />} />
                   <Route path="/reels" element={<ReelsFeedPage />} />
+                  <Route path="/r/:reelId" element={<ReelsFeedPage />} />
+                  <Route path="/r/:reelId" element={<ReelsFeedPage />} />
+                  <Route path="/r/:reelId" element={<ReelsFeedPage />} />
                   <Route path="/discover" element={<DiscoveryPage />} />
                   <Route path="/privacy" element={<PrivacyPolicyPage />} />
                   <Route

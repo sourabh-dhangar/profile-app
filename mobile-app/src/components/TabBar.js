@@ -6,6 +6,7 @@ export default function TabBar({
   activeTab,
   onTabPress,
   unreadReels = 0,
+  unreadChats = 0,
   isAdmin = false,
   isAuthenticated = false,
 }) {
@@ -13,6 +14,7 @@ export default function TabBar({
     ? [
         { id: 'reels', label: 'Reels', icon: '🎬', glyph: '🎬' },
         { id: 'discover', label: 'Discover', icon: '🔍', glyph: '🔍' },
+        { id: 'messages', label: 'Chat', icon: '💬', glyph: '💬' },
         { id: 'profile', label: 'My Profile', icon: '👤', glyph: '👤' },
         ...(isAdmin || activeTab === 'admin'
           ? [{ id: 'admin', label: 'Admin', icon: '⚡', glyph: '⚡' }]
@@ -53,6 +55,9 @@ export default function TabBar({
                   {tab.icon}
                 </Text>
                 {tab.id === 'reels' && unreadReels > 0 && isAuthenticated && (
+                  <View style={styles.badgeDot} />
+                )}
+                {tab.id === 'messages' && unreadChats > 0 && isAuthenticated && (
                   <View style={styles.badgeDot} />
                 )}
               </View>

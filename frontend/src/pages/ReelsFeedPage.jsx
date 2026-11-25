@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import {
   Heart,
@@ -26,6 +26,10 @@ import { useToast } from '../components/Toast';
 import { optimizeCloudinaryVideoUrl, getCloudinaryThumbnail } from '../utils/cloudinary';
 
 const ReelsFeedPage = () => {
+  const { reelId: paramReelId } = useParams();
+  const [searchParams] = useSearchParams();
+  const targetReelId = paramReelId || searchParams.get('reelId');
+
   const [reels, setReels] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -48,7 +52,7 @@ const ReelsFeedPage = () => {
 
   useEffect(() => {
     fetchReelsFeed();
-  }, []);
+  }, [targetReelId]);
 
   useEffect(() => {
     // Keyboard navigation
@@ -100,8 +104,28 @@ const ReelsFeedPage = () => {
     try {
       const res = await api.get('/reels/feed?limit=50');
       if (res.data.success) {
-        const fetched = res.data.data.reels || [];
+        let fetched = res.data.data.reels || [];
+        let startIndex = 0;
+
+        if (targetReelId) {
+          const existingIdx = fetched.findIndex((r) => String(r._id) === String(targetReelId));
+          if (existingIdx >= 0) {
+            startIndex = existingIdx;
+          } else {
+            try {
+              const singleRes = await api.get(`/reels/${targetReelId}`);
+              if (singleRes.data?.success && singleRes.data?.data?.reel) {
+                fetched = [singleRes.data.data.reel, ...fetched];
+                startIndex = 0;
+              }
+            } catch (singleErr) {
+              console.warn('Target reel lookup failed:', singleErr.message);
+            }
+          }
+        }
+
         setReels(fetched);
+        setCurrentIndex(startIndex);
 
         const initialLikes = {};
         fetched.forEach((r) => {
@@ -110,8 +134,8 @@ const ReelsFeedPage = () => {
         setLikesCount(initialLikes);
 
         // Record initial view
-        if (fetched.length > 0) {
-          api.post(`/reels/${fetched[0]._id}/view`).catch(() => {});
+        if (fetched[startIndex]) {
+          api.post(`/reels/${fetched[startIndex]._id}/view`).catch(() => {});
         }
       }
     } catch (err) {
@@ -199,12 +223,29 @@ const ReelsFeedPage = () => {
   };
 
   const handleShare = (reel) => {
-    const profileUrl = `${window.location.origin}/p/${reel.profileId?.username || ''}`;
-    navigator.clipboard.writeText(profileUrl);
-    toast.success('Creator profile link copied to clipboard!');
+    const reelUrl = reel?._id
+      ? `${window.location.origin}/reels?reelId=${reel._id}`
+      : `${window.location.origin}/p/${reel.profileId?.username || ''}`;
+    if (navigator.share) {
+      navigator
+        .share({
+          title: `Reel by @${reel.profileId?.username || 'creator'}`,
+          text: reel.caption || 'Watch this reel on MyProfile',
+          url: reelUrl,
+        })
+        .catch(() => {});
+    } else {
+      navigator.clipboard.writeText(reelUrl);
+      toast.success('Reel link copied to clipboard!');
+    }
   };
 
   const currentReel = reels[currentIndex];
+  const isAndroidBrowser = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+  const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.sourabh.myprofile';
+  const openReelInAppUrl = isAndroidBrowser && currentReel?._id
+    ? `intent://r/${encodeURIComponent(currentReel._id)}#Intent;scheme=myprofile;package=com.sourabh.myprofile;S.browser_fallback_url=${encodeURIComponent(playStoreUrl)};end`
+    : playStoreUrl;
   const currentAuthorUserId = currentReel?.profileId?.userId?._id || currentReel?.profileId?.userId;
 
   const isAuthor = Boolean(

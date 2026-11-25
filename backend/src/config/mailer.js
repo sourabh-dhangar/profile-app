@@ -22,6 +22,9 @@ const getTransporter = () => {
         pool: true,
         maxConnections: 5,
         maxMessages: 100,
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 10000,
       });
     } catch (err) {
       console.warn('⚠️  Failed to initialize Nodemailer SMTP transporter:', err.message);
@@ -32,20 +35,89 @@ const getTransporter = () => {
 };
 
 /**
- * Base email dispatch with dev resilience fallback
+ * Parse "Display Name <email@domain.com>" into { name, email }
  */
-const sendMail = async ({ to, subject, html, text, otp }) => {
+const parseFromAddress = (fromStr) => {
+  const match = String(fromStr || '').match(/^(.*)<([^>]+)>$/);
+  if (match) {
+    return { name: match[1].trim().replace(/^"|"$/g, ''), email: match[2].trim() };
+  }
+  return { name: 'MyProfile', email: String(fromStr || '').trim() };
+};
+
+/**
+ * Fast HTTP transactional email dispatch (Resend / Brevo) with Nodemailer SMTP fallback
+ */
+const sendMail = async ({ to, subject, html, text }) => {
+  const fromAddress = config.smtp?.from || 'MyProfile <noreply@myprofile.com>';
+  const replyTo = config.smtp?.replyTo || parseFromAddress(fromAddress).email;
+
+  // 1. Prefer Resend HTTP API if configured (sub-second delivery)
+  if (config.emailApi?.resendApiKey) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.emailApi.resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [to],
+        reply_to: replyTo,
+        subject,
+        html,
+        text,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(`Resend API error: ${data?.message || res.statusText}`);
+    }
+    console.log(`📧 [Resend] Email dispatched to ${to}. Id: ${data.id}`);
+    return { success: true, mode: 'resend', messageId: data.id };
+  }
+
+  // 2. Prefer Brevo HTTP API if configured (sub-second delivery)
+  if (config.emailApi?.brevoApiKey) {
+    const sender = parseFromAddress(fromAddress);
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': config.emailApi.brevoApiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: sender.name || 'MyProfile', email: sender.email },
+        to: [{ email: to }],
+        replyTo: { email: replyTo },
+        subject,
+        htmlContent: html,
+        textContent: text,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(`Brevo API error: ${data?.message || res.statusText}`);
+    }
+    console.log(`📧 [Brevo] Email dispatched to ${to}. MessageId: ${data.messageId}`);
+    return { success: true, mode: 'brevo', messageId: data.messageId };
+  }
+
   const activeTransporter = getTransporter();
 
-  // If SMTP is properly configured, attempt real email delivery
+  // 3. Fallback to Nodemailer SMTP if configured
   if (activeTransporter && isSmtpConfigured()) {
     try {
       const info = await activeTransporter.sendMail({
-        from: config.smtp.from,
+        from: fromAddress,
+        replyTo,
         to,
         subject,
         text,
         html,
+        headers: {
+          'X-Auto-Response-Suppress': 'OOF, AutoReply',
+        },
       });
       console.log(`📧 [Nodemailer] Email successfully dispatched to ${to}. MessageId: ${info.messageId}`);
       return { success: true, mode: 'smtp', messageId: info.messageId };
@@ -55,7 +127,7 @@ const sendMail = async ({ to, subject, html, text, otp }) => {
     }
   }
 
-  throw new Error('SMTP email service is not configured. Please check SMTP settings.');
+  throw new Error('Email service is not configured. Set RESEND_API_KEY, BREVO_API_KEY, or SMTP settings.');
 };
 
 /**

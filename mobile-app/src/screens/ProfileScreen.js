@@ -21,6 +21,7 @@ import SafeVideoPlayer from '../components/SafeVideoPlayer';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadToCloudinary } from '../services/cloudinary';
 import ReelCreatorModal from '../components/ReelCreatorModal';
+import CategoryDropdown from '../components/CategoryDropdown';
 
 const { width } = Dimensions.get('window');
 
@@ -87,7 +88,7 @@ const BUSINESS_CATEGORIES = [
   { id: 'Professional Services', name: 'Professional Services', label: '⚖️ Professional Services', icon: '⚖️' },
   { id: 'Education & Coaching', name: 'Education & Coaching', label: '🎓 Education & Coaching', icon: '🎓' },
   { id: 'Content Creator & Artist', name: 'Content Creator & Artist', label: '🎨 Creator & Artist', icon: '🎨' },
-  { id: 'Custom', name: 'Custom Category', label: '✨ Custom Category', icon: '✨' },
+  { id: 'Custom', name: 'Custom Category', label: '✨ Other (Type Manually)', icon: '✨' },
 ];
 
 const SECTION_TYPES = [
@@ -189,6 +190,7 @@ export default function ProfileScreen({
   currentUser,
   isOwner,
   onNavigateToAuth,
+  onStartChat,
   onUpdateProfile,
   onCreateSection,
   onUpdateSection,
@@ -843,24 +845,36 @@ export default function ProfileScreen({
     }
   };
 
-  const handleReelShare = (reel) => {
-    const reelShareUrl =
-      typeof window !== 'undefined'
-        ? `${window.location.origin}/p/${profile.username}#reel-${reel._id}`
-        : `http://localhost:8081/p/${profile.username}`;
+  const handleReelShare = async (reel) => {
+    const reelId = reel?._id || reel?.id;
+    const reelShareUrl = reelId
+      ? `https://myprofile-official-web.vercel.app/reels?reelId=${reelId}`
+      : `https://myprofile-official-web.vercel.app/p/${profile.username}`;
+    const shareMessage = `Check out this reel by @${profile.username} on MyProfile: "${reel?.caption || 'Showcase'}"\n\n${reelShareUrl}`;
 
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      navigator
-        .share({
-          title: `${profile.name} on MyProfile`,
-          text: reel.caption || `Check out this reel by @${profile.username}`,
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          await navigator.share({
+            title: `${profile.name} on MyProfile`,
+            text: reel?.caption || `Check out this reel by @${profile.username}`,
+            url: reelShareUrl,
+          });
+        } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+          await navigator.clipboard.writeText(reelShareUrl);
+          onShowToast('Reel link copied! 📋 Share anywhere', 'success');
+        }
+      } else {
+        await Share.share({
+          title: `${profile.name}'s Reel on MyProfile`,
+          message: shareMessage,
           url: reelShareUrl,
-        })
-        .catch(() => {});
-    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(reelShareUrl);
+        });
+        onShowToast('Reel shared! 🚀', 'success');
+      }
+    } catch (e) {
+      onShowToast('Reel link ready to share! 📋', 'info');
     }
-    onShowToast('Reel link copied! 📋 Share anywhere', 'success');
   };
 
   const handleReelDelete = async (reelId) => {
@@ -1280,6 +1294,20 @@ export default function ProfileScreen({
             </TouchableOpacity>
 
             <TouchableOpacity
+              style={[styles.hireMeButton, { flex: 1, backgroundColor: 'rgba(16, 185, 129, 0.14)', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.35)' }]}
+              onPress={() => onStartChat && onStartChat(profile.username)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.hireMeButtonEmoji}>💬</Text>
+              <View style={styles.hireMeButtonTextCol}>
+                <Text style={styles.hireMeButtonTitle}>Message</Text>
+                <Text style={styles.hireMeButtonSub} numberOfLines={1}>
+                  Direct 1-on-1 chat
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={[styles.hireMeButton, { flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.06)' }]}
               onPress={openSendInquiryModal}
               activeOpacity={0.85}
@@ -1288,7 +1316,7 @@ export default function ProfileScreen({
               <View style={styles.hireMeButtonTextCol}>
                 <Text style={styles.hireMeButtonTitle}>Hire Me</Text>
                 <Text style={styles.hireMeButtonSub} numberOfLines={1}>
-                  Direct message / project inquiry
+                  Project inquiry
                 </Text>
               </View>
               <Text style={styles.hireMeButtonArrow}>→</Text>
@@ -2637,37 +2665,17 @@ export default function ProfileScreen({
                 />
               </View>
 
-              {/* Role / Profile Type */}
-              <Text style={styles.modalInputLabel}>PROFILE TYPE / PROFESSION</Text>
-              <View style={styles.typeOptionsRow}>
-                {PROFILE_TYPES.map((type) => {
-                  const isSelected = editForm.profileType === type;
-                  return (
-                    <TouchableOpacity
-                      key={type}
-                      style={[
-                        styles.typeChip,
-                        isSelected && {
-                          borderColor: theme.primary,
-                          backgroundColor: theme.badgeBg,
-                        },
-                      ]}
-                      onPress={() =>
-                        setEditForm((prev) => ({ ...prev, profileType: type }))
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.typeChipText,
-                          isSelected && { color: theme.text, fontWeight: '800' },
-                        ]}
-                      >
-                        {type}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {/* Role / Profile Type Dropdown */}
+              <CategoryDropdown
+                label="PROFILE TYPE / PROFESSION"
+                value={editForm.profileType}
+                options={PROFILE_TYPES}
+                accentColor={theme.primary}
+                searchable={false}
+                onSelect={(type) =>
+                  setEditForm((prev) => ({ ...prev, profileType: type }))
+                }
+              />
 
               {/* Creator Verified Badge Selection */}
               <Text style={styles.modalInputLabel}>VERIFIED CREATOR BADGE</Text>
@@ -2741,57 +2749,35 @@ export default function ProfileScreen({
                 </Text>
               </View>
 
-              {/* Business Category Selection */}
-              <Text style={styles.modalInputLabel}>BUSINESS / INDUSTRY CATEGORY</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryChipsScrollRow}>
-                {BUSINESS_CATEGORIES.map((cat) => {
-                  const isSelected = editForm.category === cat.name || editForm.category === cat.id;
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[
-                        styles.categoryChipOption,
-                        isSelected && {
-                          borderColor: theme.primary,
-                          backgroundColor: theme.badgeBg,
-                        },
-                      ]}
-                      onPress={() => setEditForm((prev) => ({ ...prev, category: cat.name }))}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.categoryChipIcon}>{cat.icon}</Text>
-                      <Text
-                        style={[
-                          styles.categoryChipOptionText,
-                          isSelected && { color: theme.text, fontWeight: '800' },
-                        ]}
-                      >
-                        {cat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-
-              {/* Custom Category Input if Custom Selected */}
-              {(editForm.category === 'Custom Category' || editForm.category === 'Custom' || (editForm.category && !BUSINESS_CATEGORIES.some((c) => c.name === editForm.category && c.id !== 'Custom'))) && (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={styles.modalInputLabel}>SPECIFY CUSTOM CATEGORY</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    value={editForm.customCategory || (editForm.category !== 'Custom Category' && editForm.category !== 'Custom' ? editForm.category : '')}
-                    onChangeText={(text) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        customCategory: text,
-                        category: text.trim() ? text.trim() : 'Custom Category',
-                      }))
-                    }
-                    placeholder="e.g. Real Estate Consultant, Jobs Placement, Logistics..."
-                    placeholderTextColor="#64748b"
-                  />
-                </View>
-              )}
+              {/* Business Category Dropdown */}
+              <CategoryDropdown
+                label="BUSINESS / INDUSTRY CATEGORY"
+                value={editForm.category}
+                options={BUSINESS_CATEGORIES}
+                accentColor={theme.primary}
+                onSelect={(catName) =>
+                  setEditForm((prev) => ({ ...prev, category: catName }))
+                }
+                allowCustom
+                customTriggerValue="Custom Category"
+                customValue={
+                  editForm.customCategory ||
+                  (editForm.category !== 'Custom Category' &&
+                  editForm.category !== 'Custom' &&
+                  !BUSINESS_CATEGORIES.some((c) => c.name === editForm.category)
+                    ? editForm.category
+                    : '')
+                }
+                onChangeCustomValue={(text) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    customCategory: text,
+                    category: text.trim() ? text.trim() : 'Custom Category',
+                  }))
+                }
+                customLabel="SPECIFY OTHER CATEGORY"
+                customPlaceholder="e.g. Real Estate Consultant, Jobs Placement, Logistics..."
+              />
 
               {/* Sub-Category / Niche */}
               <Text style={styles.modalInputLabel}>SUB-CATEGORY / SPECIALTY</Text>

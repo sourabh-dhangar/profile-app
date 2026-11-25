@@ -2,6 +2,7 @@
   "expo": {
     "name": "MyProfile",
     "slug": "myprofile",
+    "scheme": "myprofile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,7 +17,34 @@
     },
     "android": {
       "package": "com.sourabh.myprofile",
-      "versionCode": 3,
+      "versionCode": 4,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "myprofile-official-web.vercel.app",
+              "pathPrefix": "/p"
+            },
+            {
+              "scheme": "https",
+              "host": "myprofile-official-web.vercel.app",
+              "pathPrefix": "/reels"
+            },
+            {
+              "scheme": "https",
+              "host": "myprofile-official-web.vercel.app",
+              "pathPrefix": "/r"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#020617"

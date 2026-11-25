@@ -557,3 +557,60 @@ export const vouchSkill = async (token, username, skillName) => {
 
 
 
+
+export const fetchReelByIdApi = async (reelId) => {
+  const res = await fetch(`${API_BASE_URL}/reels/${reelId}`);
+  return res.json();
+};
+
+// ==========================================
+// Direct 1-on-1 Chat & Messaging APIs
+// ==========================================
+
+export const fetchConversationsApi = async (token) => {
+  const res = await fetch(`${API_BASE_URL}/chat/conversations`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const fetchConversationWithUserApi = async (token, username) => {
+  const res = await fetch(`${API_BASE_URL}/chat/conversations/${encodeURIComponent(username)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const sendChatMessageApi = async (token, username, text) => {
+  const res = await fetch(`${API_BASE_URL}/chat/conversations/${encodeURIComponent(username)}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ text }),
+  });
+  return res.json();
+};
+
+export const fetchUnreadChatCountApi = async (token) => {
+  const res = await fetch(`${API_BASE_URL}/chat/unread-count`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};
+
+export const searchChatUsersApi = async (token, query = '') => {
+  const res = await fetch(`${API_BASE_URL}/chat/search-users?q=${encodeURIComponent(query)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.json();
+};

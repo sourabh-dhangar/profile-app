@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, View, StatusBar, Text, TouchableOpacity, ActivityIndicator, BackHandler, Platform } from 'react-native';
+import { StyleSheet, SafeAreaView, View, StatusBar, Text, TouchableOpacity, ActivityIndicator, BackHandler, Platform, Linking } from 'react-native';
 import { COLORS } from './src/theme';
 import Header from './src/components/Header';
 import TabBar from './src/components/TabBar';
@@ -8,6 +8,7 @@ import Toast from './src/components/Toast';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ReelsScreen from './src/screens/ReelsScreen';
 import DiscoverScreen from './src/screens/DiscoverScreen';
+import MessagesScreen from './src/screens/MessagesScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import AdminScreen from './src/screens/AdminScreen';
 
@@ -48,6 +49,8 @@ import {
   markAllNotificationsRead,
   togglePinReel,
   vouchSkill,
+  fetchUnreadChatCountApi,
+  fetchReelByIdApi,
 } from './src/services/api';
 
 
@@ -189,6 +192,11 @@ function MainApp() {
   const [loadingReels, setLoadingReels] = useState(false);
   const [reelsFeedTab, setReelsFeedTab] = useState('forYou'); // 'forYou' | 'following'
   const [isFollowingCurrentProfile, setIsFollowingCurrentProfile] = useState(false);
+  const [deepLinkReelId, setDeepLinkReelId] = useState(null);
+
+  // Chat & Messaging State
+  const [unreadChatsCount, setUnreadChatsCount] = useState(0);
+  const [chatTargetUsername, setChatTargetUsername] = useState(null);
 
 
   // Discover State
@@ -287,7 +295,7 @@ function MainApp() {
   useEffect(() => {
     if (isRestoringSession) return;
     const isAuth = Boolean(authToken || currentUser?.token);
-    if (!isAuth && ((activeTab === 'profile' && !profileUsername) || activeTab === 'admin')) {
+    if (!isAuth && ((activeTab === 'profile' && !profileUsername) || activeTab === 'admin' || activeTab === 'messages')) {
       setActiveTab('login');
       return;
     }
@@ -308,6 +316,94 @@ function MainApp() {
       loadAdminData(currentUser?.token || authToken);
     }
   }, [activeTab, authToken, isRestoringSession]);
+
+  const handleStartChat = (targetUsername) => {
+    const token = authToken || currentUser?.token;
+    if (!token) {
+      showToast('Sign in to start a direct chat 💬', 'info');
+      setActiveTab('login');
+      return;
+    }
+    if (targetUsername && targetUsername === currentUser?.profile?.username) {
+      showToast('You cannot message yourself', 'info');
+      return;
+    }
+    setChatTargetUsername(targetUsername || null);
+    setActiveTab('messages');
+  };
+
+  // Poll unread chat count when authenticated
+  useEffect(() => {
+    const token = authToken || currentUser?.token;
+    if (!token) {
+      setUnreadChatsCount(0);
+      return;
+    }
+    const checkUnread = () => {
+      fetchUnreadChatCountApi(token)
+        .then((res) => {
+          if (res?.success && typeof res.data?.unreadCount === 'number') {
+            setUnreadChatsCount(res.data.unreadCount);
+          }
+        })
+        .catch(() => {});
+    };
+    checkUnread();
+    const timer = setInterval(checkUnread, 10000);
+    return () => clearInterval(timer);
+  }, [authToken, currentUser]);
+
+  // Deep Link & Universal/App Link Handler (https://myprofile-official-web.vercel.app & myprofile://)
+  useEffect(() => {
+    const handleIncomingUrl = async (rawUrl) => {
+      if (!rawUrl || typeof rawUrl !== 'string') return;
+      try {
+        const cleaned = rawUrl.replace(/^myprofile:\/\//i, 'https://myprofile-official-web.vercel.app/');
+        const parsed = new URL(cleaned);
+        const pathParts = parsed.pathname.split('/').filter(Boolean);
+        const queryReelId = parsed.searchParams.get('reelId');
+
+        if (queryReelId || (pathParts[0] === 'r' && pathParts[1])) {
+          const targetId = queryReelId || pathParts[1];
+          try {
+            const res = await fetchReelByIdApi(targetId);
+            if (res?.success && res.data?.reel) {
+              setReels((prev) => {
+                const exists = prev.some((r) => String(r._id || r.id) === String(targetId));
+                return exists ? prev : [res.data.reel, ...prev];
+              });
+            }
+          } catch (e) {}
+          setDeepLinkReelId(targetId);
+          setActiveTab('reels');
+          return;
+        }
+
+        if (pathParts[0] === 'p' && pathParts[1]) {
+          const targetUsername = decodeURIComponent(pathParts[1]).toLowerCase();
+          setProfileUsername(targetUsername);
+          setActiveTab('profile');
+          loadProfile(targetUsername);
+          return;
+        }
+
+        if (pathParts[0] === 'messages' && pathParts[1]) {
+          handleStartChat(decodeURIComponent(pathParts[1]).toLowerCase());
+          return;
+        }
+      } catch (err) {
+        console.warn('Deep link parse skipped:', err.message);
+      }
+    };
+
+    Linking.getInitialURL().then((url) => {
+      if (url) handleIncomingUrl(url);
+    });
+    const sub = Linking.addEventListener('url', (event) => {
+      if (event?.url) handleIncomingUrl(event.url);
+    });
+    return () => sub?.remove?.();
+  }, []);
 
   const loadAdminData = async (token) => {
     const effectiveToken = token || authToken || currentUser?.token;
@@ -1508,6 +1604,7 @@ function MainApp() {
                     currentUser && currentUser.profile?.username === profileData?.profile?.username
                   )}
                   onNavigateToAuth={() => setActiveTab('login')}
+                  onStartChat={handleStartChat}
                   onUpdateProfile={handleUpdateProfile}
                   onCreateSection={handleCreateSection}
                   onUpdateSection={handleUpdateSection}
@@ -1568,6 +1665,20 @@ function MainApp() {
                   onNavigateToAuth={() => setActiveTab('login')}
                   onCreateReel={handleCreateReel}
                   isAdmin={Boolean(currentUser?.user?.role === 'admin' || currentUser?.role === 'admin')}
+                  initialReelId={deepLinkReelId}
+                  onConsumeInitialReelId={() => setDeepLinkReelId(null)}
+                />
+              )}
+
+              {activeTab === 'messages' && (
+                <MessagesScreen
+                  authToken={authToken || currentUser?.token}
+                  currentUser={currentUser}
+                  initialTargetUsername={chatTargetUsername}
+                  onClearTargetUsername={() => setChatTargetUsername(null)}
+                  onViewProfile={handleSelectCreator}
+                  onShowToast={showToast}
+                  onUnreadCountChange={setUnreadChatsCount}
                 />
               )}
 
@@ -1621,6 +1732,7 @@ function MainApp() {
           activeTab={activeTab}
           onTabPress={handleTabPress}
           unreadReels={reels.length}
+          unreadChats={unreadChatsCount}
           isAdmin={currentUser?.user?.role === 'admin'}
           isAuthenticated={Boolean(authToken || currentUser?.token)}
         />
